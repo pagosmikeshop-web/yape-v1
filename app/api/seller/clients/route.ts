@@ -2,6 +2,7 @@ import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   createUser,
   dbBinding,
+  ensureClientReferralCodes,
   generateTemporaryPassword,
   normalizePeruvianMobile,
   publicAppBaseUrl,
@@ -19,6 +20,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { user: seller } = await requireUnlockedSession(request, ["seller", "admin"]);
+    await ensureClientReferralCodes();
     const ownerFilter = seller.role === "seller"
       ? "WHERE u.role = 'client' AND u.owner_id = ? AND u.deleted_at IS NULL"
       : seller.isOwner
@@ -40,7 +42,11 @@ export async function GET(request: Request) {
       : seller.isOwner
         ? await statement.all()
         : await statement.bind(seller.id, seller.id).all();
-    return jsonOk({ clients: clients.results ?? [], credits: seller.credits });
+    return jsonOk({
+      clients: clients.results ?? [],
+      credits: seller.credits,
+      viewerRole: seller.isOwner ? "owner" : seller.role,
+    });
   } catch (error) {
     return routeError(error);
   }

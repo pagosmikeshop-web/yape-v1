@@ -175,10 +175,13 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
 });
 
 test("la prueba gratuita, los referidos y los tokens permanentes usan estados separados", async () => {
-  const [schema, accessServer, redeemRoute, accessRoute, activationRoute, telegramManager, bankApp] = await Promise.all([
+  const [schema, authServer, accessServer, redeemRoute, referralRoute, tokenRoute, accessRoute, activationRoute, telegramManager, bankApp] = await Promise.all([
     source("db/schema.ts"),
+    source("app/lib/auth-server.ts"),
     source("app/lib/access-server.ts"),
     source("app/api/access/redeem/route.ts"),
+    source("app/api/account/referral/route.ts"),
+    source("app/api/seller/access-tokens/route.ts"),
     source("app/api/admin/users/[id]/access/route.ts"),
     source("app/api/seller/clients/[id]/activate/route.ts"),
     source("app/lib/telegram-manager.ts"),
@@ -186,16 +189,25 @@ test("la prueba gratuita, los referidos y los tokens permanentes usan estados se
   ]);
 
   assert.match(schema, /sqliteTable\("permanent_access_tokens"/u);
+  assert.match(authServer, /ensureReferralCodeForUser/u);
+  assert.match(authServer, /input\.role === "client" \? await createUniqueReferralCode\(\)/u);
   assert.match(accessServer, /permanent_access_token/u);
   assert.match(accessServer, /credits = credits - 1/u);
   assert.match(accessServer, /access_expires_at = NULL/u);
   assert.match(redeemRoute, /getSessionUserIncludingExpired/u);
+  assert.match(referralRoute, /remainingThisMonth/u);
+  assert.match(referralRoute, /REFERRAL_MONTHLY_LIMIT/u);
+  assert.match(tokenRoute, /export async function GET/u);
+  assert.match(tokenRoute, /token_hint/u);
+  assert.doesNotMatch(tokenRoute, /SELECT[^;]*token_hash/isu);
   assert.match(accessRoute, /mode === "permanent"/u);
   assert.match(activationRoute, /recibió 3 días gratis/u);
   assert.match(telegramManager, /REFERRAL_MONTHLY_LIMIT/u);
   assert.match(telegramManager, /Esa cuenta ya tiene acceso permanente/u);
   assert.match(bankApp, /Reclamar token/u);
   assert.match(bankApp, /días restantes/u);
+  assert.match(bankApp, /fetch\("\/api\/account\/referral"/u);
+  assert.match(bankApp, /Copiar comando/u);
 });
 
 test("el acceso aplica límites, recuperación de un solo uso y PIN verificado por el servidor", async () => {
@@ -254,6 +266,7 @@ test("la compilación incluye las rutas nuevas de pagos y clientes", async () =>
     assertFile("vercel.json"),
     assertFile("app/api/qr-contacts/route.ts"),
     assertFile("app/api/qr-contacts/[id]/route.ts"),
+    assertFile("app/api/account/referral/route.ts"),
     assertFile("app/qr-personal/page.tsx"),
     assertFile("public/assets/apk/icons/ic_yape_logo_r_yape_primary_700.svg"),
   ]);

@@ -978,6 +978,44 @@ export async function createUniqueReferralCode() {
   throw new Error("No se pudo generar un codigo de invitacion.");
 }
 
+export async function ensureReferralCodeForUser(userId: string) {
+  await ensureAuthSchema();
+  const current = await database().prepare(
+    "SELECT role, referral_code FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+  ).bind(userId).first<{ role: AppRole; referral_code: string | null }>();
+  if (!current || current.role !== "client") return null;
+  if (current.referral_code) return current.referral_code;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = await createUniqueReferralCode();
+    try {
+      const result = await database().prepare(
+        "UPDATE users SET referral_code = ?, updated_at = ? WHERE id = ? AND role = 'client' AND referral_code IS NULL",
+      ).bind(code, new Date().toISOString(), userId).run();
+      if (Number(result.meta.changes ?? 0) === 1) return code;
+    } catch (error) {
+      if (!/UNIQUE constraint failed/iu.test(error instanceof Error ? error.message : "")) throw error;
+    }
+    const assigned = await database().prepare(
+      "SELECT referral_code FROM users WHERE id = ? AND role = 'client' LIMIT 1",
+    ).bind(userId).first<{ referral_code: string | null }>();
+    if (assigned?.referral_code) return assigned.referral_code;
+  }
+  throw new Error("No se pudo asignar el código de promoción.");
+}
+
+export async function ensureClientReferralCodes(limit = 250) {
+  await ensureAuthSchema();
+  const missing = await database().prepare(
+    `SELECT id FROM users
+     WHERE role = 'client' AND referral_code IS NULL AND deleted_at IS NULL
+     ORDER BY created_at LIMIT ?`,
+  ).bind(Math.max(1, Math.min(500, Math.trunc(limit)))).all<{ id: string }>();
+  for (const row of missing.results ?? []) {
+    await ensureReferralCodeForUser(row.id);
+  }
+}
+
 export async function verifyDeviceProof(input: {
   sellerId: string;
   username: string;
@@ -1047,6 +1085,8 @@ export async function createUser(input: {
   await ensureAuthSchema();
   const phoneE164 = input.phone ? normalizePeruvianMobile(input.phone) : "";
   if (input.phone && !phoneE164) throw new Error("El número de celular debe tener 9 dígitos y comenzar con 9.");
+  const referralCode = input.referralCode?.trim()
+    || (input.role === "client" ? await createUniqueReferralCode() : null);
   const password = await hashSecret(input.password);
   const pin = input.pin ? await hashSecret(input.pin) : null;
   const id = crypto.randomUUID();
@@ -1079,7 +1119,7 @@ export async function createUser(input: {
     null,
     input.fingerprintIdHash ?? null,
     input.telegramUserId ?? null,
-    input.referralCode ?? null,
+    referralCode,
     input.referredByUserId ?? null,
     input.accessExpiresAt ?? null,
     input.mustChangePassword ? 1 : 0,

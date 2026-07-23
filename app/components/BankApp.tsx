@@ -2658,6 +2658,16 @@ type AccountHubUser = {
   referralCode: string | null;
 };
 
+type ReferralOverview = {
+  code: string | null;
+  command: string | null;
+  rewardDays: number;
+  monthlyLimit: number;
+  usedThisMonth: number;
+  remainingThisMonth: number;
+  groupUrl: string;
+};
+
 function remainingAccessDays(accessExpiresAt: string | null) {
   if (!accessExpiresAt) return null;
   return Math.max(0, Math.ceil((Date.parse(accessExpiresAt) - Date.now()) / 86_400_000));
@@ -2669,6 +2679,8 @@ function AccountDataView() {
   const [accessToken, setAccessToken] = useState("");
   const [accessMessage, setAccessMessage] = useState("");
   const [claimingAccess, setClaimingAccess] = useState(false);
+  const [referral, setReferral] = useState<ReferralOverview | null>(null);
+  const [referralNotice, setReferralNotice] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -2680,6 +2692,26 @@ function AccountDataView() {
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/account/referral", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        if (!cancelled && data?.ok !== false) setReferral(data as ReferralOverview);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+
+  async function copyReferral(value: string, message: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setReferralNotice(message);
+    } catch {
+      setReferralNotice("Mantén presionado el código para copiarlo.");
+    }
+  }
 
   async function claimPermanentAccess(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2727,13 +2759,52 @@ function AccountDataView() {
             <div><strong>Activar acceso permanente</strong><small>Ingresa el token de un solo uso entregado por tu vendedor.</small></div>
             <label><span>Token permanente</span><input value={accessToken} onChange={(event) => { setAccessToken(event.target.value.toUpperCase()); setAccessMessage(""); }} placeholder="YAPE-XXXX-XXXX-XXXX" autoComplete="one-time-code" /></label>
             <button type="submit" disabled={!accessToken.trim() || claimingAccess}>{claimingAccess ? "Validando…" : "Reclamar token"}</button>
-            {user?.referralCode ? <p>Tu código para obtener 3 días más: <strong>{user.referralCode}</strong>. Otra persona debe usar <b>/redeem {user.referralCode}</b> dentro del grupo.</p> : null}
             {accessMessage ? <p className="account-hub-access-message" role="status">{accessMessage}</p> : null}
           </form>
         ) : null}
       </section>
 
       <main className="account-hub-content">
+        <section className="account-referral-card" aria-labelledby="account-referral-title">
+          <div className="account-referral-orbit" aria-hidden="true"><i /><i /><i /></div>
+          <header>
+            <span className="account-referral-icon">+3</span>
+            <div><span>PROGRAMA DE INVITACIONES</span><h2 id="account-referral-title">Gana días con tu código</h2></div>
+            <strong>{referral ? `${referral.remainingThisMonth}/${referral.monthlyLimit}` : "—"}</strong>
+          </header>
+          <p>Comparte tu código. Otra persona debe entrar al grupo y usar el comando desde su propia cuenta de Telegram.</p>
+          <div className="account-referral-code">
+            <span><small>Tu código personal</small><strong>{referral?.code || user?.referralCode || "Preparando…"}</strong></span>
+            <button
+              type="button"
+              disabled={!referral?.code}
+              onClick={() => referral?.code && void copyReferral(referral.code, "Código copiado.")}
+            >
+              Copiar
+            </button>
+          </div>
+          <div className="account-referral-command">
+            <code>{referral?.command || (user?.referralCode ? `/redeem ${user.referralCode}` : "/redeem CODIGO")}</code>
+            <button
+              type="button"
+              disabled={!referral?.command}
+              onClick={() => referral?.command && void copyReferral(referral.command, "Comando copiado.")}
+            >
+              Copiar comando
+            </button>
+          </div>
+          <ol>
+            <li><i>1</i><span>Comparte tu código con otra persona.</span></li>
+            <li><i>2</i><span>Esa persona entra al grupo de Telegram.</span></li>
+            <li><i>3</i><span>Escribe el comando y tú recibes {referral?.rewardDays ?? 3} días.</span></li>
+          </ol>
+          <footer>
+            <span><strong>{referral?.usedThisMonth ?? 0}</strong> canjes usados este mes</span>
+            <a href={referral?.groupUrl || "/api/telegram/group"}>Abrir grupo de Telegram</a>
+          </footer>
+          {referralNotice ? <p className="account-referral-notice" role="status">{referralNotice}</p> : null}
+        </section>
+
         <section className="account-hub-section" aria-labelledby="account-management-title">
           <div className="account-hub-section-heading">
             <div><span>GESTIÓN</span><h2 id="account-management-title">Cuenta y operaciones</h2></div>
