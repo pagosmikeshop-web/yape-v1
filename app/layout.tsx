@@ -5,6 +5,7 @@ import "./bank.css";
 import "./apk-fidelity.css";
 import "./install.css";
 import "./client-manager.css";
+import "./mobile-viewport.css";
 
 const appIcon = "/assets/apk/icons/ic_yape_logo_r_yape_primary_700.svg";
 const androidIcon = "/icons/yape-192.png";

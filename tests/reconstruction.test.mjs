@@ -295,10 +295,12 @@ test("la compilación incluye las rutas nuevas de pagos y clientes", async () =>
   ]);
 });
 
-test("la PWA ofrece instalación directa en Android con iconos válidos", async () => {
-  const [manifestText, installGate] = await Promise.all([
+test("la PWA ofrece instalación directa y una altura adaptable con zonas seguras", async () => {
+  const [manifestText, installGate, layout, mobileViewport] = await Promise.all([
     source("public/manifest.webmanifest"),
     source("app/components/AppInstallGate.tsx"),
+    source("app/layout.tsx"),
+    source("app/mobile-viewport.css"),
   ]);
   const manifest = JSON.parse(manifestText);
 
@@ -313,6 +315,11 @@ test("la PWA ofrece instalación directa en Android con iconos válidos", async 
   assert.match(installGate, />Instalar app</u);
   assert.match(installGate, /installed && isMobileDevice/u);
   assert.doesNotMatch(installGate, /BROWSER_ROUTES/u);
+  assert.match(layout, /\.\/mobile-viewport\.css/u);
+  assert.match(mobileViewport, /--app-viewport-height:\s*100dvh/u);
+  assert.match(mobileViewport, /safe-area-inset-top/u);
+  assert.match(mobileViewport, /safe-area-inset-bottom/u);
+  assert.match(mobileViewport, /\.returning-keypad-card[\s\S]*overflow-y:\s*auto/u);
 
   await Promise.all([
     assertFile("public/icons/yape-192.png"),
