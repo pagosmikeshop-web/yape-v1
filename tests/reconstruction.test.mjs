@@ -248,6 +248,7 @@ test("la compilación incluye las rutas nuevas de pagos y clientes", async () =>
     assertFile("app/api/seller/clients/[id]/activate/route.ts"),
     assertFile("app/api/auth/invitations/redeem/route.ts"),
     assertFile("app/api/auth/password/reset/complete/route.ts"),
+    assertFile("app/api/admin/users/[id]/device/route.ts"),
     assertFile("app/api/qr-contacts/route.ts"),
     assertFile("app/api/qr-contacts/[id]/route.ts"),
     assertFile("app/qr-personal/page.tsx"),

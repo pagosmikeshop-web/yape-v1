@@ -71,10 +71,16 @@ export async function POST(request: Request) {
         "UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?",
       ).bind(upgraded.hash, upgraded.salt, new Date().toISOString(), user.id).run();
     }
-    const bound = await bindDevice(user, deviceId, publicKey);
-    if (!bound) {
-      writeSecurityEvent(request, "auth.login", "denied", { reason: "device_binding", actorId: user.id });
-      return jsonError("Esta cuenta ya esta vinculada a otro dispositivo. Contacta a tu vendedor.", 423);
+    if (user.role === "client") {
+      const bound = await bindDevice(user, deviceId, publicKey);
+      if (!bound) {
+        writeSecurityEvent(request, "auth.login", "denied", { reason: "device_binding", actorId: user.id });
+        return jsonError("Esta cuenta ya esta vinculada a otro dispositivo. Contacta a tu vendedor.", 423);
+      }
+    } else if (user.device_id || user.device_public_key) {
+      await dbBinding().prepare(
+        "UPDATE users SET device_id = NULL, device_public_key = NULL, updated_at = ? WHERE id = ? AND role <> 'client'",
+      ).bind(new Date().toISOString(), user.id).run();
     }
     if (user.access_expires_at && Date.parse(user.access_expires_at) <= Date.now()) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "access_expired", actorId: user.id });
@@ -90,7 +96,13 @@ export async function POST(request: Request) {
     await clearAuthRateLimit("login-account", accountSubject);
     writeSecurityEvent(request, "auth.login", "success", { actorId: user.id, role: user.role });
     return jsonOk(
-      { user: safeUser({ ...user, device_id: user.device_id ?? deviceId }) },
+      {
+        user: safeUser({
+          ...user,
+          device_id: user.role === "client" ? (user.device_id ?? deviceId) : null,
+          device_public_key: user.role === "client" ? user.device_public_key : null,
+        }),
+      },
       { headers: { "cache-control": "no-store", "set-cookie": cookie } },
     );
   } catch (error) {

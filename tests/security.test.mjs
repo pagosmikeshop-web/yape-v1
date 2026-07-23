@@ -205,6 +205,23 @@ test("la sesión tiene expiración absoluta, por inactividad y cookie prefijada 
   assert.match(pinVerification, /"set-cookie": cookie/u);
 });
 
+test("solo los clientes quedan vinculados a un dispositivo y el panel puede liberarlos", async () => {
+  const [authServer, loginRoute, resetDeviceRoute] = await Promise.all([
+    source("app/lib/auth-server.ts"),
+    source("app/api/auth/login/route.ts"),
+    source("app/api/admin/users/[id]/device/route.ts"),
+  ]);
+  assert.match(loginRoute, /if \(user\.role === "client"\)\s*\{\s*const bound = await bindDevice/u);
+  assert.match(loginRoute, /role <> 'client'/u);
+  assert.match(authServer, /EXISTS \(SELECT 1 FROM users WHERE id = \? AND role = 'client'/u);
+  assert.match(resetDeviceRoute, /requireUnlockedSession\(request, \["admin"\]\)/u);
+  assert.match(resetDeviceRoute, /requireManagedAccount\(actor, id\)/u);
+  assert.match(resetDeviceRoute, /SET device_id = NULL, device_public_key = NULL/u);
+  assert.match(resetDeviceRoute, /DELETE FROM sessions/u);
+  assert.match(resetDeviceRoute, /web_reset_client_device/u);
+  assert.doesNotMatch(resetDeviceRoute, /fingerprint_id_hash = NULL/u);
+});
+
 test("las credenciales legadas migran a un hash versionado y bootstrap falla cerrado", async () => {
   const [authServer, login, worker, environmentExample] = await Promise.all([
     source("app/lib/auth-server.ts"),

@@ -897,11 +897,13 @@ export async function createSession(request: Request, userId: string, options: {
     ),
     database().prepare(
       `DELETE FROM sessions
-       WHERE user_id = ? AND id IN (
+       WHERE user_id = ?
+         AND EXISTS (SELECT 1 FROM users WHERE id = ? AND role = 'client' AND deleted_at IS NULL)
+         AND id IN (
          SELECT id FROM sessions WHERE user_id = ?
          ORDER BY created_at DESC LIMIT -1 OFFSET ?
        )`,
-    ).bind(userId, userId, MAX_SESSIONS_PER_USER),
+    ).bind(userId, userId, userId, MAX_SESSIONS_PER_USER),
   ]);
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${sessionCookieName(request)}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_DAYS * 86_400}${secure}`;
