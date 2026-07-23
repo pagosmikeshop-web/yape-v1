@@ -152,13 +152,14 @@ test("registro y webhook no exponen endpoints GET de diagnóstico", async () => 
   assert.doesNotMatch(authScreen, /register\/status\?\$\{/u);
   assert.doesNotMatch(webhookRoute, /export async function GET/u);
   assert.match(webhookRoute, /maxBytes:\s*64 \* 1024/u);
-  assert.match(statusRoute, /isCurrentTelegramGroupMember/u);
-  assert.match(registerRoute, /isCurrentTelegramGroupMember/u);
+  assert.match(statusRoute, /checkCurrentTelegramGroupMember/u);
+  assert.match(registerRoute, /checkCurrentTelegramGroupMember/u);
   assert.doesNotMatch(statusRoute, /FROM telegram_group_members/u);
   assert.doesNotMatch(registerRoute, /FROM telegram_group_members/u);
   assert.match(setupRoute, /bootstrapIsEnabled\(\)/u);
   assert.match(setupRoute, /allowed_updates:\s*\["message"\]/u);
-  assert.match(telegramManager, /String\(message\.chat\.id\) !== groupId/u);
+  assert.match(telegramManager, /isRequiredGroupChat\(message\.chat,\s*groupId\)/u);
+  assert.match(telegramManager, /return `@\$\{raw\}`/u);
   assert.match(telegramManager, /command !== "\/redeem"/u);
   assert.match(telegramManager, /INSERT OR IGNORE INTO telegram_updates/u);
   assert.doesNotMatch(telegramManager, /case "\/clientes"|case "\/saldo"|command === "\/id"/u);

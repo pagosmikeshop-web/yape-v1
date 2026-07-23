@@ -33,6 +33,37 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
   const isMobileDevice = isAndroid || isIos || isIpadOs;
 
   useEffect(() => {
+    let animationFrame = 0;
+    const viewport = window.visualViewport;
+    const syncViewportHeight = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const visibleHeight = viewport?.height ?? window.innerHeight;
+        if (!Number.isFinite(visibleHeight) || visibleHeight < 320) return;
+        document.documentElement.style.setProperty(
+          "--app-viewport-height",
+          `${Math.round(visibleHeight)}px`,
+        );
+      });
+    };
+
+    syncViewportHeight();
+    window.addEventListener("resize", syncViewportHeight);
+    window.addEventListener("orientationchange", syncViewportHeight);
+    window.addEventListener("pageshow", syncViewportHeight);
+    viewport?.addEventListener("resize", syncViewportHeight);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", syncViewportHeight);
+      window.removeEventListener("orientationchange", syncViewportHeight);
+      window.removeEventListener("pageshow", syncViewportHeight);
+      viewport?.removeEventListener("resize", syncViewportHeight);
+      document.documentElement.style.removeProperty("--app-viewport-height");
+    };
+  }, []);
+
+  useEffect(() => {
     const updateInstalled = () => {
       const standalone = isStandaloneDisplay();
       setInstalled(standalone);

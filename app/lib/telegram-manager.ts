@@ -9,7 +9,7 @@ import {
 type TelegramMessage = {
   message_id: number;
   text?: string;
-  chat: { id: number; type: string };
+  chat: { id: number; type: string; username?: string };
   from?: { id: number; first_name?: string; last_name?: string; username?: string };
 };
 
@@ -26,8 +26,71 @@ function commandParts(text: string) {
   return { command: head, args: space === -1 ? "" : trimmed.slice(space + 1).trim() };
 }
 
+export type TelegramMembershipCheck =
+  | { member: true; status: "creator" | "administrator" | "member" | "restricted" }
+  | {
+    member: false;
+    reason:
+      | "invalid-user-id"
+      | "not-configured"
+      | "invalid-group"
+      | "bot-not-authorized"
+      | "user-not-found"
+      | "not-member"
+      | "telegram-unavailable";
+  };
+
+function normalizeTelegramGroupReference(value: string | undefined) {
+  const raw = (value ?? "").trim();
+  if (/^-?\d+$/u.test(raw)) return raw;
+  if (/^@[A-Za-z0-9_]{5,}$/u.test(raw)) return raw;
+  if (/^[A-Za-z0-9_]{5,}$/u.test(raw)) return `@${raw}`;
+  return "";
+}
+
+function publicGroupReferenceFromInviteUrl(value: string | undefined) {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || !["t.me", "telegram.me"].includes(url.hostname)) {
+      return "";
+    }
+    const username = url.pathname.replace(/^\/+|\/+$/gu, "");
+    return /^[A-Za-z0-9_]{5,}$/u.test(username) ? `@${username}` : "";
+  } catch {
+    return "";
+  }
+}
+
 function requiredGroupId() {
-  return (authEnv().TELEGRAM_REQUIRED_GROUP_ID ?? "").trim();
+  const env = authEnv();
+  const configured = normalizeTelegramGroupReference(env.TELEGRAM_REQUIRED_GROUP_ID);
+  if (/^-?\d+$/u.test(configured)) return configured;
+  return publicGroupReferenceFromInviteUrl(env.TELEGRAM_GROUP_INVITE_URL) || configured;
+}
+
+function isRequiredGroupChat(chat: TelegramMessage["chat"], groupReference: string) {
+  if (/^-?\d+$/u.test(groupReference)) return String(chat.id) === groupReference;
+  const expectedUsername = groupReference.replace(/^@/u, "").toLocaleLowerCase("en-US");
+  return Boolean(chat.username)
+    && chat.username!.toLocaleLowerCase("en-US") === expectedUsername;
+}
+
+function membershipFailureMessage(check: TelegramMembershipCheck) {
+  if (check.member) return "";
+  switch (check.reason) {
+    case "invalid-user-id":
+      return "Ingresa un Telegram ID válido.";
+    case "not-configured":
+    case "invalid-group":
+    case "bot-not-authorized":
+      return "La validación del grupo necesita configuración del administrador.";
+    case "telegram-unavailable":
+      return "Telegram no respondió. Intenta validar nuevamente.";
+    case "user-not-found":
+    case "not-member":
+      return "No encontramos ese Telegram ID dentro del grupo.";
+  }
 }
 
 function monthKey(date = new Date()) {
@@ -63,11 +126,22 @@ async function limitedResponseText(response: Response, maxBytes: number) {
   }
 }
 
-export async function isCurrentTelegramGroupMember(telegramUserId: string) {
-  if (!/^\d{4,24}$/u.test(telegramUserId)) return false;
+export async function checkCurrentTelegramGroupMember(
+  telegramUserId: string,
+): Promise<TelegramMembershipCheck> {
+  if (!/^\d{4,24}$/u.test(telegramUserId)) {
+    return { member: false, reason: "invalid-user-id" };
+  }
   const token = authEnv().TELEGRAM_BOT_TOKEN?.trim() ?? "";
+  const configuredGroup = authEnv().TELEGRAM_REQUIRED_GROUP_ID?.trim() ?? "";
+  const inviteGroup = publicGroupReferenceFromInviteUrl(
+    authEnv().TELEGRAM_GROUP_INVITE_URL,
+  );
   const groupId = requiredGroupId();
-  if (!token || !groupId) return false;
+  if (!token || (!configuredGroup && !inviteGroup)) {
+    return { member: false, reason: "not-configured" };
+  }
+  if (!groupId) return { member: false, reason: "invalid-group" };
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
@@ -76,21 +150,53 @@ export async function isCurrentTelegramGroupMember(telegramUserId: string) {
       body: JSON.stringify({ chat_id: groupId, user_id: telegramUserId }),
       signal: AbortSignal.timeout(8_000),
     });
-    if (!response.ok) return false;
     const declaredLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(declaredLength) && declaredLength > 16 * 1024) return false;
+    if (Number.isFinite(declaredLength) && declaredLength > 16 * 1024) {
+      return { member: false, reason: "telegram-unavailable" };
+    }
     const text = await limitedResponseText(response, 16 * 1024);
-    if (!text) return false;
-    const data = JSON.parse(text) as { ok?: boolean; result?: { status?: string; is_member?: boolean } };
-    if (!data.ok) return false;
+    if (!text) return { member: false, reason: "telegram-unavailable" };
+    const data = JSON.parse(text) as {
+      ok?: boolean;
+      description?: string;
+      result?: { status?: string; is_member?: boolean };
+    };
+    if (!response.ok || !data.ok) {
+      const description = (data.description ?? "").toLocaleLowerCase("en-US");
+      if (description.includes("chat not found")) {
+        return { member: false, reason: "invalid-group" };
+      }
+      if (
+        description.includes("not enough rights")
+        || description.includes("member list is inaccessible")
+        || description.includes("bot is not a member")
+      ) {
+        return { member: false, reason: "bot-not-authorized" };
+      }
+      if (description.includes("user not found")) {
+        return { member: false, reason: "user-not-found" };
+      }
+      return { member: false, reason: "telegram-unavailable" };
+    }
     const status = data.result?.status ?? "";
-    return status === "creator"
-      || status === "administrator"
-      || status === "member"
-      || (status === "restricted" && data.result?.is_member === true);
+    if (status === "creator" || status === "administrator" || status === "member") {
+      return { member: true, status };
+    }
+    if (status === "restricted" && data.result?.is_member === true) {
+      return { member: true, status };
+    }
+    return { member: false, reason: "not-member" };
   } catch {
-    return false;
+    return { member: false, reason: "telegram-unavailable" };
   }
+}
+
+export async function isCurrentTelegramGroupMember(telegramUserId: string) {
+  return (await checkCurrentTelegramGroupMember(telegramUserId)).member;
+}
+
+export function telegramMembershipError(check: TelegramMembershipCheck) {
+  return membershipFailureMessage(check);
 }
 
 async function redeemReferralCode(telegramId: string, args: string) {
@@ -177,7 +283,7 @@ export async function processTelegramUpdate(update: TelegramUpdate) {
     || !message.text
     || message.chat.type === "private"
     || !groupId
-    || String(message.chat.id) !== groupId
+    || !isRequiredGroupChat(message.chat, groupId)
   ) return;
 
   const { command, args } = commandParts(message.text);

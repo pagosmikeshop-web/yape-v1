@@ -13,7 +13,10 @@ import {
   validatePassword,
   validateUsername,
 } from "@/app/lib/auth-server";
-import { isCurrentTelegramGroupMember } from "@/app/lib/telegram-manager";
+import {
+  checkCurrentTelegramGroupMember,
+  telegramMembershipError,
+} from "@/app/lib/telegram-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -56,15 +59,17 @@ export async function POST(request: Request) {
 
     const fingerprintHash = await publicSha256(`fingerprintjs-v3\n${fingerprintId}`);
     const database = dbBinding();
-    const [groupMember, existingTelegram, existingDevice, existingUser] = await Promise.all([
-      isCurrentTelegramGroupMember(telegramUserId),
+    const [telegramCheck, existingTelegram, existingDevice, existingUser] = await Promise.all([
+      checkCurrentTelegramGroupMember(telegramUserId),
       database.prepare("SELECT id FROM users WHERE telegram_user_id = ? LIMIT 1").bind(telegramUserId).first(),
       database.prepare("SELECT id FROM users WHERE fingerprint_id_hash = ? LIMIT 1").bind(fingerprintHash).first(),
       database.prepare("SELECT id FROM users WHERE seller_code = ? AND username = ? LIMIT 1")
         .bind(SELF_REGISTRATION_SELLER_CODE, username.trim().toLowerCase()).first(),
     ]);
 
-    if (!groupMember) return jsonError("Primero entra al grupo de Telegram para habilitar tu registro.", 403);
+    if (!telegramCheck.member) {
+      return jsonError(telegramMembershipError(telegramCheck), 403);
+    }
     if (existingTelegram || existingDevice || existingUser) {
       return jsonError("No se pudo crear la cuenta con esos datos.", 409);
     }

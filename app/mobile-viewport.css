@@ -140,6 +140,72 @@ body {
     overflow-y: auto;
   }
 
+  /*
+   * Las vistas internas viven dentro de un shell que ya mide exactamente el
+   * viewport visible. Evitamos volver a sumar 100dvh, algo que en una PWA de
+   * iPhone desplaza el pie una segunda zona segura fuera de la pantalla.
+   */
+  .mobile-bank-shell.view-transfer
+    .bank-scroll-area:has(.transfer-amount-screen) {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .mobile-bank-shell .transfer-amount-screen {
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+
+  .mobile-bank-shell .transfer-amount-screen::after {
+    height: max(min(4.5vw, 18px), var(--app-safe-bottom));
+  }
+
+  .mobile-bank-shell .transfer-amount-field {
+    margin-top: clamp(48px, 11.5dvh, 103px);
+  }
+
+  .mobile-bank-shell .transfer-amount-footer {
+    bottom: max(min(4.5vw, 18px), var(--app-safe-bottom));
+  }
+
+  .mobile-bank-shell
+    .bank-scroll-area:has(.yape-success-voucher) {
+    height: 100%;
+    min-height: 0 !important;
+    max-height: 100%;
+    overflow-y: auto !important;
+  }
+
+  .mobile-bank-shell .yape-voucher,
+  .mobile-bank-shell .yape-success-voucher,
+  .mobile-bank-shell .yape-success-voucher .voucher-content {
+    min-height: 100% !important;
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher
+    .voucher-success-animation {
+    height: 100% !important;
+  }
+
+  .mobile-bank-shell.view-movements .reference-movements-view,
+  .mobile-bank-shell .reference-dollars-view {
+    min-height: 100% !important;
+  }
+
+  .mobile-bank-shell.view-scanner,
+  .mobile-bank-shell.view-scanner .bank-scroll-area,
+  .mobile-bank-shell .reference-scanner-view {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+  }
+
   .bottom-navigation {
     padding-right: max(8px, var(--app-safe-right));
     padding-bottom: max(8px, var(--app-safe-bottom));
@@ -190,6 +256,14 @@ body {
   .numeric-keypad button {
     height: 48px;
   }
+
+  .mobile-bank-shell .transfer-amount-field {
+    margin-top: clamp(38px, 8dvh, 58px);
+  }
+
+  .mobile-bank-shell .transfer-amount-footer {
+    padding-bottom: 8px;
+  }
 }
 
 @media (orientation: landscape) and (max-height: 540px) {
@@ -201,4 +275,3 @@ body {
     max-height: var(--app-viewport-height);
   }
 }
-

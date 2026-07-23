@@ -7,7 +7,10 @@ import {
   requestIpRateLimitSubject,
   routeError,
 } from "@/app/lib/auth-server";
-import { isCurrentTelegramGroupMember } from "@/app/lib/telegram-manager";
+import {
+  checkCurrentTelegramGroupMember,
+  telegramMembershipError,
+} from "@/app/lib/telegram-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -41,8 +44,8 @@ export async function POST(request: Request) {
     }
     const fingerprintHash = fingerprintId ? await publicSha256(`fingerprintjs-v3\n${fingerprintId}`) : "";
 
-    const [groupMember, linkedTelegram, duplicateDevice] = await Promise.all([
-      isCurrentTelegramGroupMember(telegramUserId),
+    const [telegramCheck, linkedTelegram, duplicateDevice] = await Promise.all([
+      checkCurrentTelegramGroupMember(telegramUserId),
       telegramUserId
         ? dbBinding().prepare("SELECT id FROM users WHERE telegram_user_id = ? LIMIT 1")
           .bind(telegramUserId).first()
@@ -53,14 +56,20 @@ export async function POST(request: Request) {
         : null,
     ]);
 
-    const allowed = Boolean(telegramUserId && fingerprintHash && groupMember && !linkedTelegram && !duplicateDevice);
+    const allowed = Boolean(
+      telegramUserId
+      && fingerprintHash
+      && telegramCheck.member
+      && !linkedTelegram
+      && !duplicateDevice,
+    );
     return jsonOk({
       allowed,
       groupInviteUrl: "/api/telegram/group",
       error: allowed
         ? ""
-        : !groupMember
-          ? "Primero ingresa al grupo de Telegram."
+        : !telegramCheck.member
+          ? telegramMembershipError(telegramCheck)
           : "No se pudo habilitar el registro con estos datos.",
     });
   } catch (error) {
