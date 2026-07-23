@@ -655,6 +655,49 @@ export async function ensureAuthSchema() {
         outcome TEXT NOT NULL,
         created_at TEXT NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS rbac_permission_overrides (
+        user_id TEXT NOT NULL,
+        permission TEXT NOT NULL,
+        effect TEXT NOT NULL CHECK (effect IN ('allow','deny')),
+        updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, permission),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (updated_by) REFERENCES users(id)
+      )`,
+      "CREATE INDEX IF NOT EXISTS rbac_permission_overrides_user_idx ON rbac_permission_overrides(user_id)",
+      `CREATE TABLE IF NOT EXISTS client_crm_profiles (
+        user_id TEXT PRIMARY KEY,
+        crm_status TEXT NOT NULL DEFAULT 'new'
+          CHECK (crm_status IN ('new','active','pending','suspended','vip','recurring')),
+        client_type TEXT NOT NULL DEFAULT 'individual'
+          CHECK (client_type IN ('individual','business')),
+        category TEXT NOT NULL DEFAULT 'general',
+        tags_json TEXT NOT NULL DEFAULT '[]',
+        notes TEXT NOT NULL DEFAULT '',
+        last_activity_at TEXT,
+        updated_by TEXT,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (updated_by) REFERENCES users(id)
+      )`,
+      "CREATE INDEX IF NOT EXISTS client_crm_profiles_status_idx ON client_crm_profiles(crm_status, category)",
+      "CREATE INDEX IF NOT EXISTS client_crm_profiles_activity_idx ON client_crm_profiles(last_activity_at)",
+      `CREATE TABLE IF NOT EXISTS client_crm_activities (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        activity_type TEXT NOT NULL
+          CHECK (activity_type IN ('purchase','payment','conversation','quote','note','status')),
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        amount_cents INTEGER NOT NULL DEFAULT 0 CHECK (amount_cents >= 0),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      )`,
+      "CREATE INDEX IF NOT EXISTS client_crm_activities_user_idx ON client_crm_activities(user_id, created_at)",
+      "CREATE INDEX IF NOT EXISTS client_crm_activities_type_idx ON client_crm_activities(activity_type, created_at)",
     ];
     await db.batch(statements.map((sql) => db.prepare(sql)));
 

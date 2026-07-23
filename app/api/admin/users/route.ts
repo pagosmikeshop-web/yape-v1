@@ -14,6 +14,7 @@ import {
   validateUsername,
 } from "@/app/lib/auth-server";
 import { createInvitation } from "@/app/lib/invitation-server";
+import { requirePermission } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ type ListedUser = {
 export async function GET(request: Request) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin"]);
+    await requirePermission(actor, "staff:view");
     const select = `SELECT id, seller_code, username, display_name, email, role,
               CASE WHEN role = 'admin' AND is_owner = 1 THEN 'owner' ELSE role END AS effective_role,
               is_owner, owner_id, status, credits, telegram_user_id, referral_code,
@@ -46,21 +48,17 @@ export async function GET(request: Request) {
        FROM users`;
     const result = actor.isOwner
       ? await dbBinding().prepare(
-        `${select} WHERE deleted_at IS NULL ORDER BY is_owner DESC, role, created_at DESC LIMIT 500`,
+        `${select} WHERE deleted_at IS NULL AND role IN ('admin','seller')
+         ORDER BY is_owner DESC, role, created_at DESC LIMIT 500`,
       ).all<ListedUser>()
       : await dbBinding().prepare(
         `${select}
-         WHERE deleted_at IS NULL AND (
+         WHERE deleted_at IS NULL AND role IN ('admin','seller') AND (
            id = ?
            OR (role = 'seller' AND owner_id = ?)
-           OR (role = 'client' AND owner_id = ?)
-           OR (role = 'client' AND owner_id IN (
-             SELECT id FROM users
-             WHERE role = 'seller' AND owner_id = ? AND deleted_at IS NULL
-           ))
          )
          ORDER BY role, created_at DESC LIMIT 500`,
-      ).bind(actor.id, actor.id, actor.id, actor.id).all<ListedUser>();
+      ).bind(actor.id, actor.id).all<ListedUser>();
     return jsonOk({ users: result.results ?? [], viewerRole: actor.isOwner ? "owner" : "admin" });
   } catch (error) {
     return routeError(error);
@@ -78,7 +76,7 @@ export async function POST(request: Request) {
     const email = asString(body.email);
 
     if (requestedRole !== "seller" && requestedRole !== "admin") return jsonError("Rol administrativo inválido.");
-    if (requestedRole === "admin" && !actor.isOwner) return jsonError("Solo el Owner puede crear administradores.", 403);
+    await requirePermission(actor, requestedRole === "admin" ? "admins:create" : "sellers:create");
     if (
       !validateSellerCode(sellerCode)
       || !validateUsername(username)

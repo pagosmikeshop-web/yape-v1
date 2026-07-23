@@ -10,6 +10,7 @@ import {
   verifySecret,
 } from "@/app/lib/auth-server";
 import { requireManagedAccount } from "@/app/lib/management-server";
+import { requirePermission } from "@/app/lib/rbac";
 
 const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -61,6 +62,7 @@ export async function authenticateAccessCredentials(input: AccessCredentialInput
 }
 
 export async function issuePermanentAccessToken(actor: AuthUser, clientId: string) {
+  await requirePermission(actor, "keys:create");
   const database = dbBinding();
   if (actor.role === "admin") {
     const managed = await requireManagedAccount(actor, clientId);
@@ -85,56 +87,71 @@ export async function issuePermanentAccessToken(actor: AuthUser, clientId: strin
   if (client.status !== "active") {
     throw Response.json({ ok: false, error: "Primero activa la prueba gratuita del cliente." }, { status: 409 });
   }
-  if (!client.owner_id) {
-    throw Response.json({ ok: false, error: "Asigna este cliente a un vendedor antes de crear el token." }, { status: 409 });
-  }
-  const assignedSeller = await database.prepare(
-    "SELECT id FROM users WHERE id = ? AND role = 'seller' AND status = 'active' AND deleted_at IS NULL LIMIT 1",
-  ).bind(client.owner_id).first<{ id: string }>();
-  if (!assignedSeller) {
-    throw Response.json({ ok: false, error: "Asigna este cliente a un vendedor activo antes de crear el token." }, { status: 409 });
-  }
   if (!client.access_expires_at) {
     throw Response.json({ ok: false, error: "Este cliente ya tiene acceso permanente." }, { status: 409 });
   }
 
+  const sellerPays = actor.role === "seller";
   const raw = `YAPE${randomTokenPart(12)}`;
   const formattedToken = formatPermanentAccessToken(raw);
   const tokenHash = await permanentTokenHash(raw);
   const tokenId = crypto.randomUUID();
-  const ledgerId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const results = await database.batch([
-    database.prepare(
+
+  if (sellerPays) {
+    const ledgerId = crypto.randomUUID();
+    const results = await database.batch([
+      database.prepare(
+        `INSERT INTO permanent_access_tokens (
+          id, token_hash, token_hint, seller_id, user_id, created_by, created_at, redeemed_at
+        ) SELECT ?, ?, ?, id, ?, ?, ?, NULL
+          FROM users
+          WHERE id = ? AND role = 'seller' AND status = 'active' AND credits > 0`,
+      ).bind(tokenId, tokenHash, raw.slice(-4), client.id, actor.id, now, actor.id),
+      database.prepare(
+        `UPDATE users SET credits = credits - 1, updated_at = ?
+         WHERE id = ? AND credits > 0
+           AND EXISTS (SELECT 1 FROM permanent_access_tokens WHERE id = ?)`,
+      ).bind(now, actor.id, tokenId),
+      database.prepare(
+        `INSERT INTO credit_ledger (
+          id, seller_id, delta, balance_after, reason, reference_id, created_by, created_at
+        ) SELECT ?, id, -1, credits, 'permanent_access_token', ?, ?, ?
+          FROM users WHERE id = ?
+            AND EXISTS (SELECT 1 FROM permanent_access_tokens WHERE id = ?)`,
+      ).bind(ledgerId, tokenId, actor.id, now, actor.id, tokenId),
+    ]);
+    if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {
+      throw Response.json({ ok: false, error: "No tienes créditos disponibles para generar esta key." }, { status: 409 });
+    }
+  } else {
+    const result = await database.prepare(
       `INSERT INTO permanent_access_tokens (
         id, token_hash, token_hint, seller_id, user_id, created_by, created_at, redeemed_at
-      ) SELECT ?, ?, ?, s.id, ?, ?, ?, NULL
-        FROM users s
-        WHERE s.id = ? AND s.role = 'seller' AND s.status = 'active' AND s.credits > 0`,
-    ).bind(tokenId, tokenHash, raw.slice(-4), client.id, actor.id, now, client.owner_id),
-    database.prepare(
-      `UPDATE users SET credits = credits - 1, updated_at = ?
-       WHERE id = ? AND credits > 0
-         AND EXISTS (SELECT 1 FROM permanent_access_tokens WHERE id = ?)`,
-    ).bind(now, client.owner_id, tokenId),
-    database.prepare(
-      `INSERT INTO credit_ledger (
-        id, seller_id, delta, balance_after, reason, reference_id, created_by, created_at
-      ) SELECT ?, s.id, -1, s.credits, 'permanent_access_token', ?, ?, ?
-        FROM users s WHERE s.id = ?
-          AND EXISTS (SELECT 1 FROM permanent_access_tokens WHERE id = ?)`,
-    ).bind(ledgerId, tokenId, actor.id, now, client.owner_id, tokenId),
-  ]);
-
-  if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {
-    throw Response.json({ ok: false, error: "El vendedor no tiene créditos disponibles." }, { status: 409 });
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+    ).bind(tokenId, tokenHash, raw.slice(-4), actor.id, client.id, actor.id, now).run();
+    if (Number(result.meta.changes ?? 0) !== 1) {
+      throw Response.json({ ok: false, error: "No se pudo generar la key." }, { status: 409 });
+    }
   }
-  const seller = await database.prepare("SELECT credits FROM users WHERE id = ? LIMIT 1")
-    .bind(client.owner_id).first<{ credits: number }>();
+
+  const issuer = await database.prepare("SELECT credits FROM users WHERE id = ? LIMIT 1")
+    .bind(actor.id).first<{ credits: number }>();
+  await database.prepare(
+    `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
+     VALUES (?, ?, 'web_key_create', ?, ?)`,
+  ).bind(
+    crypto.randomUUID(),
+    actor.telegramUserId ?? actor.id,
+    `${client.id}:${tokenId}:${sellerPays ? "seller-credit" : "staff-override"}`,
+    now,
+  ).run();
   return {
     token: formattedToken,
     clientName: client.display_name,
-    credits: Number(seller?.credits ?? 0),
+    credits: Number(issuer?.credits ?? 0),
+    chargedCredits: sellerPays ? 1 : 0,
+    issuerRole: actor.isOwner ? "owner" : actor.role,
   };
 }
 

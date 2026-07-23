@@ -1,12 +1,14 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
 import { requireManagedAccount } from "@/app/lib/management-server";
+import { requirePermission } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: admin } = await requireUnlockedSession(request, ["admin"]);
+    await requirePermission(admin, "clients:update");
     const { id } = await context.params;
     const managed = await requireManagedAccount(admin, id);
     if (managed.role !== "client") return jsonError("Cliente no encontrado.", 404);

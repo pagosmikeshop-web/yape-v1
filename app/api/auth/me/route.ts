@@ -5,6 +5,7 @@ import {
   getSessionUserIncludingExpired,
   routeError,
 } from "@/app/lib/auth-server";
+import { permissionsFor, staffRole } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,17 @@ export async function GET(request: Request) {
       const referralCode = session.user.role === "client"
         ? await ensureReferralCodeForUser(session.user.id)
         : session.user.referralCode;
+      const staff = session.user.role !== "client";
+      const permissions = staff ? [...await permissionsFor(session.user)] : [];
       return jsonOk(
-        { user: { ...session.user, referralCode } },
+        {
+          user: {
+            ...session.user,
+            referralCode,
+            effectiveRole: staff ? staffRole(session.user) : "client",
+            permissions,
+          },
+        },
         { status: 200, headers: { "cache-control": "no-store" } },
       );
     }

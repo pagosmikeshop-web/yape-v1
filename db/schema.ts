@@ -278,3 +278,49 @@ export const managerAuditLog = sqliteTable("manager_audit_log", {
   outcome: text("outcome").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const rbacPermissionOverrides = sqliteTable("rbac_permission_overrides", {
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  permission: text("permission").notNull(),
+  effect: text("effect").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("rbac_permission_overrides_unique").on(table.userId, table.permission),
+  index("rbac_permission_overrides_user_idx").on(table.userId),
+]);
+
+export const clientCrmProfiles = sqliteTable("client_crm_profiles", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  crmStatus: text("crm_status").notNull().default("new"),
+  clientType: text("client_type").notNull().default("individual"),
+  category: text("category").notNull().default("general"),
+  tagsJson: text("tags_json").notNull().default("[]"),
+  notes: text("notes").notNull().default(""),
+  lastActivityAt: text("last_activity_at"),
+  updatedBy: text("updated_by"),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  index("client_crm_profiles_status_idx").on(table.crmStatus, table.category),
+  index("client_crm_profiles_activity_idx").on(table.lastActivityAt),
+]);
+
+export const clientCrmActivities = sqliteTable("client_crm_activities", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  activityType: text("activity_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  amountCents: integer("amount_cents").notNull().default(0),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  index("client_crm_activities_user_idx").on(table.userId, table.createdAt),
+  index("client_crm_activities_type_idx").on(table.activityType, table.createdAt),
+]);

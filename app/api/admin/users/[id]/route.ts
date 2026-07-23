@@ -8,6 +8,7 @@ import {
   validateOptionalEmail,
 } from "@/app/lib/auth-server";
 import { canManageSeller, requireManagedAccount } from "@/app/lib/management-server";
+import { requirePermission } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     ).bind(id).first<EditableUser>();
     if (!current) return jsonError("Usuario no encontrado.", 404);
     if (current.is_owner) return jsonError("La cuenta Owner no puede modificarse desde esta acción.", 403);
+
+    await requirePermission(
+      actor,
+      current.role === "admin" ? "admins:update" : current.role === "seller" ? "sellers:update" : "clients:update",
+    );
 
     const displayName = Object.prototype.hasOwnProperty.call(body, "displayName")
       ? asString(body.displayName).trim()
@@ -110,6 +116,10 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (id === actor.id) return jsonError("No puedes eliminar tu propia cuenta.", 409);
     const target = await requireManagedAccount(actor, id);
     if (target.is_owner) return jsonError("La cuenta Owner no puede eliminarse.", 403);
+    await requirePermission(
+      actor,
+      target.role === "admin" ? "admins:delete" : target.role === "seller" ? "sellers:delete" : "clients:delete",
+    );
     const database = dbBinding();
     const dependents = await database.prepare(
       "SELECT COUNT(*) AS total FROM users WHERE owner_id = ? AND deleted_at IS NULL",
@@ -139,6 +149,18 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       database.prepare("DELETE FROM password_reset_requests WHERE user_id = ? OR seller_id = ?").bind(id, id),
       database.prepare("DELETE FROM activations WHERE user_id = ? OR seller_id = ?").bind(id, id),
       database.prepare("DELETE FROM credit_ledger WHERE seller_id = ?").bind(id),
+      database.prepare(
+        "UPDATE rbac_permission_overrides SET updated_by = ?, updated_at = ? WHERE updated_by = ? AND user_id <> ?",
+      ).bind(actor.id, now, id, id),
+      database.prepare("DELETE FROM rbac_permission_overrides WHERE user_id = ?").bind(id),
+      database.prepare(
+        "UPDATE client_crm_activities SET created_by = ? WHERE created_by = ? AND user_id <> ?",
+      ).bind(actor.id, id, id),
+      database.prepare("DELETE FROM client_crm_activities WHERE user_id = ?").bind(id),
+      database.prepare(
+        "UPDATE client_crm_profiles SET updated_by = ?, updated_at = ? WHERE updated_by = ? AND user_id <> ?",
+      ).bind(actor.id, now, id, id),
+      database.prepare("DELETE FROM client_crm_profiles WHERE user_id = ?").bind(id),
       database.prepare(
         `UPDATE users SET seller_code = ?, username = ?, display_name = 'Usuario eliminado', email = '',
            status = 'disabled', owner_id = NULL, credits = 0, device_id = NULL, device_public_key = NULL,

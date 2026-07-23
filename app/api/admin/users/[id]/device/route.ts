@@ -1,12 +1,14 @@
 import { jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
 import { requireManagedAccount } from "@/app/lib/management-server";
+import { requirePermission } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin"]);
+    await requirePermission(actor, "security:view");
     await readJson(request);
     const { id } = await context.params;
     const target = await requireManagedAccount(actor, id);

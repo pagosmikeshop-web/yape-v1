@@ -127,7 +127,7 @@ test("el directorio resuelve un número únicamente a un cliente activo y limita
 });
 
 test("Owner, administradores y vendedores gestionan su jerarquía desde la web", async () => {
-  const [manager, adminPage, adminPortal, sellerPage, clientsRoute, activationRoute, adminRoute, userRoute, management, creditsRoute, invitationRoute] = await Promise.all([
+  const [manager, adminPage, adminPortal, sellerPage, clientsRoute, activationRoute, adminRoute, userRoute, management, creditsRoute, invitationRoute, rbac, crmRoute, accessServer] = await Promise.all([
     source("app/components/ClientManager.tsx"),
     source("app/admin/page.tsx"),
     source("app/api/admin/portal/route.ts"),
@@ -139,6 +139,9 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
     source("app/lib/management-server.ts"),
     source("app/api/admin/sellers/[id]/credits/route.ts"),
     source("app/api/auth/invitations/redeem/route.ts"),
+    source("app/lib/rbac.ts"),
+    source("app/api/crm/clients/route.ts"),
+    source("app/lib/access-server.ts"),
   ]);
 
   assert.match(manager, /name="phone"/u);
@@ -157,7 +160,7 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
   assert.match(clientsRoute, /mustChangePassword:\s*true/u);
   assert.match(clientsRoute, /createInvitation\(id\)/u);
   assert.match(adminRoute, /requestedRole !== "seller" && requestedRole !== "admin"/u);
-  assert.match(adminRoute, /Solo el Owner puede crear administradores/u);
+  assert.match(adminRoute, /requestedRole === "admin" \? "admins:create" : "sellers:create"/u);
   assert.match(adminRoute, /let ownerId = actor\.id/u);
   assert.match(adminRoute, /Administrador activo no encontrado/u);
   assert.match(adminRoute, /createInvitation\(id\)/u);
@@ -172,6 +175,13 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
   assert.match(activationRoute, /INSERT INTO activations/u);
   assert.doesNotMatch(activationRoute, /credits = credits -/u);
   assert.match(invitationRoute, /redeemInvitation/u);
+  assert.match(rbac, /owner:\s*ALL_PERMISSIONS/u);
+  assert.match(rbac, /PERMISSION_DENIED/u);
+  assert.match(crmRoute, /pageSize/u);
+  assert.match(crmRoute, /ownerId:\s*string \| null/u);
+  assert.match(crmRoute, /sin vendedor asignado/iu);
+  assert.match(accessServer, /const sellerPays = actor\.role === "seller"/u);
+  assert.match(accessServer, /staff-override/u);
 });
 
 test("la prueba gratuita, los referidos y los tokens permanentes usan estados separados", async () => {

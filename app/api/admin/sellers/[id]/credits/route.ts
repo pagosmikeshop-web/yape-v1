@@ -1,12 +1,14 @@
 import { jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
 import { canManageSeller } from "@/app/lib/management-server";
+import { requirePermission } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: admin } = await requireUnlockedSession(request, ["admin"]);
+    await requirePermission(admin, "sellers:credits");
     const { id } = await context.params;
     if (!(await canManageSeller(admin, id))) return jsonError("Vendedor no encontrado.", 404);
     const body = await readJson(request);
@@ -58,6 +60,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: admin } = await requireUnlockedSession(request, ["admin"]);
+    await requirePermission(admin, "sellers:credits");
     const { id } = await context.params;
     if (!(await canManageSeller(admin, id))) return jsonError("Vendedor no encontrado.", 404);
     const body = await readJson(request);
