@@ -268,3 +268,30 @@ test("el build no incorpora valores del archivo .env local", async () => {
   assert.match(viteConfig, /includeLocalEnvironment \? localEnvVars\(mode\) : \{\}/u);
   assert.match(viteConfig, /localBindingConfig\(mode, command === "serve"\)/u);
 });
+
+test("Vercel usa Turso exclusivamente desde el servidor y conserva los controles HTTP", async () => {
+  const [database, authServer, environmentExample, packageJson, nextConfig, nextProxy, vercelConfig] = await Promise.all([
+    source("app/lib/database-server.ts"),
+    source("app/lib/auth-server.ts"),
+    source(".env.example"),
+    source("package.json"),
+    source("next.config.ts"),
+    source("proxy.ts"),
+    source("vercel.json"),
+  ]);
+  assert.match(database, /@tursodatabase\/serverless\/compat/u);
+  assert.match(database, /if \(environment\.DB\) return environment\.DB/u);
+  assert.match(database, /environment\.TURSO_DATABASE_URL/u);
+  assert.match(database, /environment\.TURSO_AUTH_TOKEN/u);
+  assert.match(database, /this\.client\.batch\(input, \{ mode: "write" \}\)/u);
+  assert.match(authServer, /databaseForEnvironment\(env\)/u);
+  assert.match(environmentExample, /^TURSO_DATABASE_URL=$/mu);
+  assert.match(environmentExample, /^TURSO_AUTH_TOKEN=$/mu);
+  assert.doesNotMatch(environmentExample, /^NEXT_PUBLIC_TURSO_/mu);
+  assert.equal(JSON.parse(packageJson).scripts.build, "next build");
+  assert.equal(JSON.parse(packageJson).dependencies["@tursodatabase/serverless"], "1.3.1");
+  assert.match(nextConfig, /poweredByHeader:\s*false/u);
+  assert.match(nextProxy, /hostedConfigurationErrors/u);
+  assert.match(nextProxy, /TURSO_AUTH_TOKEN/u);
+  assert.equal(JSON.parse(vercelConfig).framework, "nextjs");
+});

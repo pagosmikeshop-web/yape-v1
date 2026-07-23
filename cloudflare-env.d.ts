@@ -27,6 +27,8 @@ interface D1Database {
 declare module "cloudflare:workers" {
   export const env: {
     DB?: D1Database;
+    TURSO_DATABASE_URL?: string;
+    TURSO_AUTH_TOKEN?: string;
     APP_ENV?: string;
     PUBLIC_APP_URL?: string;
     ADMIN_WEB_URL?: string;

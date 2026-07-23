@@ -13,6 +13,8 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const APP_ENV_KEYS = [
   "APP_ENV",
+  "TURSO_DATABASE_URL",
+  "TURSO_AUTH_TOKEN",
   "PUBLIC_APP_URL",
   "ADMIN_WEB_URL",
   "AUTH_BOOTSTRAP_ENABLED",

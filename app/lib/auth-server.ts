@@ -1,9 +1,12 @@
 import { assertTrustedMutation } from "@/app/lib/api-utils";
+import { databaseForEnvironment } from "@/app/lib/database-server";
 
 export type AppRole = "admin" | "seller" | "client";
 
 type AuthEnv = {
   DB?: D1Database;
+  TURSO_DATABASE_URL?: string;
+  TURSO_AUTH_TOKEN?: string;
   APP_ENV?: string;
   ADMIN_WEB_URL?: string;
   PUBLIC_APP_URL?: string;
@@ -114,8 +117,7 @@ let schemaReady: Promise<void> | null = null;
 
 function database() {
   const env = authEnv();
-  if (!env.DB) throw new Error("La base de datos de la aplicacion no esta configurada.");
-  return env.DB;
+  return databaseForEnvironment(env);
 }
 
 export function authEnv() {
