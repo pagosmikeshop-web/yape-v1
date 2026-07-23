@@ -2036,7 +2036,7 @@ function TransferView() {
                 <div><span>Destino</span><strong>{destination}</strong></div>
                 <div><span>Nro. de operación</span><strong>{voucher?.operation ?? ""}</strong></div>
               </div>
-              <span className="voucher-simulation-label">SIMULACIÓN LOCAL · SIN VALIDEZ</span>
+              <span className="voucher-validity-label">NO ES COMPROBANTE DE PAGO</span>
               </div>
             </div>
             <button type="button" className="voucher-new-yape-button" onClick={startNewYape}>
@@ -2534,7 +2534,7 @@ function PersonalQrView() {
               <img src="/assets/apk/icons/ic_logo_static.svg" alt="" />
             </span>
           </span>
-        ) : <div className="fake-qr" role="status" aria-label="Preparando código QR" />}
+        ) : <div className="qr-loading-placeholder" role="status" aria-label="Preparando código QR" />}
         <strong>{clientName || "PREPARANDO TU QR"}</strong>
       </section>
       <button className="qr-share-button" type="button" onClick={shareQr} disabled={!qrImage}><AssetIcon name="ic_share_outline_yape_on_secondary" />Comparte y descarga tu QR</button>
@@ -2905,7 +2905,7 @@ function ConfiguredVoucherReceipt({ voucher, onEdit }: { voucher: VoucherEditorP
               <div><span>Destino</span><strong>{voucher.destination}</strong></div>
               <div><span>Nro. de operación</span><strong>{voucher.operation}</strong></div>
             </div>
-            <span className="voucher-simulation-label">SIMULACIÓN LOCAL · SIN VALIDEZ</span>
+            <span className="voucher-validity-label">NO ES COMPROBANTE DE PAGO</span>
           </div>
         </div>
 
@@ -2977,7 +2977,7 @@ function VoucherEditorView() {
       </header>
 
       <section className="voucher-editor-intro">
-        <span>VISTA PREVIA LOCAL</span>
+        <span>EDITOR DE VOUCHER</span>
         <h1>Yapear a</h1>
         <p>Completa los datos para preparar y revisar tu voucher antes de guardarlo.</p>
       </section>
@@ -3042,7 +3042,7 @@ function VoucherEditorView() {
           </div>
         </section>
 
-        <p className="voucher-editor-disclaimer"><AssetIcon name="ic_info_outline_yape_primary" />Esta herramienta solo crea una vista previa local. No realiza pagos ni modifica tu saldo.</p>
+        <p className="voucher-editor-disclaimer"><AssetIcon name="ic_info_outline_yape_primary" />Esta herramienta no realiza pagos ni modifica tu saldo.</p>
 
         <div className="voucher-editor-actions">
           <button type="button" className="voucher-editor-bank-button" disabled={!canPreview} onClick={() => preparePreview("bank")}>Otros bancos</button>
@@ -3435,8 +3435,6 @@ function LimitsView() {
 }
 
 function PurchaseApprovalView() {
-  const [notice, setNotice] = useState("");
-
   return (
     <div className="purchase-approval-page">
       <section className="approval-purple-hero">
@@ -3447,13 +3445,7 @@ function PurchaseApprovalView() {
         <h2>Solicitudes por aprobar</h2>
         <p>Ingresa a la solicitud pendiente para aprobarla.</p>
         <div className="empty-approval"><AssetIcon name="ic_info_outline_yape_primary" />No tienes solicitudes en este momento</div>
-        <h2>Código de aprobación</h2>
-        <p>Usa este código solo dentro del flujo local.</p>
-        <button type="button" className="demo-code-card" onClick={() => setNotice("Código de muestra: no se copió ni envió.")}>
-          <strong>1 2 3 4 5 6</strong><span>Código local de muestra</span>
-        </button>
         <div className="fraud-warning"><AssetIcon name="ic_shield_check_r_yape" /><strong>Nunca compartas claves ni códigos reales.</strong></div>
-        {notice ? <p className="inline-notice" role="status">{notice}</p> : null}
       </section>
     </div>
   );
@@ -3524,7 +3516,7 @@ function InsuranceView() {
           <small>Con el respaldo de <AssetIcon name="ic_logo_pacifico" /></small>
         </form>
       </section>
-      {quoted ? <p className="insurance-result" role="status"><AssetIcon name="ic_shield_check_r_yape" />Cotización local lista.</p> : null}
+      {quoted ? <p className="insurance-result" role="status"><AssetIcon name="ic_shield_check_r_yape" />Cotización lista.</p> : null}
     </div>
   );
 }
@@ -3557,8 +3549,6 @@ function CreditsView() {
       </section>
       <section className="credits-reference-sheet">
         <h2>Tenemos esto para ti <small>Por tiempo limitado</small></h2>
-        <article className="demo-credit-offer"><span><b>Te prestamos hasta</b><strong>S/ 150</strong><p>Fácil, sin papeleos y págalo hasta en 30 días. ¡Es al toque!</p><button type="button" onClick={() => setNotice("")}>Simular crédito <AssetIcon name="ic_arrow_right_r_yape_on_secondary" /></button></span><LottiePlayer name="lending_gift_loader" className="credit-offer-lottie" /></article>
-        <div className="credit-rate-note"><AssetIcon name="ic_sp_percent_badge" />Con S/ 0.3 de interés por día, aprox.</div>
         <h2>Resuelve tus dudas</h2>
         {["¿Qué es un crédito?", "¿Qué necesito para solicitar un crédito?", "¿Cómo pago mi crédito Yape?"].map((question) => <button className="credit-question" type="button" key={question} onClick={() => setNotice(question)}><span>{question}</span><AssetIcon name="ic_arrow_right_r_yape" /></button>)}
         {notice ? <p className="inline-notice" role="status">{notice}</p> : null}
@@ -3717,7 +3707,7 @@ function ScannerView() {
 
   return (
     <div className={`reference-scanner-view${flashlight ? " is-lit" : ""}`}>
-      <header><span className="scanner-demo-chip">LECTOR YAPE</span><Link href="/inicio" aria-label="Cerrar escáner"><AssetIcon name="ic_close_scan" /></Link></header>
+      <header><span className="scanner-status-chip">LECTOR YAPE</span><Link href="/inicio" aria-label="Cerrar escáner"><AssetIcon name="ic_close_scan" /></Link></header>
       <div className="scanner-frame scanner-live-frame">
         <video ref={videoRef} className={`scanner-video${cameraReady ? " is-ready" : ""}`} muted playsInline autoPlay aria-label="Cámara para escanear QR" />
         {uploadedImage ? <img className="scanner-upload-preview" src={uploadedImage} alt="Imagen QR seleccionada" /> : null}

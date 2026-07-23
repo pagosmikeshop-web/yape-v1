@@ -25,18 +25,12 @@ function isStandaloneDisplay() {
   return window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-function isLocalPreview() {
-  if (typeof window === "undefined") return false;
-  return /^(localhost|127\.0\.0\.1)$/u.test(window.location.hostname);
-}
-
 export function AppInstallGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [installed, setInstalled] = useState(true);
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [installHelpVisible, setInstallHelpVisible] = useState(false);
-  const [previewUnlocked, setPreviewUnlocked] = useState(() => typeof window !== "undefined" && isLocalPreview() && sessionStorage.getItem("yape-web-preview") === "1");
   const isAndroid = useMemo(() => {
     if (typeof navigator === "undefined") return false;
     return /android/iu.test(navigator.userAgent);
@@ -89,7 +83,7 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
   }
 
   if (!ready) return null;
-  if (installed || previewUnlocked) return <>{children}</>;
+  if (installed) return <>{children}</>;
   if (BROWSER_ROUTES.has(pathname)) {
     return (
       <>
@@ -121,18 +115,6 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
           </ol>
         ) : !promptEvent ? (
           <p className="install-help">Abre el menu del navegador y selecciona Instalar aplicacion o Agregar a pantalla de inicio.</p>
-        ) : null}
-        {isLocalPreview() ? (
-          <button
-            className="install-preview-button"
-            type="button"
-            onClick={() => {
-              sessionStorage.setItem("yape-web-preview", "1");
-              setPreviewUnlocked(true);
-            }}
-          >
-            Vista local de pruebas
-          </button>
         ) : null}
       </section>
     </main>

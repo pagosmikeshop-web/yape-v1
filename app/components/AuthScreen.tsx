@@ -172,7 +172,7 @@ function ReturningKeypad({
 }) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
-  const [previewQrImage, setPreviewQrImage] = useState("");
+  const [loginQrImage, setLoginQrImage] = useState("");
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const submittedPinRef = useRef("");
   const keyFeedbackTimerRef = useRef<number | null>(null);
@@ -180,15 +180,15 @@ function ReturningKeypad({
   useEffect(() => {
     let cancelled = false;
     import("qrcode").then(async ({ default: QRCode }) => {
-      const image = await QRCode.toDataURL("yape://pay?recipient=019f87ef-2418-7720-b9bc-547f44b91306&preview=login", {
+      const image = await QRCode.toDataURL("yape://login", {
         width: 360,
         margin: 1,
         errorCorrectionLevel: "H",
         color: { dark: "#5c1b6d", light: "#ffffff" },
       });
-      if (!cancelled) setPreviewQrImage(image);
+      if (!cancelled) setLoginQrImage(image);
     }).catch(() => {
-      if (!cancelled) setPreviewQrImage("/assets/apk/images/qr_code_sample.png");
+      if (!cancelled) setLoginQrImage("/assets/apk/images/qr_code_sample.png");
     });
     return () => {
       cancelled = true;
@@ -233,7 +233,7 @@ function ReturningKeypad({
       <section className="bank-app returning-login" aria-label="Entrar con clave">
         <div className="returning-purple-panel">
           <span className="returning-qr yape-qr-card yape-qr-card-compact">
-            <img src={previewQrImage || "/assets/apk/images/qr_code_sample.png"} alt="QR local de la cuenta" />
+            <img src={loginQrImage || "/assets/apk/images/qr_code_sample.png"} alt="QR de acceso" />
             <span className="yape-qr-logo-mark" aria-hidden="true">
               <img src="/assets/apk/icons/ic_logo_static.svg" alt="" />
             </span>

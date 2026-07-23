@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.dev.vars
+.git
+.github
+.tmp
+.vinext
+.wrangler
+dist
+examples
+node_modules
+tests
+*.log
+*.tsbuildinfo

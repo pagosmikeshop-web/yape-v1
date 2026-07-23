@@ -620,13 +620,6 @@ input:focus-visible {
   background: var(--teal-dark);
 }
 
-.home-demo-caption {
-  margin: 15px 0 0;
-  color: #8e8791;
-  font-size: 10px;
-  text-align: center;
-}
-
 /* Shared rows and movements */
 
 .movement-list {
@@ -939,17 +932,6 @@ input:focus-visible {
   height: 24px;
 }
 
-.demo-badge {
-  justify-self: end;
-  padding: 5px 7px;
-  border-radius: 999px;
-  color: #5e1e72;
-  background: rgba(255, 255, 255, 0.84);
-  font-size: 8px;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-}
-
 .inner-content {
   padding: 18px 16px 30px;
 }
@@ -1095,17 +1077,6 @@ input:focus-visible {
 
 .amount-input b { color: var(--primary-700); font-size: 16px; }
 .amount-input input { min-width: 0; flex: 1; padding: 0 10px; border: 0; outline: 0; background: transparent; font-size: 18px; font-weight: 750; }
-
-.demo-form-note,
-.demo-safety-note {
-  margin: 0;
-  padding: 11px 12px;
-  border-radius: 11px;
-  color: #716575;
-  background: #eee8ef;
-  font-size: 10px;
-  line-height: 1.4;
-}
 
 .bank-primary-button,
 .primary-action-link {
@@ -2647,7 +2618,7 @@ input:focus-visible {
   height: 100%;
 }
 
-.fake-qr {
+.qr-loading-placeholder {
   width: 172px;
   height: 172px;
   display: grid;
@@ -2660,8 +2631,6 @@ input:focus-visible {
   background: white;
 }
 
-.fake-qr i { border-radius: 1px; background: transparent; }
-.fake-qr i.is-filled { background: #4d1658; }
 .reference-qr-card > strong { margin-top: 14px; color: #784284; font-size: 13px; letter-spacing: 0.03em; }
 .reference-qr-card > small { margin-top: 5px; color: var(--muted); font-size: 10px; }
 
@@ -4612,8 +4581,6 @@ input:focus-visible {
 .generic-amount-field input { min-width: 0; flex: 1; padding: 0 7px; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 14px; }
 .generic-amount-field button { width: 34px; height: 34px; border: 0; border-radius: 50%; color: #928894; background: transparent; font-size: 20px; cursor: pointer; }
 .generic-amount-field small { color: #9a929c; font-size: 10px; }
-.settings-sheet .demo-safety-note { margin-top: 24px; }
-
 .limits-purple-hero {
   min-height: 255px;
   color: white;
@@ -4666,8 +4633,6 @@ input:focus-visible {
 .monthly-limit-card > div { height: 8px; margin-top: 15px; overflow: hidden; border-radius: 999px; background: #eee8f0; }
 .monthly-limit-card > div i { width: 32%; height: 100%; display: block; border-radius: inherit; background: var(--teal-dark); }
 .monthly-limit-card p { margin: 8px 0 0; color: var(--muted); font-size: 10px; }
-.limits-sheet > .demo-safety-note { margin-top: 18px; }
-
 .transfer-alerts-page {
   background: white;
 }
@@ -4704,8 +4669,6 @@ input:focus-visible {
 
 .setting-toggle-row.detailed strong { font-size: 14px; }
 .setting-toggle-row.detailed small { color: var(--muted); font-size: 11px; line-height: 1.35; }
-.simple-settings-body .demo-safety-note { margin-top: 22px; }
-
 /* Purchase approval */
 
 .purchase-approval-page {
@@ -4750,25 +4713,6 @@ input:focus-visible {
 }
 
 .empty-approval svg { width: 18px; height: 18px; }
-
-.demo-code-card {
-  position: relative;
-  width: 100%;
-  min-height: 103px;
-  display: grid;
-  gap: 6px;
-  padding: 16px 82px 16px 16px;
-  border: 0;
-  border-radius: 13px;
-  color: #5c5260;
-  background: linear-gradient(140deg, #e8e6ec, #ddd8e5);
-  text-align: left;
-  cursor: pointer;
-}
-
-.demo-code-card strong { font-size: clamp(22px, 7vw, 30px); font-weight: 550; letter-spacing: 0.14em; }
-.demo-code-card span { font-size: 10px; }
-.demo-code-card b { position: absolute; right: 18px; top: 23px; width: 58px; height: 58px; display: grid; place-items: center; border: 3px solid #9e579e; border-radius: 50%; color: #87458a; font-size: 10px; }
 
 .fraud-warning {
   min-height: 58px;
@@ -4889,12 +4833,6 @@ input:focus-visible {
 .full-purple-close svg {
   width: 27px;
   height: 27px;
-}
-
-.floating-demo {
-  position: absolute;
-  top: max(20px, env(safe-area-inset-top));
-  right: 22px;
 }
 
 .dollars-illustration {
@@ -5259,99 +5197,6 @@ input:focus-visible {
   font-weight: 500;
 }
 
-.demo-credit-offer {
-  min-height: 235px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 20px;
-  border-radius: 14px 14px 0 0;
-  background: white;
-  box-shadow: 0 4px 14px rgba(32, 46, 68, 0.08);
-}
-
-.demo-credit-offer > span {
-  min-width: 0;
-  display: grid;
-  flex: 1;
-  gap: 7px;
-}
-
-.demo-credit-offer b {
-  color: #790699;
-  font-size: 16px;
-}
-
-.demo-credit-offer strong {
-  color: #202e44;
-  font-size: 33px;
-}
-
-.demo-credit-offer p {
-  margin: 0;
-  color: #6a6a94;
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.demo-credit-offer button {
-  width: max-content;
-  min-height: 43px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 7px;
-  padding: 0 13px;
-  border: 0;
-  border-radius: 8px;
-  color: white;
-  background: #10cbb4;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.demo-credit-offer button svg {
-  width: 16px;
-  height: 16px;
-}
-
-.demo-credit-offer > svg {
-  width: 90px;
-  height: 90px;
-  flex: 0 0 90px;
-  color: #10cbb4;
-  stroke-width: 1.3;
-}
-
-.demo-credit-offer > .credit-offer-lottie {
-  width: 90px;
-  height: 90px;
-  flex: 0 0 90px;
-}
-
-.demo-credit-offer > .credit-offer-lottie svg {
-  width: 100%;
-  height: 100%;
-}
-
-.credit-rate-note {
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 14px;
-  border-radius: 0 0 12px 12px;
-  color: #5c5364;
-  background: #ece9ef;
-  font-size: 11px;
-}
-
-.credit-rate-note svg {
-  width: 20px;
-  height: 20px;
-}
-
 .credits-reference-sheet > h2:nth-of-type(2) {
   margin-top: 28px;
 }
@@ -5546,10 +5391,6 @@ input:focus-visible {
   line-height: 1.55;
 }
 
-.online-purchases-body .demo-safety-note {
-  margin-top: 28px;
-}
-
 /* Scanner */
 
 .reference-scanner-view {
@@ -5579,7 +5420,7 @@ input:focus-visible {
   justify-content: space-between;
 }
 
-.scanner-demo-chip {
+.scanner-status-chip {
   padding: 5px 8px;
   border-radius: 999px;
   color: #e3fffc;
@@ -5743,7 +5584,7 @@ input:focus-visible {
     transform: translate(-50%, -50%);
   }
 
-  .fake-qr {
+  .qr-loading-placeholder {
     width: 130px;
     height: 130px;
   }
@@ -5885,7 +5726,7 @@ input:focus-visible {
   }
 }
 
-/* Editor local de voucher */
+/* Editor de voucher */
 
 .voucher-editor-screen {
   min-height: 100%;

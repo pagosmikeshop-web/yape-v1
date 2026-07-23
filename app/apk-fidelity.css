@@ -2037,47 +2037,6 @@
   font-size: 17px;
 }
 
-.mobile-bank-shell .demo-credit-offer {
-  min-height: 260px;
-  padding: 20px;
-  border-radius: 14px 14px 0 0;
-}
-
-.mobile-bank-shell .demo-credit-offer > .apk-illustration {
-  width: 104px;
-  height: 120px;
-  flex: 0 0 104px;
-}
-
-.mobile-bank-shell .demo-credit-offer > .credit-offer-lottie {
-  width: 104px;
-  height: 120px;
-  flex: 0 0 104px;
-}
-
-.mobile-bank-shell .demo-credit-offer b {
-  font-size: 17px;
-}
-
-.mobile-bank-shell .demo-credit-offer strong {
-  font-size: 40px;
-}
-
-.mobile-bank-shell .demo-credit-offer p {
-  font-size: 15px;
-}
-
-.mobile-bank-shell .demo-credit-offer button {
-  min-height: 48px;
-  background: var(--teal-dark);
-  font-size: 14px;
-}
-
-.mobile-bank-shell .credit-rate-note {
-  min-height: 52px;
-  font-size: 14px;
-}
-
 .mobile-bank-shell .credit-question {
   min-height: 84px;
 }
@@ -2199,7 +2158,7 @@
   background: #000;
 }
 
-.mobile-bank-shell .scanner-demo-chip {
+.mobile-bank-shell .scanner-status-chip {
   visibility: hidden;
 }
 
@@ -2909,7 +2868,7 @@
   z-index: 3;
 }
 
-.mobile-bank-shell .yape-success-voucher .voucher-simulation-label {
+.mobile-bank-shell .yape-success-voucher .voucher-validity-label {
   margin: min(1vw, 4px) 0 0;
   padding: min(1vw, 4px) 0 0;
   border-top: 1px dashed #cfc9d3;

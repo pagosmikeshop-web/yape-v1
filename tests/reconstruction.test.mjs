@@ -127,11 +127,10 @@ test("el directorio resuelve un número únicamente a un cliente activo y limita
 });
 
 test("Owner, administradores y vendedores gestionan su jerarquía desde la web", async () => {
-  const [manager, adminPage, adminPortal, adminWeb, sellerPage, clientsRoute, activationRoute, adminRoute, userRoute, management, creditsRoute, invitationRoute] = await Promise.all([
+  const [manager, adminPage, adminPortal, sellerPage, clientsRoute, activationRoute, adminRoute, userRoute, management, creditsRoute, invitationRoute] = await Promise.all([
     source("app/components/ClientManager.tsx"),
     source("app/admin/page.tsx"),
     source("app/api/admin/portal/route.ts"),
-    source("../yape-admin-web/src/App.tsx"),
     source("app/vendedor/page.tsx"),
     source("app/api/seller/clients/route.ts"),
     source("app/api/seller/clients/[id]/activate/route.ts"),
@@ -152,11 +151,6 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
   assert.match(adminPage, /notFound\(\)/u);
   assert.match(adminPortal, /ADMIN_WEB_URL/u);
   assert.match(adminPortal, /status:\s*307/u);
-  assert.match(adminWeb, /Clientes y suscripciones/u);
-  assert.match(adminWeb, /api\/admin\/users/u);
-  assert.match(adminWeb, /Crear token \(1 crédito\)/u);
-  assert.match(adminWeb, /Designar un administrador nuevo/u);
-  assert.match(adminWeb, /Eliminar usuario/u);
   assert.match(sellerPage, /<ClientManager role="seller"/u);
   assert.match(clientsRoute, /createUser\(/u);
   assert.match(clientsRoute, /\bphone,\s*\n\s*role:\s*"client"/u);

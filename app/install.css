@@ -63,12 +63,6 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-.install-card .install-preview-button {
-  margin-top: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.48);
-  background: transparent;
-}
-
 .entry-install-cta {
   position: fixed;
   top: max(94px, calc(env(safe-area-inset-top) + 64px));
