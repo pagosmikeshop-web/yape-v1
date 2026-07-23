@@ -42,10 +42,12 @@ function localEnvVars(mode: string) {
   );
 }
 
-const localBindingConfig = (mode: string) => ({
+const localBindingConfig = (mode: string, includeLocalEnvironment: boolean) => ({
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
-  vars: localEnvVars(mode),
+  // `.env` is a local-development input only. Production receives runtime
+  // values from the hosting secret store after the source has been built.
+  vars: includeLocalEnvironment ? localEnvVars(mode) : {},
   d1_databases: d1
     ? [
         {
@@ -65,7 +67,7 @@ const localBindingConfig = (mode: string) => ({
     : [],
 });
 
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ command, mode }) => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= "false";
@@ -84,7 +86,7 @@ export default defineConfig(async ({ mode }) => {
       sites(),
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-        config: localBindingConfig(mode),
+        config: localBindingConfig(mode, command === "serve"),
       }),
     ],
   };

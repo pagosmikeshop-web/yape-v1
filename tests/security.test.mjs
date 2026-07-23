@@ -245,3 +245,9 @@ test("producción rechaza hosts alternativos y obliga a usar el origen HTTPS can
   assert.equal(insecure.status, 308);
   assert.equal(insecure.headers.get("location"), "https://app.example.test/inicio");
 });
+
+test("el build no incorpora valores del archivo .env local", async () => {
+  const viteConfig = await source("vite.config.ts");
+  assert.match(viteConfig, /includeLocalEnvironment \? localEnvVars\(mode\) : \{\}/u);
+  assert.match(viteConfig, /localBindingConfig\(mode, command === "serve"\)/u);
+});
