@@ -12,6 +12,8 @@
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-left: env(safe-area-inset-left, 0px);
+  --app-inline-gutter: clamp(14px, 4vw, 22px);
+  --app-touch-target: 44px;
 }
 
 @supports (height: 100dvh) {
@@ -33,8 +35,16 @@ html {
 body {
   width: 100%;
   min-height: var(--app-viewport-height);
+  margin: 0;
   overflow-x: hidden;
   overscroll-behavior-x: none;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-inline-size: 100%;
 }
 
 .site-stage,
@@ -82,6 +92,12 @@ body {
     border: 0;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .mobile-bank-shell *,
+  .mobile-bank-shell *::before,
+  .mobile-bank-shell *::after {
+    min-inline-size: 0;
   }
 
   .login-header {
@@ -155,9 +171,13 @@ body {
   }
 
   .mobile-bank-shell .transfer-amount-screen {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     height: 100%;
     min-height: 100%;
     max-height: 100%;
+    padding-bottom: 0;
+    overflow: hidden;
     border-radius: 0;
   }
 
@@ -165,12 +185,58 @@ body {
     height: max(min(4.5vw, 18px), var(--app-safe-bottom));
   }
 
+  .mobile-bank-shell
+    .transfer-amount-screen
+    .transfer-flow-header {
+    height: auto;
+    min-height: calc(clamp(56px, 15vw, 62px) + max(var(--app-safe-top), 8px));
+    padding-top: max(var(--app-safe-top), 8px);
+  }
+
+  .mobile-bank-shell
+    .transfer-amount-screen
+    .transfer-header-back,
+  .mobile-bank-shell
+    .transfer-amount-screen
+    .transfer-header-close {
+    min-width: var(--app-touch-target);
+    min-height: var(--app-touch-target);
+  }
+
+  .mobile-bank-shell .transfer-amount-content {
+    min-height: 0;
+    padding-inline: var(--app-inline-gutter);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .mobile-bank-shell .transfer-amount-content::-webkit-scrollbar {
+    display: none;
+  }
+
   .mobile-bank-shell .transfer-amount-field {
-    margin-top: clamp(48px, 11.5dvh, 103px);
+    margin-top: clamp(42px, 10.5dvh, 92px);
   }
 
   .mobile-bank-shell .transfer-amount-footer {
-    bottom: max(min(4.5vw, 18px), var(--app-safe-bottom));
+    position: relative;
+    inset: auto;
+    z-index: 5;
+    flex: none;
+    padding-right: max(var(--app-inline-gutter), var(--app-safe-right));
+    padding-bottom: calc(
+      max(min(4.5vw, 18px), var(--app-safe-bottom)) + clamp(8px, 2.4vw, 14px)
+    );
+    padding-left: max(var(--app-inline-gutter), var(--app-safe-left));
+  }
+
+  .mobile-bank-shell
+    .transfer-amount-footer
+    .transfer-message-field,
+  .mobile-bank-shell .transfer-amount-actions {
+    width: min(100%, 371px);
   }
 
   .mobile-bank-shell
@@ -185,6 +251,22 @@ body {
   .mobile-bank-shell .yape-success-voucher,
   .mobile-bank-shell .yape-success-voucher .voucher-content {
     min-height: 100% !important;
+  }
+
+  .mobile-bank-shell .yape-success-voucher .voucher-content {
+    padding-top: max(var(--app-safe-top), 10px);
+    padding-right: var(--app-safe-right);
+    padding-bottom: var(--app-safe-bottom);
+    padding-left: var(--app-safe-left);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher
+    .voucher-close-button {
+    top: calc(max(var(--app-safe-top), 10px) + min(2vw, 9px));
+    right: max(min(2vw, 9px), var(--app-safe-right));
+    min-width: var(--app-touch-target);
+    min-height: var(--app-touch-target);
   }
 
   .mobile-bank-shell
@@ -218,6 +300,20 @@ body {
     padding-bottom: max(24px, calc(var(--app-safe-bottom) + 16px));
     padding-left: max(18px, calc(var(--app-safe-left) + 16px));
     overflow-y: auto;
+  }
+
+  .mobile-bank-shell input:not([type="checkbox"]):not([type="radio"]),
+  .mobile-bank-shell select,
+  .mobile-bank-shell textarea,
+  .login-card input:not([type="checkbox"]):not([type="radio"]) {
+    font-size: max(16px, 1em);
+  }
+
+  .mobile-bank-shell button,
+  .mobile-bank-shell a,
+  .login-card button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(116, 34, 132, 0.14);
   }
 }
 
@@ -258,20 +354,74 @@ body {
   }
 
   .mobile-bank-shell .transfer-amount-field {
-    margin-top: clamp(38px, 8dvh, 58px);
+    margin-top: clamp(30px, 7dvh, 52px);
   }
 
   .mobile-bank-shell .transfer-amount-footer {
-    padding-bottom: 8px;
+    padding-bottom: calc(max(14px, var(--app-safe-bottom)) + 6px);
   }
 }
 
 @media (orientation: landscape) and (max-height: 540px) {
   .site-stage,
-  .banking-stage,
+  .banking-stage {
+    width: 100%;
+    height: var(--app-viewport-height);
+    padding: 0;
+    overflow: hidden;
+  }
+
   .bank-app,
   .mobile-bank-shell {
+    width: 100%;
+    height: 100%;
     min-height: var(--app-viewport-height);
     max-height: var(--app-viewport-height);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .mobile-bank-shell.view-transfer
+    .bank-scroll-area:has(.transfer-amount-screen) {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .mobile-bank-shell .transfer-amount-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.82fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+
+  .mobile-bank-shell
+    .transfer-amount-screen
+    .transfer-flow-header {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-bank-shell .transfer-amount-footer {
+    align-self: stretch;
+    justify-content: center;
+    border-left: 1px solid #eeeaf0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bank-shell *,
+  .mobile-bank-shell *::before,
+  .mobile-bank-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
