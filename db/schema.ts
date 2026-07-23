@@ -1,0 +1,280 @@
+import { sql } from "drizzle-orm";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  sellerCode: text("seller_code").notNull(),
+  username: text("username").notNull(),
+  displayName: text("display_name").notNull(),
+  email: text("email").notNull().default(""),
+  role: text("role").notNull(),
+  isOwner: integer("is_owner", { mode: "boolean" }).notNull().default(false),
+  ownerId: text("owner_id"),
+  status: text("status").notNull().default("pending"),
+  passwordHash: text("password_hash").notNull(),
+  passwordSalt: text("password_salt").notNull(),
+  pinHash: text("pin_hash"),
+  pinSalt: text("pin_salt"),
+  credits: integer("credits").notNull().default(0),
+  deviceId: text("device_id"),
+  devicePublicKey: text("device_public_key"),
+  fingerprintIdHash: text("fingerprint_id_hash"),
+  telegramUserId: text("telegram_user_id"),
+  referralCode: text("referral_code"),
+  referredByUserId: text("referred_by_user_id"),
+  accessExpiresAt: text("access_expires_at"),
+  mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
+  mustSetPin: integer("must_set_pin", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  activatedAt: text("activated_at"),
+  deletedAt: text("deleted_at"),
+}, (table) => [
+  uniqueIndex("users_login_unique").on(table.sellerCode, table.username),
+  uniqueIndex("users_device_unique").on(table.deviceId),
+  uniqueIndex("users_fingerprint_unique").on(table.fingerprintIdHash),
+  uniqueIndex("users_telegram_user_unique").on(table.telegramUserId),
+  uniqueIndex("users_referral_code_unique").on(table.referralCode),
+  index("users_owner_role_idx").on(table.ownerId, table.role, table.deletedAt),
+]);
+
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+  pinVerifiedAt: text("pin_verified_at"),
+  unlockedUntil: text("unlocked_until"),
+});
+
+export const authRateLimits = sqliteTable("auth_rate_limits", {
+  bucket: text("bucket").notNull(),
+  subjectHash: text("subject_hash").notNull(),
+  windowStartedAt: integer("window_started_at").notNull(),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("auth_rate_limits_subject_unique").on(table.bucket, table.subjectHash),
+  index("auth_rate_limits_updated_idx").on(table.updatedAt),
+]);
+
+export const paymentDirectory = sqliteTable("payment_directory", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  phoneE164: text("phone_e164").notNull(),
+  discoverable: integer("discoverable", { mode: "boolean" }).notNull().default(true),
+  verifiedAt: text("verified_at").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("payment_directory_user_unique").on(table.userId),
+  uniqueIndex("payment_directory_phone_unique").on(table.phoneE164),
+]);
+
+export const recipientLookupAttempts = sqliteTable("recipient_lookup_attempts", {
+  id: text("id").primaryKey(),
+  requesterUserId: text("requester_user_id").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [index("recipient_lookup_requester_idx").on(table.requesterUserId, table.createdAt)]);
+
+export const savedPaymentRecipients = sqliteTable("saved_payment_recipients", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  phoneE164: text("phone_e164").notNull(),
+  displayName: text("display_name").notNull().default("Número nuevo"),
+  source: text("source").notNull().default("manual"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("saved_payment_recipients_user_phone_unique").on(table.userId, table.phoneE164),
+  index("saved_payment_recipients_user_updated_idx").on(table.userId, table.updatedAt),
+]);
+
+export const accountBalances = sqliteTable("account_balances", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  balanceCents: integer("balance_cents").notNull().default(3913),
+  isConfigured: integer("is_configured").notNull().default(0),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  check("account_balances_non_negative_check", sql`${table.balanceCents} >= 0`),
+  check("account_balances_maximum_check", sql`${table.balanceCents} <= 99999999999`),
+]);
+
+export const accountMovements = sqliteTable("account_movements", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  recipientName: text("recipient_name").notNull(),
+  recipientReference: text("recipient_reference").notNull(),
+  recipientUserId: text("recipient_user_id").references(() => users.id, { onDelete: "set null" }),
+  savedRecipientId: text("saved_recipient_id").references(() => savedPaymentRecipients.id, { onDelete: "set null" }),
+  destination: text("destination").notNull().default("Yape"),
+  amountCents: integer("amount_cents").notNull(),
+  message: text("message").notNull().default(""),
+  securityCode: text("security_code").notNull(),
+  operationNumber: text("operation_number").notNull(),
+  idempotencyKey: text("idempotency_key"),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("account_movements_operation_unique").on(table.operationNumber),
+  uniqueIndex("account_movements_user_idempotency_unique").on(table.userId, table.idempotencyKey),
+  index("account_movements_user_created_idx").on(table.userId, table.createdAt),
+  index("account_movements_recipient_user_idx").on(table.recipientUserId),
+  check("account_movements_positive_amount_check", sql`${table.amountCents} > 0`),
+]);
+
+export const accountHistoryState = sqliteTable("account_history_state", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  clearedAt: text("cleared_at").notNull(),
+});
+
+export const creditLedger = sqliteTable("credit_ledger", {
+  id: text("id").primaryKey(),
+  sellerId: text("seller_id").notNull(),
+  delta: integer("delta").notNull(),
+  balanceAfter: integer("balance_after").notNull(),
+  reason: text("reason").notNull(),
+  referenceId: text("reference_id").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("credit_ledger_reference_unique").on(table.reason, table.referenceId)]);
+
+export const activations = sqliteTable("activations", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().unique(),
+  sellerId: text("seller_id").notNull(),
+  creditsCharged: integer("credits_charged").notNull().default(1),
+  createdAt: text("created_at").notNull(),
+});
+
+export const permanentAccessTokens = sqliteTable("permanent_access_tokens", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull(),
+  tokenHint: text("token_hint").notNull(),
+  sellerId: text("seller_id").notNull(),
+  userId: text("user_id").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  redeemedAt: text("redeemed_at"),
+}, (table) => [
+  uniqueIndex("permanent_access_tokens_hash_unique").on(table.tokenHash),
+  index("permanent_access_tokens_seller_idx").on(table.sellerId, table.createdAt),
+  index("permanent_access_tokens_user_idx").on(table.userId, table.createdAt),
+]);
+
+export const passwordResetRequests = sqliteTable("password_reset_requests", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  sellerId: text("seller_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  priceCredits: integer("price_credits").notNull().default(1),
+  createdAt: text("created_at").notNull(),
+  approvedAt: text("approved_at"),
+  approvedBy: text("approved_by"),
+}, (table) => [index("password_reset_seller_idx").on(table.sellerId, table.status)]);
+
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  tokenHash: text("token_hash").notNull(),
+  subjectHash: text("subject_hash").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  consumedBy: text("consumed_by"),
+}, (table) => [
+  uniqueIndex("password_reset_tokens_hash_unique").on(table.tokenHash),
+  index("password_reset_tokens_user_idx").on(table.userId, table.createdAt),
+  index("password_reset_tokens_expiry_idx").on(table.expiresAt),
+]);
+
+export const accountInvitations = sqliteTable("account_invitations", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  consumedBy: text("consumed_by"),
+}, (table) => [
+  uniqueIndex("account_invitations_token_unique").on(table.tokenHash),
+  index("account_invitations_user_idx").on(table.userId, table.createdAt),
+  index("account_invitations_expiry_idx").on(table.expiresAt),
+]);
+
+export const qrContacts = sqliteTable("qr_contacts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  holderName: text("holder_name").notNull(),
+  phoneE164: text("phone_e164"),
+  provider: text("provider").notNull(),
+  recipientUserId: text("recipient_user_id")
+    .references(() => users.id, { onDelete: "set null" }),
+  qrPayloadCiphertext: text("qr_payload_ciphertext").notNull(),
+  qrPayloadIv: text("qr_payload_iv").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  encryptionVersion: integer("encryption_version").notNull().default(1),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("qr_contacts_user_payload_unique").on(table.userId, table.payloadHash),
+  index("qr_contacts_user_updated_idx").on(table.userId, table.updatedAt),
+  index("qr_contacts_recipient_idx").on(table.recipientUserId),
+  check("qr_contacts_provider_check", sql`${table.provider} in ('Mi Banco','Yape','Plin','BCP','BBVA','Interbank','Scotiabank','Bim','Banco Falabella','Banco Pichincha','Dale!','Izipay','Agora / Oh!','Tunki')`),
+  check("qr_contacts_encryption_version_check", sql`${table.encryptionVersion} = 1`),
+]);
+
+export const telegramIdentities = sqliteTable("telegram_identities", {
+  telegramUserId: text("telegram_user_id").primaryKey(),
+  userId: text("user_id").notNull().unique(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [index("telegram_identity_user_idx").on(table.userId)]);
+
+export const telegramUpdates = sqliteTable("telegram_updates", {
+  updateId: text("update_id").primaryKey(),
+  receivedAt: text("received_at").notNull(),
+});
+
+export const telegramGroupMembers = sqliteTable("telegram_group_members", {
+  telegramUserId: text("telegram_user_id").primaryKey(),
+  chatId: text("chat_id").notNull(),
+  username: text("username"),
+  displayName: text("display_name"),
+  firstSeenAt: text("first_seen_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+}, (table) => [
+  index("telegram_group_members_chat_idx").on(table.chatId, table.lastSeenAt),
+]);
+
+export const referralRedemptions = sqliteTable("referral_redemptions", {
+  id: text("id").primaryKey(),
+  referrerUserId: text("referrer_user_id").notNull(),
+  redeemerTelegramUserId: text("redeemer_telegram_user_id").notNull(),
+  redeemedByUserId: text("redeemed_by_user_id"),
+  monthKey: text("month_key").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("referral_redemptions_unique").on(table.referrerUserId, table.redeemerTelegramUserId, table.monthKey),
+  index("referral_redemptions_referrer_month_idx").on(table.referrerUserId, table.monthKey),
+]);
+
+export const managerAuditLog = sqliteTable("manager_audit_log", {
+  id: text("id").primaryKey(),
+  telegramUserId: text("telegram_user_id").notNull(),
+  command: text("command").notNull(),
+  outcome: text("outcome").notNull(),
+  createdAt: text("created_at").notNull(),
+});

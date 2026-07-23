@@ -1,0 +1,394 @@
+.client-manager-page {
+  min-height: 100svh;
+  padding: 32px 18px;
+  color: #222034;
+  background: linear-gradient(145deg, #f4eef8 0%, #fbfafc 48%, #edf9f7 100%);
+}
+
+.client-manager-shell {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+}
+
+.client-manager-header,
+.client-manager-list-heading,
+.client-manager-item,
+.client-manager-header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.client-manager-header {
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.client-manager-header h1,
+.client-manager-form h2,
+.client-manager-list h2 {
+  margin: 0;
+}
+
+.client-manager-header div:first-child > span {
+  color: #742284;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
+
+.client-manager-header h1 {
+  margin-top: 4px;
+  font-size: clamp(26px, 5vw, 40px);
+}
+
+.client-manager-header-actions {
+  gap: 12px;
+}
+
+.client-manager-header-actions strong,
+.client-manager-header-actions a {
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.client-manager-header-actions strong {
+  color: #5d176a;
+  background: #eadcf0;
+}
+
+.client-manager-header-actions a {
+  color: white;
+  background: #742284;
+}
+
+.client-manager-form,
+.client-manager-list {
+  padding: 24px;
+  border: 1px solid rgba(116, 34, 132, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 48px rgba(61, 29, 70, 0.09);
+}
+
+.client-manager-section {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.client-manager-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.client-manager-form-title {
+  grid-column: 1 / -1;
+}
+
+.client-manager-form-title p {
+  margin: 7px 0 0;
+  color: #6f6875;
+  font-size: 14px;
+}
+
+.client-manager-form label {
+  display: grid;
+  gap: 7px;
+  color: #625b69;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.client-manager-form input {
+  min-width: 0;
+  height: 48px;
+  padding: 0 13px;
+  border: 1px solid #ded7e2;
+  border-radius: 11px;
+  color: #24202a;
+  background: white;
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+.client-manager-form input:focus {
+  border-color: #742284;
+  box-shadow: 0 0 0 3px rgba(116, 34, 132, 0.12);
+}
+
+.client-manager-form > button {
+  min-height: 48px;
+  align-self: end;
+  border: 0;
+  border-radius: 11px;
+  color: white;
+  background: #742284;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.client-manager-form button:disabled,
+.client-manager-item button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.client-manager-notice {
+  margin: 16px 0 0;
+  padding: 13px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.client-manager-notice.is-success {
+  color: #075e55;
+  background: #dff7f2;
+}
+
+.client-manager-notice.is-error {
+  color: #8b1d2c;
+  background: #fde8eb;
+}
+
+.client-invitation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 1.5fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(7, 128, 110, 0.2);
+  border-radius: 14px;
+  background: #e8faf6;
+}
+
+.client-invitation > div {
+  display: grid;
+  gap: 4px;
+}
+
+.client-invitation small {
+  color: #4e706a;
+  line-height: 1.35;
+}
+
+.client-invitation input {
+  min-width: 0;
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid #b7ddd6;
+  border-radius: 9px;
+  background: white;
+}
+
+.client-invitation button {
+  height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  color: white;
+  background: #07806e;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.client-manager-list {
+  margin-top: 18px;
+}
+
+.client-manager-list-heading {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.client-manager-list-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.client-manager-list-heading small {
+  color: #77707d;
+  font-weight: 500;
+}
+
+.client-manager-list-heading button,
+.client-manager-item > button {
+  border: 0;
+  border-radius: 9px;
+  color: #742284;
+  background: #efe4f3;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.client-manager-list-heading > span {
+  color: #77707d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.client-manager-list-heading button {
+  padding: 9px 12px;
+}
+
+.client-manager-item {
+  gap: 13px;
+  padding: 14px 0;
+  border-top: 1px solid #eee9f0;
+}
+
+.client-manager-avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: #742284;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.client-manager-item > div {
+  min-width: 0;
+  display: grid;
+  flex: 1;
+  gap: 3px;
+}
+
+.client-manager-item small {
+  overflow: hidden;
+  color: #77707d;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-status {
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.client-status.is-active {
+  color: #08645a;
+  background: #dcf7f1;
+}
+
+.client-status.is-pending {
+  color: #805312;
+  background: #fff0cc;
+}
+
+.client-status.is-disabled {
+  color: #7f2630;
+  background: #f9dfe3;
+}
+
+.client-status.is-approved {
+  color: #195b86;
+  background: #dfeffb;
+}
+
+.client-status.is-completed {
+  color: #08645a;
+  background: #dcf7f1;
+}
+
+.client-status.is-cancelled {
+  color: #7f2630;
+  background: #f9dfe3;
+}
+
+.client-manager-item > button {
+  padding: 9px 13px;
+}
+
+.seller-credit-balance {
+  color: #5d176a;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.seller-credit-form {
+  display: flex;
+  gap: 8px;
+}
+
+.seller-credit-form input {
+  width: 112px;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #ded7e2;
+  border-radius: 9px;
+  font: inherit;
+}
+
+.seller-credit-form button {
+  padding: 0 13px;
+  border: 0;
+  border-radius: 9px;
+  color: #742284;
+  background: #efe4f3;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.client-manager-empty {
+  margin: 22px 0 8px;
+  color: #77707d;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .client-manager-page {
+    padding: 20px 12px;
+  }
+
+  .client-manager-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .client-manager-form {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .client-invitation {
+    grid-template-columns: 1fr;
+  }
+
+  .client-manager-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .client-manager-item > div {
+    flex-basis: calc(100% - 58px);
+  }
+
+  .seller-credit-balance {
+    margin-left: 55px;
+  }
+
+  .seller-credit-form {
+    width: 100%;
+    margin-left: 55px;
+  }
+
+  .seller-credit-form input {
+    flex: 1;
+  }
+
+  .client-status {
+    margin-left: 55px;
+  }
+}

@@ -1,0 +1,3174 @@
+/*
+ * APK fidelity layer
+ *
+ * This file is intentionally limited to visual overrides. The legacy palette
+ * (#790699), design-system palette (#920bc1), and teal action colours are the
+ * values recovered from the extracted Android resources. Measurements target
+ * the 412 x 892 logical viewport visible in the supplied reference photos.
+ */
+
+@font-face {
+  font-family: "Yape APK";
+  src: url("/assets/apk/fonts/yape_regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+}
+
+/* Ajustes finales solicitados: acciones inferiores de inicio, escáner real y avisos de compartir. */
+.mobile-bank-shell .home-account-sheet {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+.mobile-bank-shell .home-main-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  min-height: auto;
+  margin: 22px 0 0;
+  padding: 0;
+  gap: 16px;
+  background: transparent;
+}
+
+.mobile-bank-shell .home-main-actions a {
+  min-height: 41px;
+  height: 41px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mobile-bank-shell .home-main-actions a .apk-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.mobile-bank-shell.view-scanner .bank-scroll-area {
+  overflow: hidden;
+}
+
+.mobile-bank-shell .reference-scanner-view {
+  position: relative;
+}
+
+.mobile-bank-shell .reference-scanner-view > header {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: 20px;
+  left: 20px;
+  z-index: 4;
+}
+
+.mobile-bank-shell .scanner-live-frame {
+  height: min(68vh, 520px);
+  margin-top: 76px;
+  overflow: hidden;
+  background: #020203;
+}
+
+.mobile-bank-shell .scanner-live-frame ~ .scanner-frame:not(.scanner-live-frame),
+.mobile-bank-shell .scanner-live-actions ~ .scanner-actions:not(.scanner-live-actions) {
+  display: none;
+}
+
+.mobile-bank-shell .scanner-video,
+.mobile-bank-shell .scanner-upload-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.mobile-bank-shell .scanner-video.is-ready,
+.mobile-bank-shell .scanner-upload-preview {
+  opacity: 0.68;
+}
+
+.mobile-bank-shell .scanner-file-input {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mobile-bank-shell .scanner-live-actions {
+  margin-top: auto;
+}
+
+.mobile-bank-shell .qr-share-notice {
+  width: calc(100% - 44px);
+  margin: 14px auto 0;
+}
+
+/* La lista expandida debe medir lo mismo que su tarjeta; evita cortar los importes. */
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 4.72vw !important;
+  overflow: hidden !important;
+}
+
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-item {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  gap: 2vw !important;
+}
+
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-item > span:first-child {
+  width: auto !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list .money-in,
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list .money-out {
+  width: auto !important;
+  min-width: max-content !important;
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+/* Hoja "Ver todo" recuperada del MHTML 2026-07-21 20:43. */
+.mobile-bank-shell.view-home .all-services-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 120;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow-x: hidden;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  border-radius: clamp(18px, 5vw, 21px) clamp(18px, 5vw, 21px) 0 0;
+  background: rgb(246, 243, 250);
+  animation: all-services-slide-up 1s ease forwards;
+  translate: 0 var(--all-services-drag, 0);
+  transition: translate 220ms ease-out;
+  touch-action: none;
+}
+
+.mobile-bank-shell.view-home .all-services-sheet.is-dragging {
+  transition: none;
+}
+
+.mobile-bank-shell.view-home .all-services-sheet.is-closing {
+  pointer-events: none;
+  animation: all-services-slide-down 650ms ease-in forwards;
+}
+
+@keyframes all-services-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes all-services-slide-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+.mobile-bank-shell.view-home .all-services-drag-handle {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  min-height: clamp(44px, 12.2vw, 50px);
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(10px, 3vw, 13px) 0 clamp(28px, 8vw, 34px);
+  border: 0;
+  background: rgb(246, 243, 250);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.mobile-bank-shell.view-home .all-services-drag-handle span {
+  display: block;
+  width: clamp(36px, 10vw, 42px);
+  height: clamp(4px, 1.2vw, 5px);
+  border-radius: 8px;
+  background: rgb(165, 160, 176);
+}
+
+.mobile-bank-shell.view-home .all-services-content {
+  width: 100%;
+  height: calc(100% - clamp(44px, 12.2vw, 50px));
+  padding: 0 0 max(24px, env(safe-area-inset-bottom, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.mobile-bank-shell.view-home .all-services-section {
+  width: 100%;
+  padding: 0;
+}
+
+.mobile-bank-shell.view-home .all-services-section h2 {
+  margin: 0;
+  padding: clamp(10px, 3vw, 13px) clamp(7px, 2vw, 9px);
+  color: rgb(44, 31, 64);
+  font-family: Roboto, sans-serif;
+  font-size: clamp(16px, 4.7vw, 19px);
+  font-weight: 700;
+  line-height: normal;
+  text-align: left;
+}
+
+.mobile-bank-shell.view-home .all-services-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  align-items: start;
+  padding: clamp(8px, 2.5vw, 11px) 0;
+}
+
+.mobile-bank-shell.view-home .all-services-item {
+  box-sizing: border-box;
+  display: flex;
+  min-width: 0;
+  min-height: clamp(80px, 22vw, 91px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: clamp(5px, 1.5vw, 7px);
+  padding: 0 clamp(3px, 1vw, 5px) clamp(7px, 2vw, 9px);
+  border: 0;
+  color: rgb(44, 31, 64);
+  background: transparent;
+  font-family: Roboto, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mobile-bank-shell.view-home .all-services-item-icon {
+  box-sizing: border-box;
+  display: flex;
+  width: clamp(43px, 11.5vw, 48px);
+  height: clamp(43px, 11.5vw, 48px);
+  flex: 0 0 clamp(43px, 11.5vw, 48px);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: clamp(10px, 3vw, 13px);
+  background: rgb(255, 255, 255);
+  box-shadow: rgb(223, 223, 223) 0 0 6px 0.4px;
+}
+
+.mobile-bank-shell.view-home .all-services-item-icon img,
+.mobile-bank-shell.view-home .all-services-item-icon .apk-lottie,
+.mobile-bank-shell.view-home .all-services-item-icon .apk-lottie svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mobile-bank-shell.view-home .all-services-item strong {
+  max-width: clamp(78px, 22vw, 91px);
+  color: rgb(44, 31, 64);
+  font-family: Roboto, sans-serif;
+  font-size: clamp(12.5px, 3.5vw, 14.5px);
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: normal;
+  text-align: center;
+}
+
+/* Un solo fondo continuo en Inicio: elimina la franja lila sobre las acciones fijas. */
+.mobile-bank-shell.view-home,
+.mobile-bank-shell.view-home .bank-scroll-area,
+.mobile-bank-shell.view-home .home-account-sheet,
+.mobile-bank-shell.view-home .home-main-actions {
+  background-color: rgb(255, 255, 255) !important;
+}
+
+.mobile-bank-shell.view-home .home-main-actions {
+  border-top: 0 !important;
+  box-shadow: none !important;
+}
+
+/* El comprobante debe cubrir hasta el último píxel inferior del dispositivo. */
+.mobile-bank-shell .bank-scroll-area:has(.yape-voucher) {
+  background-color: #790699 !important;
+}
+
+.mobile-bank-shell .yape-voucher {
+  width: 100% !important;
+  min-height: 100dvh !important;
+  background-color: #790699 !important;
+}
+
+.mobile-bank-shell .bank-scroll-area:has(.yape-success-voucher),
+.mobile-bank-shell .yape-success-voucher,
+.mobile-bank-shell .yape-success-voucher .voucher-content {
+  min-height: 100dvh !important;
+  background-color: #660185 !important;
+}
+
+/* El comprobante histórico ofrece el mismo contenido, sin confeti y con el logo estático del MHTML. */
+.mobile-bank-shell .movement-voucher.yape-success-voucher .voucher-logo-badge {
+  top: 34%;
+  left: 9.5%;
+  width: 14%;
+  max-width: 64px;
+  height: auto;
+  aspect-ratio: 94 / 122;
+  overflow: visible;
+}
+
+.mobile-bank-shell .movement-voucher .voucher-logo-static {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.mobile-bank-shell .movement-voucher.yape-success-voucher .voucher-content {
+  padding-bottom: 0;
+}
+
+.mobile-bank-shell .voucher-share-capture {
+  width: 100%;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  background: #660185;
+}
+
+.mobile-bank-shell .voucher-notice {
+  position: fixed;
+  z-index: 1000;
+  right: 16px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  left: 16px;
+  width: auto;
+  max-width: 398px;
+  margin: 0 auto;
+  box-shadow: 0 8px 24px rgba(42, 18, 50, 0.24);
+}
+
+.mobile-bank-shell .movement-voucher .voucher-new-yape-button,
+.mobile-bank-shell .movement-voucher .voucher-help-link,
+.mobile-bank-shell .movement-voucher .voucher-more-section {
+  box-sizing: border-box;
+  width: 90%;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.mobile-bank-shell .movement-voucher .voucher-new-yape-button {
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
+.mobile-bank-shell .movement-voucher .voucher-more-section {
+  margin-top: min(5vw, 21px);
+  margin-bottom: min(5vw, 21px);
+}
+
+.mobile-bank-shell .movement-voucher .voucher-single-promo,
+.mobile-bank-shell .movement-voucher .voucher-single-promo-frame {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  margin-top: min(2vw, 9px);
+  border-radius: min(4vw, 17px);
+}
+
+.mobile-bank-shell .movement-voucher .voucher-single-promo-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: inherit;
+  object-fit: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bank-shell.view-home .all-services-sheet,
+  .mobile-bank-shell.view-home .all-services-sheet.is-closing {
+    animation-duration: 1ms;
+  }
+}
+
+/* Movimientos completos: fidelidad al MHTML yap3 2026-07-21 19:21. */
+.mobile-bank-shell.view-movements .bank-scroll-area {
+  overflow-y: auto !important;
+  background: rgb(255, 255, 255) !important;
+}
+
+.mobile-bank-shell.view-movements .reference-movements-view {
+  min-height: 100dvh !important;
+  padding: 0 !important;
+  background-color: rgb(255, 255, 255) !important;
+  font-family: Roboto, sans-serif !important;
+}
+
+.mobile-bank-shell.view-movements .reference-movements-header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: calc(4vw + env(safe-area-inset-top, 0px)) 4vw 4vw !important;
+  color: rgb(255, 255, 255) !important;
+  background: linear-gradient(rgb(117, 35, 134), 70%, rgb(75, 26, 112)) !important;
+}
+
+.mobile-bank-shell.view-movements .reference-movements-back,
+.mobile-bank-shell.view-movements .reference-movements-header-spacer {
+  display: flex !important;
+  width: 10vw !important;
+  height: 10vw !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.mobile-bank-shell.view-movements .reference-movements-back .apk-icon {
+  width: 6vw !important;
+  height: 6vw !important;
+  object-fit: contain !important;
+  filter: brightness(10) !important;
+}
+
+.mobile-bank-shell.view-movements .reference-movements-header h1 {
+  flex: 1 1 0% !important;
+  margin: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 5vw !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-align: center !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movements-list {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  padding: 0 0 calc(env(safe-area-inset-bottom, 0px) + 8vw) !important;
+  background: rgb(255, 255, 255) !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-group {
+  margin: 0 0 2vw !important;
+  padding: 0 !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-month {
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 4vw 5vw 2vw !important;
+  color: rgb(116, 34, 132) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 3.5vw !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  letter-spacing: 0.05em !important;
+  text-align: left !important;
+  text-transform: uppercase !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-item {
+  box-sizing: border-box !important;
+  display: flex !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 4vw 5vw !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgb(240, 240, 240) !important;
+  border-radius: 0 !important;
+  background: rgb(255, 255, 255) !important;
+  font-family: Roboto, sans-serif !important;
+  cursor: pointer !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-item:active {
+  background-color: rgb(249, 249, 249) !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-info {
+  display: flex !important;
+  min-width: 0 !important;
+  max-width: 64vw !important;
+  flex-direction: column !important;
+  gap: 0.5vw !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-info strong {
+  max-width: 64vw !important;
+  overflow: hidden !important;
+  color: rgb(26, 26, 46) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 4.2vw !important;
+  font-weight: 500 !important;
+  font-style: normal !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-info small {
+  color: rgb(153, 153, 153) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 3.5vw !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  white-space: nowrap !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-amount {
+  min-width: 28vw !important;
+  color: rgb(26, 26, 46) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 4.2vw !important;
+  font-weight: 700 !important;
+  font-style: normal !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-amount.is-negative {
+  color: rgb(229, 57, 53) !important;
+}
+
+.mobile-bank-shell.view-movements .reference-full-movement-amount.is-positive {
+  color: rgb(67, 160, 71) !important;
+}
+
+/* Corrección final de esta pasada: scanner fullscreen y acciones de inicio clavadas. */
+.mobile-bank-shell .movement-row-chevron {
+  display: none !important;
+}
+
+.mobile-bank-shell .home-account-sheet {
+  min-height: 330px !important;
+  padding: 14px 12px calc(100px + env(safe-area-inset-bottom)) !important;
+}
+
+.mobile-bank-shell .home-main-actions {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 16px !important;
+  width: 100% !important;
+  margin: 22px 0 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.mobile-bank-shell .home-main-actions a {
+  width: 100% !important;
+  height: 41px !important;
+  min-height: 41px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.mobile-bank-shell.view-scanner,
+.mobile-bank-shell.view-scanner .bank-scroll-area,
+.mobile-bank-shell .reference-scanner-view {
+  width: 100% !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
+.mobile-bank-shell .reference-scanner-view {
+  padding: 0 !important;
+}
+
+.mobile-bank-shell .reference-scanner-view > header {
+  position: fixed !important;
+  top: max(10px, env(safe-area-inset-top)) !important;
+  right: 10px !important;
+  left: auto !important;
+  z-index: 20 !important;
+  width: 48px !important;
+  min-height: 48px !important;
+}
+
+.mobile-bank-shell .reference-scanner-view > header span {
+  display: none !important;
+}
+
+.mobile-bank-shell .reference-scanner-view > header a {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.mobile-bank-shell .scanner-live-frame {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  aspect-ratio: auto !important;
+  background: #000 !important;
+}
+
+.mobile-bank-shell .scanner-live-frame::before,
+.mobile-bank-shell .scanner-live-frame::after {
+  display: none !important;
+}
+
+.mobile-bank-shell .scanner-live-frame .scanner-video,
+.mobile-bank-shell .scanner-live-frame .scanner-upload-preview {
+  opacity: 1 !important;
+}
+
+.mobile-bank-shell .scanner-live-frame i {
+  top: 37% !important;
+  left: 22% !important;
+  right: 22% !important;
+  z-index: 2 !important;
+}
+
+.mobile-bank-shell .scanner-live-frame p {
+  position: absolute !important;
+  top: 45% !important;
+  left: 50% !important;
+  z-index: 2 !important;
+  width: 190px !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+}
+
+.mobile-bank-shell .scanner-live-actions {
+  position: fixed !important;
+  right: 16px !important;
+  bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+  left: 16px !important;
+  z-index: 20 !important;
+  margin: 0 !important;
+}
+
+/* Copiado del MHTML de referencia: footer fijo y tipografía exacta del home. */
+.mobile-bank-shell.view-home .bank-scroll-area {
+  padding-bottom: calc(18vw + env(safe-area-inset-bottom, 0px) + 2vh) !important;
+}
+
+.mobile-bank-shell.view-home .home-account-sheet {
+  min-height: 0 !important;
+  padding: 0 0 calc(18vw + env(safe-area-inset-bottom, 0px) + 2vh) !important;
+  border-radius: 5vw 5vw 0 0 !important;
+  background: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+}
+
+.mobile-bank-shell.view-home .account-disclosure {
+  width: 90vw !important;
+  min-height: 14.5vw !important;
+  margin: 3vw auto 0 !important;
+  border: 0.3px solid rgba(238, 238, 238, 0.7) !important;
+  border-radius: 1.94vw !important;
+  background-color: transparent !important;
+  box-shadow: rgb(223, 223, 223) 0 0.8vw 1.5vw 0.1vw !important;
+}
+
+.mobile-bank-shell.view-home .account-disclosure + .account-disclosure {
+  margin-top: 3vw !important;
+}
+
+.mobile-bank-shell.view-home .account-disclosure > button {
+  width: 87vw !important;
+  min-height: 14.5vw !important;
+  height: 14.5vw !important;
+  padding: 0 0 0 3vw !important;
+  justify-content: flex-start !important;
+  gap: 0 !important;
+  color: rgb(116, 34, 132) !important;
+  background-color: transparent !important;
+}
+
+.mobile-bank-shell.view-home .account-disclosure > button .apk-icon:first-child {
+  width: 6vw !important;
+  height: 6vw !important;
+  margin-right: 3vw !important;
+  object-fit: contain !important;
+}
+
+.mobile-bank-shell.view-home .account-disclosure > button strong {
+  width: -webkit-fill-available !important;
+  margin-left: 0 !important;
+  color: rgb(116, 34, 132) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 3.6vw !important;
+  font-weight: 600 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-align: left !important;
+}
+
+.mobile-bank-shell.view-home .account-disclosure > button > span {
+  width: 49vw !important;
+  color: rgb(34, 45, 65) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 3.6vw !important;
+  font-weight: 600 !important;
+  text-align: right !important;
+}
+
+.mobile-bank-shell.view-home .disclosure-chevron {
+  width: 4vw !important;
+  height: 4vw !important;
+  margin-left: auto !important;
+  object-fit: contain !important;
+}
+
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list {
+  box-sizing: border-box !important;
+  width: 95.28vw !important;
+  margin-left: 4.72vw !important;
+  padding: 0 !important;
+  border-top: 0.5px solid rgb(230, 230, 230) !important;
+  background: rgb(255, 255, 255) !important;
+}
+
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-item {
+  width: 100% !important;
+  min-height: 20vw !important;
+  height: 20vw !important;
+  padding: 0 !important;
+  border-bottom: 0.5px solid rgb(230, 230, 230) !important;
+  background-color: rgb(255, 255, 255) !important;
+}
+
+.mobile-bank-shell.view-home .simple-movement-item > span:first-child {
+  width: 60% !important;
+}
+
+.mobile-bank-shell.view-home .simple-movement-item strong {
+  color: rgb(34, 45, 65) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 3.8vw !important;
+  font-weight: 600 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+}
+
+.mobile-bank-shell.view-home .simple-movement-item small {
+  color: rgb(157, 156, 161) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 3.8vw !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+}
+
+.mobile-bank-shell.view-home .simple-movement-list .money-in,
+.mobile-bank-shell.view-home .simple-movement-list .money-out {
+  width: 40% !important;
+  color: rgb(34, 45, 65) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 3.8vw !important;
+  font-weight: 600 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-align: right !important;
+}
+
+.mobile-bank-shell.view-home .simple-movement-list .money-out {
+  color: rgb(176, 18, 76) !important;
+}
+
+.mobile-bank-shell.view-home .all-movements-link {
+  width: -webkit-fill-available !important;
+  min-height: 14vw !important;
+  color: rgb(36, 192, 181) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 3.8vw !important;
+  font-weight: 600 !important;
+  text-align: center !important;
+}
+
+.mobile-bank-shell.view-home .home-main-actions {
+  position: fixed !important;
+  right: auto !important;
+  bottom: 0 !important;
+  left: 50% !important;
+  z-index: 30 !important;
+  display: flex !important;
+  width: min(100vw, 412px) !important;
+  max-width: 412px !important;
+  height: clamp(66px, 18vw, 74px) !important;
+  min-height: clamp(66px, 18vw, 74px) !important;
+  margin: 0 !important;
+  padding: 0 clamp(18px, 4.72vw, 19.5px) calc(env(safe-area-inset-bottom, 0px) + 2vh) !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0 !important;
+  background-color: rgb(255, 255, 255) !important;
+  transform: translateX(-50%) !important;
+}
+
+.mobile-bank-shell.view-home .home-main-actions a {
+  width: min(43vw, 177px) !important;
+  height: clamp(41px, 12vw, 49px) !important;
+  min-height: clamp(41px, 12vw, 49px) !important;
+  border-radius: min(1vw, 4px) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: clamp(13px, 3.8vw, 15.6px) !important;
+  font-weight: 600 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+}
+
+.mobile-bank-shell.view-home .home-main-actions a .apk-icon {
+  width: min(4.9vw, 20px) !important;
+  height: min(4.9vw, 20px) !important;
+  margin-right: min(3vw, 12px) !important;
+}
+
+.mobile-bank-shell.view-home .home-main-actions .outline-teal-action {
+  border: min(0.5vw, 2px) solid rgb(36, 192, 181) !important;
+  color: rgb(36, 192, 181) !important;
+  background-color: rgb(255, 255, 255) !important;
+}
+
+.mobile-bank-shell.view-home .home-main-actions .solid-teal-action {
+  border: min(0.5vw, 2px) solid rgb(36, 192, 181) !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgb(36, 192, 181) !important;
+}
+
+@font-face {
+  font-family: "Yape APK";
+  src: url("/assets/apk/fonts/yape_bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+
+.mobile-bank-shell {
+  --primary-900: #480f54;
+  --primary-800: #5e186c;
+  --primary-700: #790699;
+  --primary-500: #920bc1;
+  --primary-soft: #f7ebf9;
+  --teal: #10cbb4;
+  --teal-dark: #00a691;
+  --surface: #ffffff;
+  --surface-alt: #f9f8fc;
+  --divider: #e0e0e0;
+  --text: #3d3341;
+  --muted: #7f777f;
+  --icon: #8b3d99;
+  --negative: #cc044e;
+  width: min(100%, 412px);
+  height: 100dvh;
+  min-height: 100svh;
+  max-height: 100dvh;
+  color: var(--text);
+  background: var(--surface-alt);
+  font-family: "Yape APK", "Yape", Roboto, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}
+
+.mobile-bank-shell button,
+.mobile-bank-shell input,
+.mobile-bank-shell a {
+  font: inherit;
+}
+
+.mobile-bank-shell .apk-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  flex: 0 0 auto;
+  object-fit: contain;
+  object-position: center;
+}
+
+.mobile-bank-shell .apk-illustration {
+  width: auto;
+  height: auto;
+  display: block;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.mobile-bank-shell .inner-header {
+  min-height: 84px;
+  padding: max(14px, env(safe-area-inset-top)) 16px 12px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .inner-header.is-compact {
+  min-height: 80px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-bottom: 10px;
+}
+
+.mobile-bank-shell .inner-header h1 {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.mobile-bank-shell .inner-back {
+  width: 40px;
+  height: 40px;
+  background: transparent;
+}
+
+.mobile-bank-shell .inner-back .apk-icon {
+  width: 25px;
+  height: 25px;
+}
+
+/* Home */
+
+.mobile-bank-shell .reference-home {
+  min-height: 100%;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .home-purple-zone {
+  padding: max(10px, env(safe-area-inset-top)) 0 12px;
+  background:
+    radial-gradient(circle at 88% 15%, rgba(236, 126, 255, 0.19), transparent 34%),
+    linear-gradient(180deg, var(--primary-500) 0%, var(--primary-700) 100%);
+}
+
+.mobile-bank-shell .reference-home-header {
+  grid-template-columns: 40px minmax(0, 1fr) 40px 40px;
+  gap: 6px;
+  min-height: 52px;
+  padding: 6px 14px;
+  background: linear-gradient(180deg, rgba(146, 11, 193, 0.98), rgba(121, 6, 153, 0.86));
+}
+
+.mobile-bank-shell .round-header-action {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.mobile-bank-shell .round-header-action .apk-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-bank-shell .home-search {
+  height: 40px;
+  gap: 8px;
+  padding: 0 13px;
+  border-radius: 21px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mobile-bank-shell .home-search .apk-icon {
+  width: 21px;
+  height: 21px;
+}
+
+.mobile-bank-shell .home-search input {
+  font-size: 16px;
+}
+
+.mobile-bank-shell .home-services-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px 6px;
+  padding: 16px 20px 0;
+}
+
+.mobile-bank-shell .home-service {
+  min-height: 96px;
+  gap: 7px;
+}
+
+.mobile-bank-shell .home-service .home-menu-icon {
+  width: 58px;
+  height: 58px;
+  padding: 7px;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(50, 0, 68, 0.15);
+}
+
+.mobile-bank-shell .home-service .home-menu-icon.is-full-tile {
+  padding: 0;
+}
+
+.mobile-bank-shell .home-service .home-menu-icon.is-frameless {
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mobile-bank-shell .home-service .home-menu-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mobile-bank-shell .home-menu-sticker {
+  font-size: 7px;
+}
+
+.mobile-bank-shell .home-service > strong {
+  max-width: 80px;
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.16;
+}
+
+.mobile-bank-shell .apk-banner-carousel {
+  gap: 0;
+  margin-top: 11px;
+  padding: 0;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: auto;
+  scroll-padding-inline-start: min(5vw, 22px);
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-bank-shell .apk-banner-carousel.is-auto-animating {
+  scroll-snap-type: none;
+}
+
+.mobile-bank-shell .apk-banner-carousel.is-user-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+}
+
+.mobile-bank-shell .apk-banner-carousel > img {
+  width: min(75vw, 322px);
+  min-width: min(75vw, 322px);
+  height: min(33vw, 142px);
+  flex: 0 0 min(75vw, 322px);
+  margin-right: min(6vw, 26px);
+  display: block;
+  border-radius: min(6vw, 26px);
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  box-shadow: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.mobile-bank-shell .apk-banner-carousel > img:first-child {
+  margin-left: min(5vw, 22px);
+}
+
+.mobile-bank-shell .apk-banner-carousel > .carousel-end-spacer {
+  min-width: min(5vw, 22px);
+  flex: 0 0 min(5vw, 22px);
+}
+
+.mobile-bank-shell .carousel-dots {
+  gap: min(1.5vw, 6px);
+  padding-top: 9px;
+}
+
+.mobile-bank-shell .carousel-dots i {
+  width: min(1.5vw, 6px);
+  height: min(1.5vw, 6px);
+}
+
+.mobile-bank-shell .carousel-dots i.is-active {
+  width: min(7vw, 30px);
+}
+
+.mobile-bank-shell .home-account-sheet {
+  min-height: 302px;
+  padding: 22px 18px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  background: #f7f8f7;
+  box-shadow: 0 -3px 14px rgba(47, 15, 57, 0.08);
+}
+
+.mobile-bank-shell .account-disclosure {
+  border-color: #e5e2e6;
+  border-radius: 9px;
+  box-shadow: 0 4px 10px rgba(38, 20, 48, 0.13);
+}
+
+.mobile-bank-shell .account-disclosure + .account-disclosure {
+  margin-top: 11px;
+}
+
+.mobile-bank-shell .account-disclosure > button {
+  min-height: 70px;
+  gap: 13px;
+  padding: 0 18px;
+  color: #553461;
+}
+
+.mobile-bank-shell .account-disclosure > button strong {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.mobile-bank-shell .account-disclosure > button > span {
+  font-size: 16px;
+}
+
+.mobile-bank-shell .movements-disclosure .simple-movement-list {
+  padding: 0 17px;
+}
+
+.mobile-bank-shell .movements-disclosure .simple-movement-item {
+  min-height: 66px;
+}
+
+.mobile-bank-shell .all-movements-link {
+  min-height: 44px;
+  margin-bottom: 10px;
+  color: var(--teal-dark);
+  background: transparent;
+  font-size: 15px;
+}
+
+.mobile-bank-shell .home-main-actions {
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 0 max(8px, env(safe-area-inset-bottom));
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .home-main-actions a {
+  min-height: 60px;
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.mobile-bank-shell .outline-teal-action {
+  border: 2px solid var(--teal-dark);
+  color: var(--teal-dark);
+}
+
+.mobile-bank-shell .solid-teal-action {
+  border: 2px solid var(--teal);
+  background: var(--teal);
+}
+
+/* Shared movement typography */
+
+.mobile-bank-shell .simple-movement-item {
+  min-height: 68px;
+  padding: 10px 0;
+}
+
+.mobile-bank-shell .simple-movement-item strong {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.mobile-bank-shell .simple-movement-item small {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.mobile-bank-shell .simple-movement-list .money-in,
+.mobile-bank-shell .simple-movement-list .money-out {
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.mobile-bank-shell .simple-movement-list .money-in {
+  color: var(--text);
+}
+
+.mobile-bank-shell .simple-movement-list .money-out {
+  color: var(--negative);
+}
+
+/* Movements */
+
+.mobile-bank-shell .reference-movements-view {
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .reference-movements-header {
+  min-height: 82px;
+  grid-template-columns: 42px minmax(0, 1fr) 42px 42px;
+  gap: 2px;
+  padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .reference-movements-header h1 {
+  font-size: 19px;
+}
+
+.mobile-bank-shell .reference-movements-header a,
+.mobile-bank-shell .reference-movements-header button {
+  width: 42px;
+  height: 42px;
+}
+
+.mobile-bank-shell .apk-movement-banner {
+  min-height: 116px;
+  margin: 16px 20px;
+  padding: 0;
+  border-radius: 9px;
+  background: transparent;
+}
+
+.mobile-bank-shell .apk-movement-banner > img {
+  width: 100%;
+  height: 116px;
+  display: block;
+  border-radius: inherit;
+  object-fit: cover;
+  object-position: center;
+}
+
+.mobile-bank-shell .reference-movement-month {
+  padding: 0 20px;
+}
+
+.mobile-bank-shell .reference-movement-month h2 {
+  min-height: 62px;
+  color: var(--primary-900);
+  font-size: 17px;
+}
+
+.mobile-bank-shell .reference-movement-month .simple-movement-item {
+  min-height: 88px;
+}
+
+/* Services */
+
+.mobile-bank-shell .reference-services-view {
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .services-purple-hero {
+  min-height: 252px;
+  padding-bottom: 18px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .services-search {
+  min-height: 56px;
+  margin: 0 20px 15px;
+  padding: 0 16px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.mobile-bank-shell .services-search input {
+  font-size: 17px;
+}
+
+.mobile-bank-shell .services-chips {
+  gap: 10px;
+  padding: 0 20px;
+}
+
+.mobile-bank-shell .services-chips button {
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.mobile-bank-shell .services-reference-sheet {
+  padding: 20px 20px calc(30px + env(safe-area-inset-bottom));
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .services-promo-note {
+  min-height: 88px;
+  padding: 13px 14px;
+  border-radius: 12px;
+}
+
+.mobile-bank-shell .services-promo-note p {
+  font-size: 14px;
+}
+
+.mobile-bank-shell .services-reference-sheet > h2 {
+  margin: 25px 0 13px;
+  font-size: 17px;
+}
+
+.mobile-bank-shell .recommended-services {
+  gap: 9px;
+}
+
+.mobile-bank-shell .recommended-services .service-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.mobile-bank-shell .recommended-services .apk-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.mobile-bank-shell .recommended-services strong {
+  font-size: 12px;
+}
+
+.mobile-bank-shell .recent-services-list {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mobile-bank-shell .recent-services-list button {
+  min-height: 88px;
+  padding: 12px 0;
+  background: transparent;
+}
+
+.mobile-bank-shell .recent-services-list strong {
+  font-size: 16px;
+}
+
+.mobile-bank-shell .recent-services-list small {
+  font-size: 13px;
+}
+
+/* Recharge */
+
+.mobile-bank-shell .reference-recharge-view {
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .recharge-purple-hero {
+  min-height: 380px;
+  padding-bottom: 24px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .recharge-purple-hero .inner-header {
+  min-height: 128px;
+  grid-template-rows: 42px auto;
+  padding: max(10px, env(safe-area-inset-top)) 22px 6px;
+}
+
+.mobile-bank-shell .recharge-purple-hero .inner-back {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.mobile-bank-shell .recharge-purple-hero .inner-header h1 {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self: end;
+  font-size: 29px;
+  line-height: 1.1;
+}
+
+.mobile-bank-shell .recharge-purple-hero .inner-header-spacer {
+  grid-row: 1;
+}
+
+.mobile-bank-shell .recharge-purple-hero > p {
+  padding: 0 22px;
+  font-size: 17px;
+  line-height: 1.42;
+}
+
+.mobile-bank-shell .recharge-person-cards {
+  gap: 16px;
+  padding: 24px 22px 0;
+}
+
+.mobile-bank-shell .recharge-person-cards button {
+  min-height: 122px;
+  border-radius: 13px;
+}
+
+.mobile-bank-shell .recharge-person-cards strong {
+  font-size: 16px;
+}
+
+.mobile-bank-shell .recharge-person-cards small {
+  font-size: 14px;
+}
+
+.mobile-bank-shell .recharge-reference-sheet {
+  padding: 0 22px calc(28px + env(safe-area-inset-bottom));
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .recharge-reference-sheet > h2 {
+  min-height: 64px;
+  font-size: 17px;
+}
+
+.mobile-bank-shell .recharge-empty-state {
+  min-height: 390px;
+}
+
+.mobile-bank-shell .recharge-empty-state .apk-illustration {
+  width: 76px;
+  height: 88px;
+}
+
+.mobile-bank-shell .recharge-empty-state p {
+  max-width: 310px;
+  margin-top: 28px;
+  font-size: 15px;
+}
+
+/* Recargar Transportes */
+
+.mobile-bank-shell .transport-purple-hero {
+  min-height: 260px;
+  padding-bottom: 22px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .transport-bus-icon {
+  width: 104px;
+  height: 104px;
+}
+
+.mobile-bank-shell .transport-purple-hero > p {
+  font-size: 16px;
+}
+
+.mobile-bank-shell .recharge-empty-state .apk-icon {
+  width: 40px;
+  height: 40px;
+}
+
+/* Profile and flat data */
+
+.mobile-bank-shell .reference-profile {
+  background: #fff;
+}
+
+.mobile-bank-shell .profile-safe-strip {
+  height: max(10px, env(safe-area-inset-top));
+  background: linear-gradient(90deg, var(--primary-700), var(--primary-500));
+}
+
+.mobile-bank-shell .profile-heading {
+  grid-template-rows: 42px auto;
+  padding: 12px 20px 24px;
+}
+
+.mobile-bank-shell .profile-back {
+  width: 40px;
+  height: 40px;
+}
+
+.mobile-bank-shell .profile-heading h1 {
+  font-size: 29px;
+  line-height: 1.05;
+}
+
+.mobile-bank-shell .profile-heading p,
+.mobile-bank-shell .profile-help-link {
+  font-size: 18px;
+}
+
+.mobile-bank-shell .profile-menu-section {
+  padding: 0 20px;
+}
+
+.mobile-bank-shell .profile-menu-section h2 {
+  padding: 17px 0 10px;
+  font-size: 18px;
+}
+
+.mobile-bank-shell .profile-settings-section {
+  margin-top: 20px;
+}
+
+.mobile-bank-shell .profile-menu-row {
+  min-height: 70px;
+  gap: 12px;
+}
+
+.mobile-bank-shell .profile-row-icon {
+  width: 42px;
+  flex-basis: 42px;
+}
+
+.mobile-bank-shell .profile-row-icon .apk-icon {
+  width: 27px;
+  height: 27px;
+}
+
+.mobile-bank-shell .profile-menu-row > strong {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.mobile-bank-shell .profile-row-badge {
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.mobile-bank-shell .profile-footer {
+  margin-top: 24px;
+  padding: 28px 20px calc(22px + env(safe-area-inset-bottom));
+  background: #f1f0f3;
+}
+
+.mobile-bank-shell .profile-footer p {
+  font-size: 14px;
+}
+
+.mobile-bank-shell .profile-footer button,
+.mobile-bank-shell .profile-footer a {
+  min-height: 54px;
+  font-size: 17px;
+}
+
+.mobile-bank-shell .reference-account-data {
+  padding: max(14px, env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom));
+}
+
+.mobile-bank-shell.profile-entry-animate .reference-profile {
+  animation: yape-screen-from-left 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-bank-shell.account-data-entry-animate .account-hub {
+  animation: yape-screen-from-right 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes yape-screen-from-left {
+  from { opacity: 0.35; transform: translateX(-100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes yape-screen-from-right {
+  from { opacity: 0.35; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.mobile-bank-shell .reference-account-data > header {
+  min-height: 50px;
+}
+
+.mobile-bank-shell .reference-account-data > header > a {
+  width: 40px;
+  height: 40px;
+}
+
+.mobile-bank-shell .reference-account-data > h1 {
+  margin: 18px 0 24px;
+  color: var(--primary-800);
+  font-size: 29px;
+}
+
+.mobile-bank-shell .account-data-list > div {
+  min-height: 92px;
+}
+
+.mobile-bank-shell .account-data-list strong {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.mobile-bank-shell .account-data-list span {
+  font-size: 16px;
+}
+
+/* Notifications and notification settings */
+
+.mobile-bank-shell .notifications-view {
+  background: #f1f2f2;
+}
+
+.mobile-bank-shell .notifications-view .inner-header {
+  min-height: 86px;
+}
+
+.mobile-bank-shell .notification-group + .notification-group {
+  margin-top: 14px;
+}
+
+.mobile-bank-shell .notification-group h2 {
+  min-height: 58px;
+  padding: 0 20px;
+  color: #4b3152;
+  font-size: 18px;
+}
+
+.mobile-bank-shell .notification-group article {
+  min-height: 94px;
+  gap: 20px;
+  padding: 16px 20px;
+}
+
+.mobile-bank-shell .notification-group strong {
+  font-size: 16px;
+}
+
+.mobile-bank-shell .notification-group span {
+  font-size: 16px;
+}
+
+.mobile-bank-shell .transfer-alerts-page > .inner-header {
+  min-height: 88px;
+}
+
+.mobile-bank-shell .simple-settings-body {
+  padding: 28px 20px;
+}
+
+.mobile-bank-shell .simple-settings-body > h2 {
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.mobile-bank-shell .setting-toggle-row.detailed {
+  min-height: 102px;
+  padding: 16px 18px;
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.mobile-bank-shell .setting-toggle-row.detailed strong {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.mobile-bank-shell .setting-toggle-row.detailed small {
+  font-size: 15px;
+}
+
+.mobile-bank-shell .switch-control {
+  width: 44px;
+  height: 25px;
+  flex-basis: 44px;
+}
+
+.mobile-bank-shell .switch-control span {
+  width: 19px;
+  height: 19px;
+}
+
+.mobile-bank-shell .switch-control.is-on {
+  background: var(--teal);
+}
+
+.mobile-bank-shell .switch-control.is-on span {
+  transform: translateX(19px);
+}
+
+/* Help */
+
+.mobile-bank-shell .reference-help-view {
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .reference-help-view .inner-header {
+  min-height: 120px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .reference-help-view .inner-header h1 {
+  text-align: center;
+}
+
+.mobile-bank-shell .help-reference-sheet {
+  padding: 0 20px calc(28px + env(safe-area-inset-bottom));
+}
+
+.mobile-bank-shell .help-section-title {
+  min-height: 64px;
+}
+
+.mobile-bank-shell .help-section-title h2,
+.mobile-bank-shell .help-reference-sheet > h2 {
+  font-size: 17px;
+}
+
+.mobile-bank-shell .help-section-title a {
+  font-size: 15px;
+}
+
+.mobile-bank-shell .help-reference-sheet > h2 {
+  min-height: 64px;
+}
+
+.mobile-bank-shell .help-menu-row {
+  min-height: 76px;
+  gap: 22px;
+  padding: 0 10px;
+}
+
+.mobile-bank-shell .help-menu-row .apk-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.mobile-bank-shell .help-menu-row span {
+  font-size: 17px;
+}
+
+/* Dollars */
+
+.mobile-bank-shell .reference-dollars-view {
+  min-height: 100dvh;
+  padding: max(16px, env(safe-area-inset-top)) 20px calc(34px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #8b00ed 0%, #7200dc 100%);
+}
+
+.mobile-bank-shell.view-dollars .bank-scroll-area {
+  background: linear-gradient(180deg, #8b00ed 0%, #7200dc 100%);
+}
+
+.mobile-bank-shell .full-purple-close {
+  width: 40px;
+  height: 40px;
+}
+
+.mobile-bank-shell .full-purple-close .apk-icon {
+  width: 27px;
+  height: 27px;
+}
+
+.mobile-bank-shell .dollars-illustration {
+  width: 152px;
+  height: 152px;
+  margin: 24px auto 10px;
+  border-radius: 0;
+}
+
+.mobile-bank-shell .reference-dollars-view > h1 {
+  max-width: 350px;
+  margin: 10px auto 24px;
+  font-size: 29px;
+  line-height: 1.15;
+}
+
+.mobile-bank-shell .dollar-benefits {
+  gap: 4px;
+  padding: 8px 16px;
+  border-radius: 13px;
+}
+
+.mobile-bank-shell .dollar-benefits article {
+  min-height: 94px;
+  gap: 17px;
+  padding: 16px 5px;
+}
+
+.mobile-bank-shell .dollar-benefits strong {
+  font-size: 17px;
+}
+
+.mobile-bank-shell .dollar-benefits small {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.mobile-bank-shell .dollar-actions {
+  gap: 12px;
+  padding-top: 28px;
+}
+
+.mobile-bank-shell .dollar-actions button,
+.mobile-bank-shell .dollar-actions a {
+  min-height: 60px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.mobile-bank-shell .dollar-actions button {
+  background: var(--teal);
+}
+
+/* SOAT */
+
+.mobile-bank-shell .reference-insurance-view {
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .insurance-purple-hero {
+  position: relative;
+  min-height: 462px;
+  padding-bottom: 24px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .insurance-help-icon {
+  position: absolute;
+  z-index: 11;
+  top: 28px;
+  right: 26px;
+  width: 26px;
+  height: 26px;
+}
+
+.mobile-bank-shell .insurance-purple-hero > h1 {
+  max-width: 370px;
+  margin: 28px auto 2px;
+  font-size: 29px;
+  line-height: 1.05;
+}
+
+.mobile-bank-shell .insurance-purple-hero > p {
+  margin-bottom: 18px;
+  font-size: 15px;
+}
+
+.mobile-bank-shell .insurance-quote-card {
+  min-height: 285px;
+  gap: 14px;
+  margin: 0 22px;
+  padding: 22px 20px;
+  border-radius: 16px;
+}
+
+.mobile-bank-shell .insurance-quote-card h2 {
+  font-size: 19px;
+}
+
+.mobile-bank-shell .insurance-quote-card label {
+  font-size: 14px;
+}
+
+.mobile-bank-shell .insurance-quote-card input,
+.mobile-bank-shell .insurance-quote-card button {
+  min-height: 58px;
+}
+
+.mobile-bank-shell .insurance-quote-card button {
+  background: var(--teal);
+  font-size: 16px;
+}
+
+.mobile-bank-shell .insurance-quote-card small {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.mobile-bank-shell .insurance-quote-card small .apk-icon {
+  width: 92px;
+  height: 24px;
+}
+
+/* QR */
+
+.mobile-bank-shell .reference-qr-view {
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .qr-purple-hero {
+  min-height: 370px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .qr-purple-hero > p {
+  max-width: 300px;
+  margin-top: 44px;
+  font-size: 16px;
+}
+
+.mobile-bank-shell .reference-qr-card {
+  width: calc(100% - 44px);
+  min-height: 314px;
+  margin-top: -106px;
+  padding: 24px 20px 20px;
+  border-radius: 14px;
+}
+
+.mobile-bank-shell .apk-sample-qr {
+  width: 148px;
+  height: 148px;
+  display: block;
+  object-fit: contain;
+}
+
+.mobile-bank-shell .personal-yape-qr {
+  width: 186px;
+  height: 186px;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.mobile-bank-shell .personal-yape-qr .apk-sample-qr {
+  width: 100%;
+  height: 100%;
+}
+
+.mobile-bank-shell .reference-qr-card > strong {
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.mobile-bank-shell .qr-share-button {
+  min-height: 60px;
+  margin-top: 84px;
+  border-radius: 8px;
+  background: var(--teal);
+  font-size: 16px;
+}
+
+/* Biometrics */
+
+.mobile-bank-shell .reference-biometric-view {
+  background: #fff;
+}
+
+.mobile-bank-shell .biometric-status {
+  padding: 146px 24px 20px;
+}
+
+.mobile-bank-shell .biometric-mark.apk-illustration {
+  width: 84px;
+  height: 84px;
+}
+
+.mobile-bank-shell .biometric-status h1 {
+  max-width: 350px;
+  margin: 20px 0 8px;
+  font-size: 25px;
+  line-height: 1.15;
+}
+
+.mobile-bank-shell .biometric-status p {
+  max-width: 340px;
+  font-size: 17px;
+  line-height: 1.42;
+}
+
+.mobile-bank-shell .biometric-actions {
+  gap: 12px;
+  padding: 20px;
+}
+
+.mobile-bank-shell .biometric-actions a,
+.mobile-bank-shell .biometric-actions button {
+  min-height: 60px;
+  font-size: 16px;
+}
+
+.mobile-bank-shell .biometric-actions a {
+  background: var(--teal);
+}
+
+/* Credits */
+
+.mobile-bank-shell .reference-credits-view {
+  background: #f1f2f2;
+}
+
+.mobile-bank-shell .credits-purple-hero {
+  min-height: 270px;
+  padding-bottom: 28px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .credits-purple-hero > h1 {
+  margin: 10px 20px 8px;
+  font-size: 29px;
+  line-height: 1.08;
+}
+
+.mobile-bank-shell .credits-purple-hero > p {
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.mobile-bank-shell .credits-reference-sheet {
+  padding: 18px 20px calc(28px + env(safe-area-inset-bottom));
+  border-radius: 19px 19px 0 0;
+  transform: translateY(-18px);
+}
+
+.mobile-bank-shell .credits-reference-sheet > h2 {
+  min-height: 44px;
+  margin-bottom: 10px;
+  font-size: 17px;
+}
+
+.mobile-bank-shell .demo-credit-offer {
+  min-height: 260px;
+  padding: 20px;
+  border-radius: 14px 14px 0 0;
+}
+
+.mobile-bank-shell .demo-credit-offer > .apk-illustration {
+  width: 104px;
+  height: 120px;
+  flex: 0 0 104px;
+}
+
+.mobile-bank-shell .demo-credit-offer > .credit-offer-lottie {
+  width: 104px;
+  height: 120px;
+  flex: 0 0 104px;
+}
+
+.mobile-bank-shell .demo-credit-offer b {
+  font-size: 17px;
+}
+
+.mobile-bank-shell .demo-credit-offer strong {
+  font-size: 40px;
+}
+
+.mobile-bank-shell .demo-credit-offer p {
+  font-size: 15px;
+}
+
+.mobile-bank-shell .demo-credit-offer button {
+  min-height: 48px;
+  background: var(--teal-dark);
+  font-size: 14px;
+}
+
+.mobile-bank-shell .credit-rate-note {
+  min-height: 52px;
+  font-size: 14px;
+}
+
+.mobile-bank-shell .credit-question {
+  min-height: 84px;
+}
+
+.mobile-bank-shell .credit-question span {
+  font-size: 16px;
+}
+
+/* Addresses */
+
+.mobile-bank-shell .reference-addresses-view > .inner-header {
+  min-height: 140px;
+  grid-template-rows: 42px auto;
+  padding: max(10px, env(safe-area-inset-top)) 20px 16px;
+}
+
+.mobile-bank-shell .reference-addresses-view > .inner-header .inner-back {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.mobile-bank-shell .reference-addresses-view > .inner-header h1 {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self: end;
+  font-size: 29px;
+}
+
+.mobile-bank-shell .new-address-row {
+  min-height: 72px;
+  gap: 24px;
+  padding: 0 20px;
+  font-size: 17px;
+}
+
+.mobile-bank-shell .addresses-empty {
+  padding: 78px 28px 20px;
+}
+
+.mobile-bank-shell .addresses-empty > .apk-illustration {
+  width: 60px;
+  height: 60px;
+}
+
+.mobile-bank-shell .addresses-empty h2 {
+  margin-top: 24px;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.mobile-bank-shell .addresses-empty p {
+  font-size: 16px;
+  line-height: 1.42;
+}
+
+/* Online purchases */
+
+.mobile-bank-shell .reference-online-purchases-view {
+  background: #f7f8f7;
+}
+
+.mobile-bank-shell .online-purchases-hero {
+  min-height: 300px;
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+}
+
+.mobile-bank-shell .generic-bank-card {
+  min-height: 190px;
+  margin: 4px 20px 0;
+  padding: 24px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #fff, #efedf1);
+}
+
+.mobile-bank-shell .generic-bank-card > span {
+  font-size: 18px;
+}
+
+.mobile-bank-shell .generic-bank-card small {
+  font-size: 13px;
+}
+
+.mobile-bank-shell .generic-bank-card strong {
+  font-size: 18px;
+}
+
+.mobile-bank-shell .online-purchases-body {
+  padding: 54px 20px calc(28px + env(safe-area-inset-bottom));
+}
+
+.mobile-bank-shell .online-purchase-toggle {
+  gap: 18px;
+}
+
+.mobile-bank-shell .online-purchase-toggle strong {
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.mobile-bank-shell .online-purchase-toggle p {
+  font-size: 16px;
+  line-height: 1.42;
+}
+
+.mobile-bank-shell .online-purchases-body ol {
+  font-size: 15px;
+}
+
+/* Scanner */
+
+.mobile-bank-shell.view-scanner,
+.mobile-bank-shell.view-scanner .bank-scroll-area {
+  background: #000;
+}
+
+.mobile-bank-shell .reference-scanner-view {
+  min-height: 100dvh;
+  padding: max(14px, env(safe-area-inset-top)) 20px calc(22px + env(safe-area-inset-bottom));
+  background: #000;
+}
+
+.mobile-bank-shell .scanner-demo-chip {
+  visibility: hidden;
+}
+
+.mobile-bank-shell .reference-scanner-view > header a {
+  width: 40px;
+  height: 40px;
+}
+
+.mobile-bank-shell .reference-scanner-view > header a .apk-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.mobile-bank-shell .scanner-frame {
+  width: 100%;
+  height: 480px;
+  margin: 34px auto 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.mobile-bank-shell .scanner-frame::before,
+.mobile-bank-shell .scanner-frame::after {
+  display: none;
+}
+
+.mobile-bank-shell .scanner-frame i {
+  top: 42%;
+  left: 21%;
+  right: 21%;
+  height: 3px;
+  background: #f4a7ff;
+}
+
+.mobile-bank-shell .scanner-frame p {
+  position: absolute;
+  top: 55%;
+  left: 50%;
+  width: 180px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.28;
+  transform: translateX(-50%);
+}
+
+.mobile-bank-shell .scanner-actions {
+  gap: 12px;
+}
+
+.mobile-bank-shell .scanner-actions button:first-child {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+}
+
+.mobile-bank-shell .scanner-actions button:last-child {
+  min-height: 88px;
+  border-radius: 12px;
+}
+
+.mobile-bank-shell .scanner-actions button:last-child .apk-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-bank-shell .reference-scanner-view > small {
+  display: none;
+}
+
+/* Comprobante de yapeo recuperado de la captura web original. */
+
+.mobile-bank-shell .yape-success-voucher {
+  min-height: 100%;
+  overflow: visible;
+  background: linear-gradient(180deg, rgb(74, 25, 114), rgb(117, 34, 133));
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-success-animation {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100vh;
+  pointer-events: none;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-success-animation canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-content {
+  z-index: 2;
+  width: 100%;
+  align-items: center;
+  padding-top: min(1vw, 4px);
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-banner {
+  width: 100%;
+  min-height: min(55vw, 237px);
+  padding: 0;
+  background: linear-gradient(180deg, rgb(74, 25, 114), rgb(117, 34, 133));
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-banner-image {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-logo-badge {
+  top: 79px;     /* Posición vertical fija */
+  left: 34px;    /* Posición horizontal fija */
+  width: 76px;   /* Ancho fijo */
+  height: 73px;  /* Alto fijo */
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-logo-lottie {
+  width: 100%;
+  height: 100%;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-card {
+  width: 90%;
+  min-height: 0;
+  margin: max(-3.5vw, -16px) auto min(1.5vw, 7px);
+  padding: min(4vw, 17px) min(4.5vw, 19px);
+  border-radius: min(5vw, 22px);
+  box-shadow: none;
+  transform: translateY(-1.5vw);
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-card-headline h2 {
+  color: #722082;
+  font-size: min(5.4vw, 23px);
+  line-height: 1.12;
+  font-weight: 700;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-card-headline {
+  margin-bottom: min(3vw, 13px);
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-share-button {
+  height: auto;
+  gap: min(1.2vw, 6px);
+  color: #0fcbb3;
+  font-size: min(3.6vw, 16px);
+  font-weight: 700;
+  margin-top: min(1.5vw, 7px);
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-share-button img {
+  width: min(4vw, 18px);
+  height: min(4vw, 18px);
+  object-fit: contain;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-amount {
+  display: flex;
+  align-items: flex-start;
+  gap: min(2vw, 8px);
+  margin: 0 0 min(2vw, 9px);
+  color: rgb(63, 51, 89);
+  line-height: 1;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-amount > span {
+  font-size: min(7.5vw, 32px);
+  font-weight: 700;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-amount > strong {
+  font-size: min(13vw, 56px);
+  font-weight: 600;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-recipient {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin: 0;
+  padding-top: 1vw;
+  color: #212e41;
+  font-family: Roboto, sans-serif;
+  font-size: 5.5vw;
+  font-weight: 700;
+  font-style: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-datetime {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 2.5vw 0 4vw;
+  color: #6d6d6d;
+  font-family: Roboto, sans-serif;
+  font-size: 4.3vw;
+  font-weight: 500;
+  font-style: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  text-align: left;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-datetime span {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-datetime img {
+  width: 4vw;
+  height: 4vw;
+  margin-right: 1.5vw;
+  object-fit: contain;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-datetime i {
+  margin: 0 1.5vw;
+  font-style: normal;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-security {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+  min-height: 0;
+  padding: 4vw 0;
+  border-top: 0.3vw solid #f0f0f0;
+  border-bottom: 0.3vw solid #f0f0f0;
+  box-sizing: border-box;
+  font-family: Roboto, sans-serif;
+  font-style: normal;
+  letter-spacing: normal;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-section-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #726f7e;
+  font-family: Roboto, sans-serif;
+  font-size: 3vw;
+  font-weight: 600;
+  font-style: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-section-label img {
+  width: min(5vw, 22px);
+  height: min(5vw, 22px);
+  object-fit: contain;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-security-digits {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-security-digits span {
+  width: 6vw;
+  height: 6vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 0.5vw;
+  padding: 1vw;
+  border-radius: 1vw;
+  box-sizing: border-box;
+  color: #191120;
+  background-color: #edecf4;
+  font-family: Roboto, sans-serif;
+  font-size: 4.5vw;
+  font-weight: 500;
+  font-style: normal;
+  line-height: normal;
+  letter-spacing: normal;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-details {
+  width: 100%;
+  padding: 0 0 1vw;
+  font-family: Roboto, sans-serif;
+  font-style: normal;
+  letter-spacing: normal;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-details > .voucher-section-label {
+  margin: 0;
+  padding: 4vw 0 3vw;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-details > div {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 1vw 0;
+  color: #231b3a;
+  font-family: Roboto, sans-serif;
+  font-size: 3.9vw;
+  font-style: normal;
+  line-height: normal;
+  letter-spacing: normal;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-details > div > span:first-child {
+  color: #231b3a;
+  font-weight: 400;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-details strong {
+  color: #231b3a;
+  font-weight: 500;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-close-button {
+  z-index: 6;
+  top: calc(env(safe-area-inset-top) + min(2vw, 9px));
+  right: min(2vw, 9px);
+  width: min(11vw, 47px);
+  height: min(11vw, 47px);
+  background: rgba(210, 145, 222, 0.46);
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-close-button img {
+  width: min(5vw, 22px);
+  height: min(5vw, 22px);
+  object-fit: contain;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-new-yape-button,
+.mobile-bank-shell .yape-success-voucher .voucher-help-link,
+.mobile-bank-shell .yape-success-voucher .voucher-more-section {
+  width: 90%;
+  box-sizing: border-box;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-new-yape-button {
+  height: min(10vw, 41px);
+  margin: min(2.5vw, 1px) auto 0;
+  border-radius: min(2vw, 8px);
+  background: #06c7b2;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-help-link {
+  margin: min(3.5vw, 16px) auto 0;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-more-section {
+  min-height: min(54vw, 232px);
+  margin: min(2vw, 9px) auto min(5vw, 22px);
+  padding: min(4vw, 17px);
+  border-radius: min(4vw, 17px);
+  background: #52016a;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-more-section h3 {
+  font-size: min(4.5vw, 19px);
+  font-weight: 500;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-new-badge {
+  margin-left: min(2vw, 9px);
+  padding: min(1vw, 4px) min(2.2vw, 9px);
+  border-radius: min(2.2vw, 9px);
+  color: #000;
+  background: rgb(246, 195, 28);
+  font-size: min(2.9vw, 12px);
+  font-weight: 600;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-promo-banner {
+  height: min(37vw, 159px);
+  border-radius: min(4vw, 17px);
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-promo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Exact measurements recovered from the saved /home and /monto documents. */
+
+.mobile-bank-shell .reference-home {
+  background: rgb(73, 26, 110);
+}
+
+.mobile-bank-shell .home-purple-zone {
+  background: linear-gradient(rgb(117, 35, 134) 0 70%, rgb(75, 26, 112) 100%);
+}
+
+.mobile-bank-shell .home-purple-zone::after {
+  display: none;
+}
+
+.mobile-bank-shell .reference-home-header {
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.mobile-bank-shell .home-main-actions {
+  grid-template-columns: repeat(2, minmax(0, min(43vw, 177px)));
+  justify-content: space-between;
+  gap: 0;
+  width: calc(100% + 36px);
+  min-height: calc(min(18vw, 74px) + env(safe-area-inset-bottom));
+  margin: min(3vw, 12px) -18px calc(-20px - env(safe-area-inset-bottom));
+  padding: min(3vw, 12px) min(4.72vw, 19px)
+    calc(min(2vh, 17px) + env(safe-area-inset-bottom));
+  background: #fff;
+}
+
+.mobile-bank-shell .home-main-actions a {
+  min-height: min(12vw, 49px);
+  border-radius: min(1vw, 4px);
+  font-size: min(3.8vw, 15.6px);
+  font-weight: 600;
+}
+
+.mobile-bank-shell .home-main-actions .outline-teal-action {
+  border-color: rgb(36, 192, 181);
+  color: rgb(36, 192, 181);
+}
+
+.mobile-bank-shell .home-main-actions .solid-teal-action {
+  border-color: rgb(36, 192, 181);
+  background: rgb(36, 192, 181);
+}
+
+.mobile-bank-shell.view-transfer .bank-scroll-area {
+  position: relative;
+  min-height: 100%;
+}
+
+.mobile-bank-shell.view-transfer .bank-scroll-area:has(.transfer-amount-screen) {
+  overflow: hidden;
+  background: #742284;
+}
+
+.mobile-bank-shell .transfer-amount-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  border-radius: min(5vw, 21px) min(5vw, 21px) 0 0;
+  background: #fff;
+}
+
+.mobile-bank-shell .transfer-amount-screen::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 6;
+  height: min(4.5vw, 18px);
+  background: #742284;
+  pointer-events: none;
+}
+
+.mobile-bank-shell .transfer-amount-screen .transfer-flow-header {
+  position: relative;
+  z-index: 8;
+  grid-template-columns: min(16vw, 66px) minmax(0, 1fr) min(16vw, 66px);
+  gap: 0;
+  width: 100%;
+  height: min(15vw, 62px);
+  min-height: min(15vw, 62px);
+  padding: 0;
+  border: 0;
+  background: #fff;
+}
+
+.mobile-bank-shell .transfer-amount-screen .transfer-flow-header > span:not(.transfer-header-spacer) {
+  color: #212e41;
+  font-size: min(5vw, 20.5px);
+  font-weight: 600;
+  text-align: left;
+}
+
+.mobile-bank-shell .transfer-amount-screen .transfer-header-back,
+.mobile-bank-shell .transfer-amount-screen .transfer-header-close {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.mobile-bank-shell .transfer-amount-screen .transfer-header-back .apk-icon {
+  width: min(2.8vw, 12px);
+  height: min(5vw, 21px);
+}
+
+.mobile-bank-shell .transfer-amount-screen .transfer-header-close .apk-icon {
+  width: min(4vw, 17px);
+  height: min(4vw, 17px);
+}
+
+.mobile-bank-shell .transfer-amount-content {
+  display: block;
+  padding: 0;
+  text-align: center;
+}
+
+.mobile-bank-shell .transfer-recipient-editor {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+
+.mobile-bank-shell .transfer-recipient-name-input,
+.mobile-bank-shell .transfer-recipient-phone-input {
+  display: block;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  text-align: center;
+}
+
+.mobile-bank-shell .transfer-recipient-name-input {
+  width: 100%;
+  margin-top: min(3vw, 12px);
+  color: #742284;
+  font-size: min(5vw, 20.5px);
+  font-weight: 600;
+}
+
+.mobile-bank-shell .transfer-recipient-phone-input {
+  width: min(40vw, 165px);
+  margin-top: min(8vw, 33px);
+  color: #747474;
+  font-size: min(3.9vw, 16px);
+  font-weight: 600;
+}
+
+.mobile-bank-shell .transfer-amount-field {
+  justify-content: center;
+  align-items: flex-start;
+  gap: min(1.4vw, 6px);
+  width: 100%;
+  margin-top: min(25vw, 103px);
+}
+
+.mobile-bank-shell .transfer-amount-field span {
+  margin-top: min(2.2vw, 9px);
+  color: #c7a7ce;
+  font-size: min(6.5vw, 27px);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.mobile-bank-shell .transfer-amount-field input {
+  min-width: min(10.6vw, 44px);
+  max-width: min(66vw, 272px);
+  height: min(18.5vw, 76px);
+  padding: 0;
+  color: #722082;
+  font-size: min(19.44vw, 80px);
+  font-weight: 400;
+  line-height: 1;
+  text-align: left;
+}
+
+.mobile-bank-shell .transfer-amount-hint {
+  width: max-content;
+  max-width: 92%;
+  height: min(6.2vw, 26px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: min(6.38vw, 26px) auto 0;
+  padding: 0 min(1.5vw, 6px);
+  border-radius: min(1vw, 4px);
+  color: #6d6d6d;
+  background: #f8f8fc;
+  font-size: min(3.25vw, 13.4px);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.mobile-bank-shell .transfer-amount-footer {
+  position: absolute;
+  right: 0;
+  bottom: min(4.5vw, 18px);
+  left: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 0 min(3.4vw, 14px);
+  border: 0;
+  background: #fff;
+}
+
+.mobile-bank-shell .transfer-amount-footer .transfer-message-field {
+  width: min(90vw, 371px);
+  height: min(12vw, 49px);
+  margin: 0;
+}
+
+.mobile-bank-shell .transfer-amount-footer .transfer-message-field input {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: min(0.6vw, 2.5px) solid #d1d1d1;
+  border-radius: 0;
+  color: #555;
+  background: #fff;
+  font-size: min(3.89vw, 16px);
+  font-weight: 400;
+}
+
+.mobile-bank-shell .transfer-amount-footer .transfer-message-field input:focus {
+  border-bottom-color: #b04ece;
+}
+
+.mobile-bank-shell .transfer-amount-actions {
+  justify-content: space-between;
+  gap: 0;
+  width: min(90vw, 371px);
+  margin-top: min(3.6vw, 15px);
+}
+
+.mobile-bank-shell .transfer-amount-actions .transfer-secondary-button,
+.mobile-bank-shell .transfer-amount-actions .transfer-primary-button {
+  flex: 0 0 min(42vw, 173px);
+  width: min(42vw, 173px);
+  min-height: 0;
+  padding: min(3vw, 12px) min(1vw, 4px) min(3.45vw, 14px);
+  border-radius: min(2.6vw, 11px);
+  font-size: min(4vw, 16.5px);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.mobile-bank-shell .transfer-amount-actions .transfer-secondary-button {
+  border: min(0.35vw, 1.5px) solid #24c0b5;
+  color: #24c0b5;
+  background: #fff;
+}
+
+.mobile-bank-shell .transfer-amount-actions .transfer-primary-button {
+  border: min(0.35vw, 1.5px) solid #24c0b5;
+  color: #fff;
+  background: #24c0b5;
+}
+
+.mobile-bank-shell .transfer-amount-actions .transfer-secondary-button:disabled,
+.mobile-bank-shell .transfer-amount-actions .transfer-primary-button:disabled {
+  border-color: #d1d1d1;
+  color: #d1d1d1;
+  background: #fff;
+  cursor: not-allowed;
+}
+
+/* The captured comprobante uses the same dark primary ramp as the saved app. */
+
+.mobile-bank-shell .yape-success-voucher {
+  background: #660185;
+  font-family: Roboto, sans-serif;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-success-animation {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-success-animation canvas,
+.mobile-bank-shell .yape-success-voucher .voucher-success-animation svg,
+.mobile-bank-shell .yape-success-voucher .voucher-logo-lottie canvas,
+.mobile-bank-shell .yape-success-voucher .voucher-logo-lottie svg {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-banner {
+  background: #660185;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-logo-badge {
+  z-index: 3;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-simulation-label {
+  margin: min(1vw, 4px) 0 0;
+  padding: min(1vw, 4px) 0 0;
+  border-top: 1px dashed #cfc9d3;
+  color: #722082;
+  font-size: min(2.65vw, 11px);
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-align: center;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-single-promo {
+  width: 100%;
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-single-promo-frame {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  margin-top: min(2vw, 9px);
+  border-radius: min(4vw, 17px);
+}
+
+.mobile-bank-shell .yape-success-voucher .voucher-single-promo-frame img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: min(4vw, 17px);
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Keep the QR composition balanced when the device is turned horizontally. */
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .mobile-bank-shell {
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .mobile-bank-shell .reference-qr-view {
+    grid-template-columns: 1fr 1fr;
+    min-height: 100dvh;
+  }
+
+  .mobile-bank-shell .qr-purple-hero {
+    min-height: 100%;
+  }
+
+  .mobile-bank-shell .qr-purple-hero > p {
+    max-width: 250px;
+    margin-top: 16px;
+  }
+
+  .mobile-bank-shell .reference-qr-card {
+    top: 50%;
+    left: 50%;
+    width: 250px;
+    min-height: 270px;
+    margin: 0;
+    padding: 16px;
+    transform: translate(-50%, -50%);
+  }
+
+  .mobile-bank-shell .apk-sample-qr {
+    width: 132px;
+    height: 132px;
+  }
+
+  .mobile-bank-shell .personal-yape-qr {
+    width: 158px;
+    height: 158px;
+    padding: 7px;
+  }
+
+  .mobile-bank-shell .personal-yape-qr .apk-sample-qr {
+    width: 100%;
+    height: 100%;
+  }
+
+  .mobile-bank-shell .qr-share-button {
+    grid-column: 2;
+    align-self: end;
+    width: calc(100% - 48px);
+    margin: 0 24px 28px;
+  }
+}
+
+@media (max-width: 599px) {
+  .banking-stage {
+    min-height: 100dvh;
+    padding: 0;
+    background: var(--surface-alt, #f9f8fc);
+  }
+
+  .mobile-bank-shell {
+    width: 100%;
+    min-height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 370px) {
+  .mobile-bank-shell .home-services-grid {
+    padding-inline: 10px;
+  }
+
+  .mobile-bank-shell .home-service .home-menu-icon {
+    width: 54px;
+    height: 54px;
+  }
+
+  .mobile-bank-shell .home-service > strong {
+    max-width: 72px;
+    font-size: 12px;
+  }
+
+  .mobile-bank-shell .apk-banner-carousel > img {
+    width: calc(100vw - 76px);
+    min-width: calc(100vw - 76px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bank-shell *,
+  .mobile-bank-shell *::before,
+  .mobile-bank-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+}
+
+/* Overrides finales: deben quedar después de todas las reglas de fidelidad. */
+.mobile-bank-shell .home-account-sheet {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+.mobile-bank-shell .home-main-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  min-height: auto;
+  margin: 22px 0 0;
+  padding: 0;
+  gap: 16px;
+  background: transparent;
+}
+
+.mobile-bank-shell .home-main-actions a {
+  min-height: 41px;
+  height: 41px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mobile-bank-shell .home-main-actions a .apk-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.mobile-bank-shell.view-scanner .bank-scroll-area {
+  overflow: hidden;
+}
+
+.mobile-bank-shell .reference-scanner-view {
+  position: relative;
+}
+
+.mobile-bank-shell .reference-scanner-view > header {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: 20px;
+  left: 20px;
+  z-index: 4;
+}
+
+.mobile-bank-shell .scanner-live-frame {
+  height: min(68vh, 520px);
+  margin-top: 76px;
+  overflow: hidden;
+  background: #020203;
+}
+
+.mobile-bank-shell .scanner-live-frame ~ .scanner-frame:not(.scanner-live-frame),
+.mobile-bank-shell .scanner-live-actions ~ .scanner-actions:not(.scanner-live-actions) {
+  display: none;
+}
+
+.mobile-bank-shell .scanner-video,
+.mobile-bank-shell .scanner-upload-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.mobile-bank-shell .scanner-video.is-ready,
+.mobile-bank-shell .scanner-upload-preview {
+  opacity: 0.68;
+}
+
+.mobile-bank-shell .scanner-file-input {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mobile-bank-shell .scanner-live-actions {
+  margin-top: auto;
+}
+
+.mobile-bank-shell .qr-share-notice {
+  width: calc(100% - 44px);
+  margin: 14px auto 0;
+}
+
+/* Corrección final de la tarjeta de movimientos del inicio. */
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 4.72vw !important;
+  overflow: hidden !important;
+}
+
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-item {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  gap: 2vw !important;
+}
+
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-item > span:first-child {
+  width: auto !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list .money-in,
+.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list .money-out {
+  width: auto !important;
+  min-width: max-content !important;
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}

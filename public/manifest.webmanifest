@@ -1,0 +1,42 @@
+{
+  "id": "/",
+  "name": "Yape",
+  "short_name": "Yape",
+  "description": "Aplicación móvil de acceso seguro.",
+  "lang": "es-PE",
+  "dir": "ltr",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone"],
+  "orientation": "portrait",
+  "background_color": "#742284",
+  "theme_color": "#742284",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/yape-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/yape-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/yape-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/apk/icons/ic_yape_logo_r_yape_primary_700.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

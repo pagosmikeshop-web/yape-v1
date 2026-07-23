@@ -1,0 +1,505 @@
+.mobile-bank-shell.view-qr .bank-scroll-area {
+  background: #f2f0f5;
+}
+
+.mobile-bank-shell .qrc-page {
+  min-height: 100%;
+  width: 100%;
+  background: #f2f0f5;
+  color: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  font-family: Roboto, Arial, sans-serif;
+}
+
+.mobile-bank-shell .qrc-header {
+  width: 100%;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #742284, #5a1869);
+  padding: calc(38px + env(safe-area-inset-top, 0px)) 22px 52px;
+  border-radius: 0 0 34px 34px;
+}
+
+.mobile-bank-shell .qrc-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+
+.mobile-bank-shell .qrc-avatar {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 18%);
+  display: grid;
+  place-items: center;
+}
+
+.mobile-bank-shell .qrc-avatar .apk-icon {
+  width: 31px;
+  height: 31px;
+  filter: brightness(0) invert(1);
+}
+
+.mobile-bank-shell .qrc-header-title {
+  margin: 0 0 2px;
+  color: #fff;
+  font-size: 23px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.mobile-bank-shell .qrc-header-sub {
+  margin: 0;
+  color: rgb(255 255 255 / 74%);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.mobile-bank-shell .qrc-card {
+  z-index: 1;
+  width: calc(100% - 48px);
+  max-width: 378px;
+  box-sizing: border-box;
+  margin-top: -27px;
+  padding: 25px;
+  border-radius: 21px;
+  background: #fff;
+  box-shadow: 0 8px 32px rgb(116 34 132 / 13%);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mobile-bank-shell .qrc-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.mobile-bank-shell .qrc-upload-zone {
+  width: 100%;
+  min-height: 166px;
+  box-sizing: border-box;
+  padding: 24px 16px;
+  border: 2px dashed #c9aed8;
+  border-radius: 17px;
+  background: #faf5ff;
+  color: #742284;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: 160ms ease;
+}
+
+.mobile-bank-shell .qrc-upload-zone:active,
+.mobile-bank-shell .qrc-upload-zone:focus-visible {
+  border-color: #742284;
+  background: #f3ebfc;
+  outline: none;
+}
+
+.mobile-bank-shell .qrc-upload-zone.is-ready {
+  border-style: solid;
+  border-color: #86d4a0;
+  background: #f4fcf6;
+}
+
+.mobile-bank-shell .qrc-upload-zone > .apk-icon {
+  width: 37px;
+  height: 37px;
+}
+
+.mobile-bank-shell .qrc-upload-preview {
+  width: 108px;
+  height: 108px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: #fff;
+  box-shadow: 0 4px 16px rgb(64 24 72 / 12%);
+}
+
+.mobile-bank-shell .qrc-upload-text {
+  color: #742284;
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 600;
+  text-align: center;
+}
+
+.mobile-bank-shell .qrc-upload-ok {
+  color: #169c49;
+}
+
+.mobile-bank-shell .qrc-upload-hint {
+  max-width: 270px;
+  color: #8f8f8f;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.mobile-bank-shell .qrc-upload-error {
+  color: #dc3030;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 500;
+  text-align: center;
+}
+
+.mobile-bank-shell .qrc-camera-btn {
+  width: 100%;
+  min-height: 49px;
+  border: 2px solid #c9aed8;
+  border-radius: 999px;
+  background: transparent;
+  color: #742284;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font: 600 15px/1 Roboto, Arial, sans-serif;
+  cursor: pointer;
+}
+
+.mobile-bank-shell .qrc-camera-btn .apk-icon {
+  width: 21px;
+  height: 21px;
+}
+
+.mobile-bank-shell .qrc-camera-btn:active {
+  border-color: #742284;
+  background: #f3ebfc;
+}
+
+.mobile-bank-shell .qrc-camera-view {
+  display: none;
+  width: 100%;
+}
+
+.mobile-bank-shell .qrc-camera-view.is-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+}
+
+.mobile-bank-shell .qrc-camera-view video {
+  width: 100%;
+  height: 230px;
+  border-radius: 17px;
+  background: #000;
+  object-fit: cover;
+}
+
+.mobile-bank-shell .qrc-camera-close,
+.mobile-bank-shell .qrc-clear-capture {
+  border: 0;
+  border-radius: 999px;
+  background: #f0eaf4;
+  color: #742284;
+  padding: 10px 24px;
+  font: 600 14px/1.2 Roboto, Arial, sans-serif;
+  cursor: pointer;
+}
+
+.mobile-bank-shell .qrc-clear-capture {
+  align-self: center;
+  margin-top: -5px;
+}
+
+.mobile-bank-shell .qrc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-bank-shell .qrc-label {
+  color: #742284;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.mobile-bank-shell .qrc-optional {
+  color: #aaa;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.mobile-bank-shell .qrc-input,
+.mobile-bank-shell .qrc-select {
+  width: 100%;
+  height: 49px;
+  box-sizing: border-box;
+  border: 1.5px solid #e0d5e8;
+  border-radius: 13px;
+  background: #faf8fc;
+  color: #1a1a1a;
+  padding: 0 16px;
+  outline: none;
+  font: 400 16px/1 Roboto, Arial, sans-serif;
+  transition: 160ms ease;
+}
+
+.mobile-bank-shell .qrc-input:focus,
+.mobile-bank-shell .qrc-select:focus {
+  border-color: #742284;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(116 34 132 / 12%);
+}
+
+.mobile-bank-shell .qrc-select-wrap {
+  position: relative;
+  display: flex;
+}
+
+.mobile-bank-shell .qrc-select {
+  padding-right: 40px;
+  cursor: pointer;
+}
+
+.mobile-bank-shell .qrc-btn {
+  width: 100%;
+  min-height: 53px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #742284, #5a1869);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgb(116 34 132 / 40%);
+  font: 700 17px/1 Roboto, Arial, sans-serif;
+  cursor: pointer;
+}
+
+.mobile-bank-shell .qrc-btn:disabled {
+  opacity: 0.48;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.mobile-bank-shell .qrc-notice {
+  margin: -4px 0 0;
+  color: #624c67;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.mobile-bank-shell .qrc-saved-section {
+  width: calc(100% - 48px);
+  max-width: 378px;
+  box-sizing: border-box;
+  margin-top: 22px;
+  padding: 20px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgb(116 34 132 / 9%);
+}
+
+.mobile-bank-shell .qrc-saved-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mobile-bank-shell .qrc-saved-heading h2 {
+  margin: 0;
+  color: #4d1658;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.mobile-bank-shell .qrc-saved-heading > span {
+  border-radius: 999px;
+  background: #f4edf7;
+  color: #742284;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mobile-bank-shell .qrc-empty {
+  margin: 18px 0 2px;
+  color: #8b7c8e;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.mobile-bank-shell .qrc-saved-list {
+  display: grid;
+  gap: 11px;
+  margin-top: 14px;
+}
+
+.mobile-bank-shell .qrc-saved-item {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid #eee4f2;
+  border-radius: 15px;
+  background: #fdfbfe;
+}
+
+.mobile-bank-shell .qrc-saved-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #f1e6f5;
+  display: grid;
+  place-items: center;
+}
+
+.mobile-bank-shell .qrc-saved-icon .apk-icon {
+  width: 23px;
+  height: 23px;
+}
+
+.mobile-bank-shell .qrc-saved-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mobile-bank-shell .qrc-saved-copy strong,
+.mobile-bank-shell .qrc-saved-copy small,
+.mobile-bank-shell .qrc-saved-copy time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-bank-shell .qrc-saved-copy strong {
+  color: #39263d;
+  font-size: 14px;
+}
+
+.mobile-bank-shell .qrc-saved-copy small,
+.mobile-bank-shell .qrc-saved-copy time {
+  color: #8b7c8e;
+  font-size: 11px;
+}
+
+.mobile-bank-shell .qrc-saved-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.mobile-bank-shell .qrc-saved-actions a,
+.mobile-bank-shell .qrc-saved-actions button {
+  border: 0;
+  background: transparent;
+  color: #742284;
+  padding: 3px;
+  font: 700 12px/1.2 Roboto, Arial, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mobile-bank-shell .qrc-saved-actions button {
+  color: #b13d52;
+  font-weight: 600;
+}
+
+.mobile-bank-shell .qrc-personal-link {
+  width: calc(100% - 48px);
+  max-width: 378px;
+  box-sizing: border-box;
+  margin-top: 18px;
+  border: 1px solid #c9aed8;
+  border-radius: 999px;
+  color: #742284;
+  padding: 13px 18px;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.mobile-bank-shell .qrc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgb(0 0 0 / 55%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.mobile-bank-shell .qrc-modal {
+  width: min(320px, 100%);
+  box-sizing: border-box;
+  border-radius: 22px;
+  background: #fff;
+  padding: 32px 25px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 17px;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 25%);
+}
+
+.mobile-bank-shell .qrc-modal-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #742284, #5a1869);
+  display: grid;
+  place-items: center;
+}
+
+.mobile-bank-shell .qrc-modal-icon .apk-icon {
+  width: 31px;
+  height: 31px;
+  filter: brightness(0) invert(1);
+}
+
+.mobile-bank-shell .qrc-modal-msg {
+  margin: 0;
+  color: #333;
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 500;
+  text-align: center;
+}
+
+.mobile-bank-shell .qrc-modal-close {
+  padding: 11px 35px;
+}
+
+@media (max-width: 370px) {
+  .mobile-bank-shell .qrc-card,
+  .mobile-bank-shell .qrc-saved-section,
+  .mobile-bank-shell .qrc-personal-link {
+    width: calc(100% - 32px);
+  }
+
+  .mobile-bank-shell .qrc-card {
+    padding: 20px;
+  }
+}

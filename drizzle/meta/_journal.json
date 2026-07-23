@@ -1,0 +1,111 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784627518008,
+      "tag": "0000_tidy_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784629445140,
+      "tag": "0001_gigantic_wrecker",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784739950974,
+      "tag": "0002_orange_saracen",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784741252469,
+      "tag": "0003_smooth_sunfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784741950343,
+      "tag": "0004_smooth_rafael_vega",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784743472831,
+      "tag": "0005_optimal_echo",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784750400000,
+      "tag": "0006_restore_yape_brand",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784752511000,
+      "tag": "0007_strict_registration",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784761000000,
+      "tag": "0008_saved_payment_recipients",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784761706419,
+      "tag": "0009_account_balances",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784762783736,
+      "tag": "0010_cloudy_lord_tyger",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784763366312,
+      "tag": "0011_chubby_piledriver",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1784770562233,
+      "tag": "0012_marvelous_thunderbolt_ross",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1784772422815,
+      "tag": "0013_fresh_thor",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1784789512576,
+      "tag": "0014_sloppy_xorn",
+      "breakpoints": true
+    }
+  ]
+}
