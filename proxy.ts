@@ -25,6 +25,9 @@ function hostedConfigurationErrors() {
   if (!process.env.TURSO_AUTH_TOKEN?.trim()) missing.push("TURSO_AUTH_TOKEN");
   if (!validHttpsOrigin(process.env.PUBLIC_APP_URL)) missing.push("PUBLIC_APP_URL");
   if (!validHttpsOrigin(process.env.ADMIN_WEB_URL)) missing.push("ADMIN_WEB_URL");
+  if ((process.env.ADMIN_PROXY_SECRET?.trim().length ?? 0) < 32) {
+    missing.push("ADMIN_PROXY_SECRET");
+  }
   if (!/^\d{4,24}$/u.test(process.env.AUTH_OWNER_TELEGRAM_ID?.trim() ?? "")) {
     missing.push("AUTH_OWNER_TELEGRAM_ID");
   }

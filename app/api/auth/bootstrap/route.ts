@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     await enforceAuthRateLimits([
       {
         bucket: "bootstrap-ip",
-        subject: requestIpRateLimitSubject(request),
+        subject: await requestIpRateLimitSubject(request),
         limit: 5,
         windowSeconds: 60 * 60,
       },

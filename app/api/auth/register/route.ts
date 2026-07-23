@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const referralCode = normalizeReferralCode(asString(body.referralCode));
 
     await enforceAuthRateLimits([
-      { bucket: "register-ip", subject: requestIpRateLimitSubject(request), limit: 8, windowSeconds: 60 * 60 },
+      { bucket: "register-ip", subject: await requestIpRateLimitSubject(request), limit: 8, windowSeconds: 60 * 60 },
       { bucket: "register-telegram", subject: telegramUserId || "missing", limit: 5, windowSeconds: 60 * 60 },
     ]);
 

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const sellerId = asString(body.sellerId);
     const username = asString(body.username);
     await enforceAuthRateLimits([
-      { bucket: "access-status-ip", subject: requestIpRateLimitSubject(request), limit: 20, windowSeconds: 15 * 60 },
+      { bucket: "access-status-ip", subject: await requestIpRateLimitSubject(request), limit: 20, windowSeconds: 15 * 60 },
       { bucket: "access-status-account", subject: `${sellerId}:${username}`, limit: 6, windowSeconds: 15 * 60 },
     ]);
     const user = await authenticateAccessCredentials({

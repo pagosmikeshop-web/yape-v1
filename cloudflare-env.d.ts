@@ -32,6 +32,7 @@ declare module "cloudflare:workers" {
     APP_ENV?: string;
     PUBLIC_APP_URL?: string;
     ADMIN_WEB_URL?: string;
+    ADMIN_PROXY_SECRET?: string;
     AUTH_BOOTSTRAP_ENABLED?: string;
     AUTH_BOOTSTRAP_SECRET?: string;
     AUTH_OWNER_TELEGRAM_ID?: string;

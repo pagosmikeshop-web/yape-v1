@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const token = asString(body.token).trim();
     await enforceAuthRateLimits([
-      { bucket: "permanent-token-ip", subject: requestIpRateLimitSubject(request), limit: 20, windowSeconds: 15 * 60 },
+      { bucket: "permanent-token-ip", subject: await requestIpRateLimitSubject(request), limit: 20, windowSeconds: 15 * 60 },
       { bucket: "permanent-token-value", subject: token || "missing", limit: 6, windowSeconds: 15 * 60 },
     ]);
 

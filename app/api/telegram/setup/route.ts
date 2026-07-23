@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     await enforceAuthRateLimits([
       {
         bucket: "telegram-setup-ip",
-        subject: requestIpRateLimitSubject(request),
+        subject: await requestIpRateLimitSubject(request),
         limit: 5,
         windowSeconds: 60 * 60,
       },

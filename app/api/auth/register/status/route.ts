@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     await enforceAuthRateLimits([
       {
         bucket: "register-status-ip",
-        subject: requestIpRateLimitSubject(request),
+        subject: await requestIpRateLimitSubject(request),
         limit: 12,
         windowSeconds: 60 * 60,
       },

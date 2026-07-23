@@ -10,6 +10,7 @@ interface Env {
   APP_ENV?: string;
   PUBLIC_APP_URL?: string;
   ADMIN_WEB_URL?: string;
+  ADMIN_PROXY_SECRET?: string;
   AUTH_BOOTSTRAP_ENABLED?: string;
   AUTH_BOOTSTRAP_SECRET?: string;
   AUTH_OWNER_TELEGRAM_ID?: string;
@@ -96,6 +97,7 @@ function hostedConfigurationErrors(env: Env) {
   const ownerTelegramId = env.AUTH_OWNER_TELEGRAM_ID?.trim() ?? "";
   if (!validHttpsOrigin(env.PUBLIC_APP_URL)) missing.push("PUBLIC_APP_URL");
   if (!validHttpsOrigin(env.ADMIN_WEB_URL)) missing.push("ADMIN_WEB_URL");
+  if ((env.ADMIN_PROXY_SECRET?.trim().length ?? 0) < 32) missing.push("ADMIN_PROXY_SECRET");
   if (!/^\d{4,24}$/u.test(ownerTelegramId)) missing.push("AUTH_OWNER_TELEGRAM_ID");
   if ((env.AUTH_RATE_LIMIT_PEPPER?.trim().length ?? 0) < 32) missing.push("AUTH_RATE_LIMIT_PEPPER");
   if ((env.QR_CONTACTS_ENCRYPTION_KEY?.trim().length ?? 0) < 32) missing.push("QR_CONTACTS_ENCRYPTION_KEY");

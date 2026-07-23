@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     await enforceAuthRateLimits([
       {
         bucket: "invitation-redeem-ip",
-        subject: requestIpRateLimitSubject(request),
+        subject: await requestIpRateLimitSubject(request),
         limit: 12,
         windowSeconds: 15 * 60,
       },

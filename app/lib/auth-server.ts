@@ -9,6 +9,7 @@ type AuthEnv = {
   TURSO_AUTH_TOKEN?: string;
   APP_ENV?: string;
   ADMIN_WEB_URL?: string;
+  ADMIN_PROXY_SECRET?: string;
   PUBLIC_APP_URL?: string;
   AUTH_BOOTSTRAP_ENABLED?: string;
   AUTH_BOOTSTRAP_SECRET?: string;
@@ -271,9 +272,38 @@ export function accountRateLimitSubject(sellerCode: string, username: string) {
   return `${normalizeSellerCode(sellerCode)}\n${normalizeUsername(username)}`.slice(0, 160);
 }
 
-export function requestIpRateLimitSubject(request: Request) {
+async function verifiedAdminProxyIp(request: Request) {
+  const secret = authEnv().ADMIN_PROXY_SECRET?.trim() ?? "";
+  if (secret.length < 32) return "";
+  const clientIp = request.headers.get("x-yape-admin-client-ip")?.trim() ?? "";
+  const timestamp = request.headers.get("x-yape-admin-proxy-timestamp")?.trim() ?? "";
+  const signature = request.headers.get("x-yape-admin-proxy-signature")?.trim() ?? "";
+  if (
+    !/^[0-9A-Fa-f:.]{3,64}$/u.test(clientIp)
+    || !/^\d{10,13}$/u.test(timestamp)
+    || !/^[A-Za-z0-9_-]{40,64}$/u.test(signature)
+    || Math.abs(Date.now() - Number(timestamp)) > 2 * 60_000
+  ) {
+    return "";
+  }
+  const payload = [
+    "yape-admin-proxy-v1",
+    timestamp,
+    request.method.toUpperCase(),
+    new URL(request.url).pathname,
+    clientIp,
+  ].join("\n");
+  const expected = await hmacSha256(secret, payload);
+  return constantTimeEqual(expected, signature) ? clientIp : "";
+}
+
+export async function requestIpRateLimitSubject(request: Request) {
   const cloudflareIp = request.headers.get("cf-connecting-ip")?.trim();
   if (cloudflareIp) return cloudflareIp.slice(0, 128);
+  const adminProxyIp = await verifiedAdminProxyIp(request);
+  if (adminProxyIp) return adminProxyIp;
+  const vercelIp = request.headers.get("x-vercel-forwarded-for")?.split(",", 1)[0]?.trim();
+  if (vercelIp) return vercelIp.slice(0, 128);
   if (isHostedEnvironment()) return "unavailable";
   const forwarded = request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim();
   return (

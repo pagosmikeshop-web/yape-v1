@@ -34,6 +34,7 @@ function productionEnvironment() {
     ["QR_CONTACTS_ENCRYPTION_KEY", "y".repeat(32)],
     ["TELEGRAM_WEBHOOK_SECRET", "z".repeat(32)],
     ["TELEGRAM_BOT_TOKEN", "test-token"],
+    ["ADMIN_PROXY_SECRET", "p".repeat(32)],
   ]));
 }
 
@@ -293,5 +294,8 @@ test("Vercel usa Turso exclusivamente desde el servidor y conserva los controles
   assert.match(nextConfig, /poweredByHeader:\s*false/u);
   assert.match(nextProxy, /hostedConfigurationErrors/u);
   assert.match(nextProxy, /TURSO_AUTH_TOKEN/u);
+  assert.match(authServer, /verifiedAdminProxyIp/u);
+  assert.match(authServer, /x-yape-admin-proxy-signature/u);
+  assert.match(environmentExample, /^ADMIN_PROXY_SECRET=$/mu);
   assert.equal(JSON.parse(vercelConfig).framework, "nextjs");
 });
