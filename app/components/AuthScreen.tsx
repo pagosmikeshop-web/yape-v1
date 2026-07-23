@@ -574,7 +574,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
                 <>
                   <div className="registration-gate">
                     <AuthAssetIcon name="ic_shield_check_r_yape" />
-                    <p>Entra al grupo de Telegram, envia /id si necesitas ver tu ID, escribe tu Telegram ID aqui y valida el acceso.</p>
+                    <p>Entra al grupo de Telegram, escribe tu Telegram ID aqui y valida el acceso.</p>
                     {groupInviteUrl ? <a href={groupInviteUrl} target="_blank" rel="noreferrer">Abrir grupo de Telegram</a> : null}
                   </div>
                   <Field id="telegram-id" label="Telegram ID" inputMode="numeric" pattern="[0-9]{4,24}" maxLength={24} />

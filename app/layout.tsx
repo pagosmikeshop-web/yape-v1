@@ -53,7 +53,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body>
+      <body suppressHydrationWarning>
         <AppInstallGate>{children}</AppInstallGate>
       </body>
     </html>

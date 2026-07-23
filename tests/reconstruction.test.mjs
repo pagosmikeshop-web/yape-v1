@@ -127,7 +127,7 @@ test("el directorio resuelve un número únicamente a un cliente activo y limita
 });
 
 test("Owner, administradores y vendedores gestionan su jerarquía desde la web", async () => {
-  const [manager, adminPage, adminPortal, sellerPage, clientsRoute, activationRoute, adminRoute, userRoute, management, creditsRoute, invitationRoute, rbac, crmRoute, accessServer] = await Promise.all([
+  const [manager, adminPage, adminPortal, sellerPage, clientsRoute, activationRoute, adminRoute, userRoute, management, creditsRoute, invitationRoute, rbac, crmRoute, crmUpdateRoute, accessServer] = await Promise.all([
     source("app/components/ClientManager.tsx"),
     source("app/admin/page.tsx"),
     source("app/api/admin/portal/route.ts"),
@@ -141,6 +141,7 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
     source("app/api/auth/invitations/redeem/route.ts"),
     source("app/lib/rbac.ts"),
     source("app/api/crm/clients/route.ts"),
+    source("app/api/crm/clients/[id]/route.ts"),
     source("app/lib/access-server.ts"),
   ]);
 
@@ -180,6 +181,14 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
   assert.match(crmRoute, /pageSize/u);
   assert.match(crmRoute, /ownerId:\s*string \| null/u);
   assert.match(crmRoute, /sin vendedor asignado/iu);
+  assert.match(crmRoute, /CRM_STATUSES\s*=\s*new Set\(\["new", "vip"\]\)/u);
+  assert.match(crmRoute, /saleAmountCents\s*=\s*Math\.round\(Number\(body\.saleAmount\) \* 100\)/u);
+  assert.match(crmRoute, /Ingresa un monto de venta mayor a S\/ 0/u);
+  assert.match(crmRoute, /'purchase', 'Venta inicial'/u);
+  assert.match(crmRoute, /const grantsPermanentAccess = crmStatus === "vip"/u);
+  assert.match(crmRoute, /genera una key permanente usando un crédito/u);
+  assert.match(crmUpdateRoute, /const becomesVip = crmStatus === "vip"/u);
+  assert.match(crmUpdateRoute, /accessExpiresAt = trialExpiresAt\(\)/u);
   assert.match(accessServer, /const sellerPays = actor\.role === "seller"/u);
   assert.match(accessServer, /staff-override/u);
 });
@@ -204,6 +213,7 @@ test("la prueba gratuita, los referidos y los tokens permanentes usan estados se
   assert.match(accessServer, /permanent_access_token/u);
   assert.match(accessServer, /credits = credits - 1/u);
   assert.match(accessServer, /access_expires_at = NULL/u);
+  assert.match(accessServer, /crm_status = 'vip'/u);
   assert.match(redeemRoute, /getSessionUserIncludingExpired/u);
   assert.match(referralRoute, /remainingThisMonth/u);
   assert.match(referralRoute, /REFERRAL_MONTHLY_LIMIT/u);
@@ -211,7 +221,9 @@ test("la prueba gratuita, los referidos y los tokens permanentes usan estados se
   assert.match(tokenRoute, /token_hint/u);
   assert.doesNotMatch(tokenRoute, /SELECT[^;]*token_hash/isu);
   assert.match(accessRoute, /mode === "permanent"/u);
+  assert.match(accessRoute, /const crmStatus = mode === "permanent" \? "vip" : "new"/u);
   assert.match(activationRoute, /recibió 3 días gratis/u);
+  assert.match(activationRoute, /crm_status = 'new'/u);
   assert.match(telegramManager, /REFERRAL_MONTHLY_LIMIT/u);
   assert.match(telegramManager, /Esa cuenta ya tiene acceso permanente/u);
   assert.match(bankApp, /Reclamar token/u);
@@ -253,7 +265,8 @@ test("el acceso aplica límites, recuperación de un solo uso y PIN verificado p
   assert.match(resetRequest, /createDecoyPasswordResetChallenge/u);
   assert.match(resetRequest, /status:\s*202/u);
   assert.match(resetComplete, /completePasswordReset/u);
-  assert.match(telegramManager, /DISABLED_WRITE_COMMANDS/u);
+  assert.match(telegramManager, /message\.chat\.type === "private"/u);
+  assert.match(telegramManager, /return "✅ Activación completada\."/u);
 });
 
 test("la compilación incluye las rutas nuevas de pagos y clientes", async () => {

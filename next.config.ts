@@ -39,6 +39,7 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   poweredByHeader: false,
   async headers() {
     return [

@@ -1,11 +1,9 @@
 import {
-  AppRole,
   authEnv,
   dbBinding,
   ensureAuthSchema,
   REFERRAL_EXTENSION_DAYS,
   REFERRAL_MONTHLY_LIMIT,
-  validateSellerCode,
 } from "@/app/lib/auth-server";
 
 type TelegramMessage = {
@@ -13,7 +11,6 @@ type TelegramMessage = {
   text?: string;
   chat: { id: number; type: string };
   from?: { id: number; first_name?: string; last_name?: string; username?: string };
-  new_chat_members?: Array<{ id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }>;
 };
 
 export type TelegramUpdate = {
@@ -22,42 +19,6 @@ export type TelegramUpdate = {
   edited_message?: TelegramMessage;
 };
 
-type ManagerUser = {
-  id: string;
-  seller_code: string;
-  username: string;
-  display_name: string;
-  role: AppRole;
-  status: string;
-  credits: number;
-};
-
-type Actor = { telegramId: string; admin: boolean; user: ManagerUser };
-
-const ADMIN_HELP = [
-  "Consultas de administrador (solo lectura):",
-  "/clientes CODIGO",
-  "/pendientes CODIGO",
-  "/saldo CODIGO",
-  "/id",
-  "Las altas, activaciones, créditos y recuperaciones se gestionan en el panel web de Yape.",
-].join("\n");
-
-const SELLER_HELP = [
-  "Consultas de vendedor (solo lectura):",
-  "/clientes",
-  "/pendientes",
-  "/saldo",
-  "/id",
-  "Las altas, activaciones y recuperaciones se gestionan en el panel web de Yape.",
-].join("\n");
-
-const DISABLED_WRITE_COMMANDS = new Set(["/vendedor", "/creditos", "/cliente", "/activar", "/aprobar"]);
-
-function fields(value: string) {
-  return value.split("|").map((part) => part.trim());
-}
-
 function commandParts(text: string) {
   const trimmed = text.trim();
   const space = trimmed.search(/\s/u);
@@ -65,34 +26,8 @@ function commandParts(text: string) {
   return { command: head, args: space === -1 ? "" : trimmed.slice(space + 1).trim() };
 }
 
-function adminIds() {
-  return new Set((authEnv().TELEGRAM_ADMIN_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean));
-}
-
 function requiredGroupId() {
   return (authEnv().TELEGRAM_REQUIRED_GROUP_ID ?? "").trim();
-}
-
-function displayTelegramName(user: { first_name?: string; last_name?: string; username?: string }) {
-  const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
-  return fullName || (user.username ? `@${user.username}` : "");
-}
-
-async function rememberGroupMember(chatId: number, member: { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean }) {
-  if (member.is_bot) return;
-  const configuredGroup = requiredGroupId();
-  if (configuredGroup && configuredGroup !== String(chatId)) return;
-  const now = new Date().toISOString();
-  await dbBinding().prepare(
-    `INSERT INTO telegram_group_members (
-      telegram_user_id, chat_id, username, display_name, first_seen_at, last_seen_at
-    ) VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(telegram_user_id) DO UPDATE SET
-      chat_id = excluded.chat_id,
-      username = excluded.username,
-      display_name = excluded.display_name,
-      last_seen_at = excluded.last_seen_at`,
-  ).bind(String(member.id), String(chatId), member.username ?? "", displayTelegramName(member), now, now).run();
 }
 
 function monthKey(date = new Date()) {
@@ -213,74 +148,13 @@ async function redeemReferralCode(telegramId: string, args: string) {
   if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {
     throw new Error("Ese usuario ya canjeo el codigo o se alcanzo el limite mensual.");
   }
-  return `Codigo canjeado.\n${referrer.display_name} recibio ${REFERRAL_EXTENSION_DAYS} dias mas.\nLimite mensual: ${Number(current?.total ?? 0) + 1}/${REFERRAL_MONTHLY_LIMIT}`;
-}
-
-async function adminDatabaseUser() {
-  return dbBinding().prepare(
-    "SELECT id, seller_code, username, display_name, role, status, credits FROM users WHERE role = 'admin' AND status = 'active' ORDER BY created_at LIMIT 1",
-  ).first<ManagerUser>();
-}
-
-async function actorFor(telegramId: string): Promise<Actor | null> {
-  if (adminIds().has(telegramId)) {
-    const user = await adminDatabaseUser();
-    if (!user) throw new Error("Primero crea la cuenta Owner desde el panel administrativo externo.");
-    return { telegramId, admin: true, user };
-  }
-  const user = await dbBinding().prepare(
-    `SELECT u.id, u.seller_code, u.username, u.display_name, u.role, u.status, u.credits
-     FROM telegram_identities t JOIN users u ON u.id = t.user_id
-     WHERE t.telegram_user_id = ? AND u.role = 'seller' AND u.status = 'active' LIMIT 1`,
-  ).bind(telegramId).first<ManagerUser>();
-  return user ? { telegramId, admin: false, user } : null;
-}
-
-async function sellerByCode(code: string) {
-  return dbBinding().prepare(
-    "SELECT id, seller_code, username, display_name, role, status, credits FROM users WHERE role = 'seller' AND seller_code = ? LIMIT 1",
-  ).bind(code.trim().toUpperCase()).first<ManagerUser>();
+  return "✅ Activación completada.";
 }
 
 async function audit(telegramId: string, command: string, outcome: string) {
   await dbBinding().prepare(
     "INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at) VALUES (?, ?, ?, ?, ?)",
   ).bind(crypto.randomUUID(), telegramId, command.slice(0, 80), outcome.slice(0, 200), new Date().toISOString()).run();
-}
-
-async function targetSeller(actor: Actor, code?: string) {
-  if (!actor.admin) return actor.user;
-  if (!code || !validateSellerCode(code)) throw new Error("Indica un codigo de vendedor valido.");
-  const seller = await sellerByCode(code);
-  if (!seller) throw new Error("Vendedor no encontrado.");
-  return seller;
-}
-
-async function listClients(actor: Actor, args: string) {
-  const seller = await targetSeller(actor, actor.admin ? fields(args)[0] : actor.user.seller_code);
-  const result = await dbBinding().prepare(
-    "SELECT username, display_name, status FROM users WHERE owner_id = ? AND role = 'client' ORDER BY created_at DESC LIMIT 30",
-  ).bind(seller.id).all<{ username: string; display_name: string; status: string }>();
-  const rows = result.results ?? [];
-  if (!rows.length) return "No hay clientes registrados.";
-  return [`Clientes de ${seller.seller_code}:`, ...rows.map((row) => `${row.username} — ${row.display_name} — ${row.status}`)].join("\n");
-}
-
-async function listPending(actor: Actor, args: string) {
-  const seller = await targetSeller(actor, actor.admin ? fields(args)[0] : actor.user.seller_code);
-  const result = await dbBinding().prepare(
-    `SELECT r.id, r.price_credits, u.username, u.display_name
-     FROM password_reset_requests r JOIN users u ON u.id = r.user_id
-     WHERE r.seller_id = ? AND r.status = 'pending' ORDER BY r.created_at LIMIT 30`,
-  ).bind(seller.id).all<{ id: string; price_credits: number; username: string; display_name: string }>();
-  const rows = result.results ?? [];
-  if (!rows.length) return "No hay restablecimientos pendientes.";
-  return ["Restablecimientos pendientes:", ...rows.map((row) => `${row.id}\n${row.username} — ${row.display_name} — costo ${row.price_credits}`)].join("\n\n");
-}
-
-async function balance(actor: Actor, args: string) {
-  const seller = await targetSeller(actor, actor.admin ? fields(args)[0] : actor.user.seller_code);
-  return `Vendedor: ${seller.display_name}\nCodigo: ${seller.seller_code}\nCreditos disponibles: ${seller.credits}`;
 }
 
 export async function sendTelegramMessage(chatId: number, text: string) {
@@ -296,78 +170,37 @@ export async function sendTelegramMessage(chatId: number, text: string) {
 }
 
 export async function processTelegramUpdate(update: TelegramUpdate) {
+  const message = update.message;
+  const groupId = requiredGroupId();
+  if (
+    !message?.from
+    || !message.text
+    || message.chat.type === "private"
+    || !groupId
+    || String(message.chat.id) !== groupId
+  ) return;
+
+  const { command, args } = commandParts(message.text);
+  if (command !== "/redeem") return;
+
   await ensureAuthSchema();
   const updateId = String(update.update_id);
-  const previous = await dbBinding().prepare("SELECT update_id FROM telegram_updates WHERE update_id = ? LIMIT 1").bind(updateId).first();
-  if (previous) return;
-  await dbBinding().prepare("INSERT INTO telegram_updates (update_id, received_at) VALUES (?, ?)").bind(updateId, new Date().toISOString()).run();
+  const inserted = await dbBinding().prepare(
+    "INSERT OR IGNORE INTO telegram_updates (update_id, received_at) VALUES (?, ?)",
+  ).bind(updateId, new Date().toISOString()).run();
+  if (Number(inserted.meta.changes ?? 0) !== 1) return;
 
-  const message = update.message ?? update.edited_message;
-  if (!message?.from) return;
-  if (message.chat.type !== "private") {
-    for (const member of message.new_chat_members ?? []) await rememberGroupMember(message.chat.id, member);
-    await rememberGroupMember(message.chat.id, message.from);
-  }
-  if (!message.text) return;
   const telegramId = String(message.from.id);
-  const { command, args } = commandParts(message.text);
-
-  if (message.chat.type !== "private") {
-    if (command === "/redeem") {
-      try {
-        const reply = await redeemReferralCode(telegramId, args);
-        await audit(telegramId, command, "redeem ok");
-        await sendTelegramMessage(message.chat.id, reply);
-      } catch (error) {
-        await audit(telegramId, command, `redeem error: ${error instanceof Error ? error.name : "desconocido"}`);
-        await sendTelegramMessage(message.chat.id, error instanceof Error ? error.message : "No se pudo canjear el codigo.");
-      }
-      return;
-    }
-    if (command === "/id") {
-      await sendTelegramMessage(message.chat.id, `Tu Telegram ID es: ${telegramId}`);
-      return;
-    }
-    return;
-  }
-  if (command === "/id") {
-    await sendTelegramMessage(message.chat.id, `Tu Telegram ID es: ${telegramId}`);
-    return;
-  }
-
   try {
-    const actor = await actorFor(telegramId);
-    if (!actor) {
-      await audit(telegramId, command || "mensaje", "denegado");
-      await sendTelegramMessage(message.chat.id, `Acceso no autorizado.\nTu Telegram ID es: ${telegramId}`);
-      return;
-    }
-
-    if (DISABLED_WRITE_COMMANDS.has(command)) {
-      await audit(telegramId, command, "bloqueado: usa panel web");
-      await sendTelegramMessage(
-        message.chat.id,
-        "Esta operación está deshabilitada en Telegram. Usa el panel web autenticado de Yape.",
-      );
-      return;
-    }
-
-    let reply: string;
-    switch (command) {
-      case "/start":
-      case "/ayuda":
-        reply = actor.admin ? ADMIN_HELP : SELLER_HELP;
-        break;
-      case "/clientes": reply = await listClients(actor, args); break;
-      case "/pendientes": reply = await listPending(actor, args); break;
-      case "/saldo": reply = await balance(actor, args); break;
-      default: reply = actor.admin ? ADMIN_HELP : SELLER_HELP;
-    }
-    await audit(telegramId, command || "mensaje", "ok");
+    const reply = await redeemReferralCode(telegramId, args);
+    await audit(telegramId, command, "redeem ok");
     await sendTelegramMessage(message.chat.id, reply);
   } catch (error) {
-    await audit(telegramId, command || "mensaje", `error: ${error instanceof Error ? error.name : "desconocido"}`);
-    await sendTelegramMessage(message.chat.id, "No se completó la operación. Revisa el panel web o inténtalo más tarde.");
+    await audit(telegramId, command, `redeem error: ${error instanceof Error ? error.name : "desconocido"}`);
+    await sendTelegramMessage(
+      message.chat.id,
+      error instanceof Error ? error.message : "No se pudo completar la activacion.",
+    );
   }
 }
 

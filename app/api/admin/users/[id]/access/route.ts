@@ -29,19 +29,31 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     const now = new Date().toISOString();
     const accessExpiresAt = mode === "permanent" ? null : new Date(Date.now() + days * 86_400_000).toISOString();
-    const result = await database.prepare(
-      "UPDATE users SET access_expires_at = ?, updated_at = ? WHERE id = ? AND role = 'client'",
-    ).bind(accessExpiresAt, now, client.id).run();
-    if (Number(result.meta.changes ?? 0) !== 1) return jsonError("No se pudo actualizar el acceso.", 409);
-    await database.prepare(
-      "INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at) VALUES (?, ?, ?, ?, ?)",
-    ).bind(
-      crypto.randomUUID(),
-      admin.telegramUserId ?? admin.id,
-      "web_access_update",
-      `${client.id}:${mode}:${mode === "days" ? days : "permanent"}`,
-      now,
-    ).run();
+    const crmStatus = mode === "permanent" ? "vip" : "new";
+    const results = await database.batch([
+      database.prepare(
+        "UPDATE users SET access_expires_at = ?, updated_at = ? WHERE id = ? AND role = 'client'",
+      ).bind(accessExpiresAt, now, client.id),
+      database.prepare(
+        `INSERT INTO client_crm_profiles
+           (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
+         VALUES (?, ?, 'individual', 'general', '[]', '', ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           crm_status = excluded.crm_status,
+           updated_by = excluded.updated_by,
+           updated_at = excluded.updated_at`,
+      ).bind(client.id, crmStatus, now, admin.id, now),
+      database.prepare(
+        "INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at) VALUES (?, ?, ?, ?, ?)",
+      ).bind(
+        crypto.randomUUID(),
+        admin.telegramUserId ?? admin.id,
+        "web_access_update",
+        `${client.id}:${mode}:${mode === "days" ? days : "permanent"}`,
+        now,
+      ),
+    ]);
+    if (Number(results[0]?.meta.changes ?? 0) !== 1) return jsonError("No se pudo actualizar el acceso.", 409);
     return jsonOk({
       accessExpiresAt,
       permanent: mode === "permanent",

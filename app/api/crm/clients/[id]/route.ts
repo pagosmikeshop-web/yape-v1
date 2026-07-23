@@ -4,6 +4,7 @@ import {
   requireUnlockedSession,
   routeError,
   SELF_REGISTRATION_SELLER_CODE,
+  trialExpiresAt,
   validateDisplayName,
   validateOptionalEmail,
 } from "@/app/lib/auth-server";
@@ -12,8 +13,9 @@ import { hasPermission, requirePermission } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
-const CRM_STATUSES = new Set(["new", "active", "pending", "suspended", "vip", "recurring"]);
+const CRM_STATUSES = new Set(["new", "vip"]);
 const CLIENT_TYPES = new Set(["individual", "business"]);
+const CRM_STATUS_SQL = "CASE WHEN u.status = 'active' AND u.access_expires_at IS NULL THEN 'vip' ELSE 'new' END";
 
 function cleanTags(value: unknown) {
   if (!Array.isArray(value)) return [];
@@ -29,7 +31,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const database = dbBinding();
     const current = await database.prepare(
       `SELECT u.id, u.display_name, u.email, u.status, u.owner_id, u.seller_code,
-              COALESCE(p.crm_status, 'new') AS crm_status,
+              u.access_expires_at, u.activated_at,
+              ${CRM_STATUS_SQL} AS crm_status,
               COALESCE(p.client_type, 'individual') AS client_type,
               COALESCE(p.category, 'general') AS category,
               COALESCE(p.tags_json, '[]') AS tags_json,
@@ -73,6 +76,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!/^(pending|active|disabled)$/u.test(accountStatus)) return jsonError("Estado de cuenta inválido.");
     if (!CRM_STATUSES.has(crmStatus)) return jsonError("Estado CRM inválido.");
     if (!CLIENT_TYPES.has(clientType)) return jsonError("Tipo de cliente inválido.");
+    if (actor.role === "seller" && crmStatus === "vip" && String(current.crm_status) !== "vip") {
+      return jsonError("Para otorgar acceso VIP, genera una key permanente usando un crédito.", 403);
+    }
 
     let ownerId = current.owner_id ? String(current.owner_id) : null;
     let sellerCode = String(current.seller_code);
@@ -97,12 +103,42 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const now = new Date().toISOString();
+    const currentCrmStatus = String(current.crm_status);
+    const becomesVip = crmStatus === "vip" && currentCrmStatus !== "vip";
+    let resolvedAccountStatus = accountStatus;
+    let accessExpiresAt = current.access_expires_at ? String(current.access_expires_at) : null;
+    let activatedAt = current.activated_at ? String(current.activated_at) : null;
+
+    if (becomesVip) {
+      resolvedAccountStatus = "active";
+      accessExpiresAt = null;
+      activatedAt ??= now;
+    } else if (
+      crmStatus === "new"
+      && resolvedAccountStatus === "active"
+      && (currentCrmStatus === "vip" || String(current.status) !== "active" || !accessExpiresAt)
+    ) {
+      accessExpiresAt = trialExpiresAt();
+      activatedAt ??= now;
+    }
+
     await database.batch([
       database.prepare(
         `UPDATE users
-         SET display_name = ?, email = ?, status = ?, owner_id = ?, seller_code = ?, updated_at = ?
+         SET display_name = ?, email = ?, status = ?, owner_id = ?, seller_code = ?,
+             access_expires_at = ?, activated_at = ?, updated_at = ?
          WHERE id = ? AND role = 'client' AND deleted_at IS NULL`,
-      ).bind(displayName, email, accountStatus, ownerId, sellerCode, now, id),
+      ).bind(
+        displayName,
+        email,
+        resolvedAccountStatus,
+        ownerId,
+        sellerCode,
+        accessExpiresAt,
+        activatedAt,
+        now,
+        id,
+      ),
       database.prepare(
         `INSERT INTO client_crm_profiles
            (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
@@ -121,7 +157,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
          VALUES (?, ?, 'crm_client_update', ?, ?)`,
       ).bind(crypto.randomUUID(), actor.telegramUserId ?? actor.id, `${id}:${crmStatus}:${ownerId ?? "unassigned"}`, now),
     ]);
-    return jsonOk({ message: "Perfil del cliente actualizado.", client: { id, ownerId, crmStatus, tags } });
+    return jsonOk({
+      message: becomesVip
+        ? `${displayName} ahora es VIP y tiene acceso permanente.`
+        : currentCrmStatus === "vip" && crmStatus === "new" && resolvedAccountStatus === "active"
+          ? `${displayName} ahora es Nuevo y tiene 3 días de prueba.`
+          : "Perfil del cliente actualizado.",
+      client: {
+        id,
+        ownerId,
+        crmStatus,
+        accountStatus: resolvedAccountStatus,
+        accessExpiresAt,
+        tags,
+      },
+    });
   } catch (error) {
     return routeError(error);
   }

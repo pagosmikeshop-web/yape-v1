@@ -177,7 +177,19 @@ export async function redeemPermanentAccessToken(userId: string, token: string) 
   if (!row || row.user_id !== userId || row.redeemed_at) {
     throw Response.json({ ok: false, error: "El token no corresponde a esta cuenta o ya fue utilizado." }, { status: 403 });
   }
-  if (!row.access_expires_at) return { alreadyPermanent: true };
+  if (!row.access_expires_at) {
+    const now = new Date().toISOString();
+    await database.prepare(
+      `INSERT INTO client_crm_profiles
+         (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
+       VALUES (?, 'vip', 'individual', 'general', '[]', '', ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET
+         crm_status = 'vip',
+         updated_by = excluded.updated_by,
+         updated_at = excluded.updated_at`,
+    ).bind(userId, now, userId, now).run();
+    return { alreadyPermanent: true };
+  }
 
   const now = new Date().toISOString();
   const results = await database.batch([
@@ -190,6 +202,15 @@ export async function redeemPermanentAccessToken(userId: string, token: string) 
          SELECT 1 FROM permanent_access_tokens WHERE id = ? AND user_id = ? AND redeemed_at = ?
        )`,
     ).bind(now, userId, row.id, userId, now),
+    database.prepare(
+      `INSERT INTO client_crm_profiles
+         (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
+       VALUES (?, 'vip', 'individual', 'general', '[]', '', ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET
+         crm_status = 'vip',
+         updated_by = excluded.updated_by,
+         updated_at = excluded.updated_at`,
+    ).bind(userId, now, userId, now),
   ]);
   if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {
     throw Response.json({ ok: false, error: "El token ya fue utilizado." }, { status: 409 });

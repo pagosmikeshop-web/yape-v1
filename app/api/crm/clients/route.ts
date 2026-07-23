@@ -17,12 +17,13 @@ import { hasPermission, requirePermission } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
-const CRM_STATUSES = new Set(["new", "active", "pending", "suspended", "vip", "recurring"]);
+const CRM_STATUSES = new Set(["new", "vip"]);
 const CLIENT_TYPES = new Set(["individual", "business"]);
+const CRM_STATUS_SQL = "CASE WHEN u.status = 'active' AND u.access_expires_at IS NULL THEN 'vip' ELSE 'new' END";
 const SORT_COLUMNS = {
   name: "u.display_name",
   date: "u.created_at",
-  status: "p.crm_status",
+  status: "crm_status",
   sales: "total_sales_cents",
   activity: "p.last_activity_at",
 } as const;
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
       values.push(term, term, term, term, term);
     }
     if (CRM_STATUSES.has(status)) {
-      conditions.push("COALESCE(p.crm_status, 'new') = ?");
+      conditions.push(`${CRM_STATUS_SQL} = ?`);
       values.push(status);
     }
     if (sellerId === "unassigned") conditions.push("u.owner_id IS NULL");
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
       `SELECT u.id, u.seller_code, u.username, u.display_name, u.email, u.status,
               u.owner_id, u.created_at, u.activated_at, u.device_id, u.referral_code,
               u.access_expires_at, d.phone_e164,
-              COALESCE(p.crm_status, 'new') AS crm_status,
+              ${CRM_STATUS_SQL} AS crm_status,
               COALESCE(p.client_type, 'individual') AS client_type,
               COALESCE(p.category, 'general') AS category,
               COALESCE(p.tags_json, '[]') AS tags_json,
@@ -166,13 +167,23 @@ export async function POST(request: Request) {
     const displayName = asString(body.displayName).trim();
     const email = asString(body.email).trim().toLowerCase();
     const phone = normalizePeruvianMobile(asString(body.phone));
-    const crmStatus = CRM_STATUSES.has(asString(body.crmStatus)) ? asString(body.crmStatus) : "new";
+    const crmStatus = asString(body.crmStatus) || "new";
     const clientType = CLIENT_TYPES.has(asString(body.clientType)) ? asString(body.clientType) : "individual";
     const category = asString(body.category).trim().slice(0, 40) || "general";
     const tags = cleanTags(body.tags);
+    const saleAmountCents = Math.round(Number(body.saleAmount) * 100);
 
     if (!validateUsername(username) || !validateDisplayName(displayName) || !validateOptionalEmail(email) || !phone) {
       return jsonError("Completa un usuario, nombre y celular peruano válidos.");
+    }
+    if (!CRM_STATUSES.has(crmStatus)) {
+      return jsonError("El estado CRM debe ser Nuevo o VIP.");
+    }
+    if (actor.role === "seller" && crmStatus === "vip") {
+      return jsonError("Para otorgar acceso VIP, genera una key permanente usando un crédito.", 403);
+    }
+    if (!Number.isSafeInteger(saleAmountCents) || saleAmountCents <= 0 || saleAmountCents > 100_000_000_00) {
+      return jsonError("Ingresa un monto de venta mayor a S/ 0.");
     }
 
     let ownerId: string | null = actor.role === "seller" ? actor.id : null;
@@ -193,6 +204,7 @@ export async function POST(request: Request) {
       sellerCode = seller.seller_code;
     }
 
+    const grantsPermanentAccess = crmStatus === "vip";
     const id = await createUser({
       sellerCode,
       username,
@@ -202,7 +214,8 @@ export async function POST(request: Request) {
       phone,
       role: "client",
       ownerId,
-      status: "pending",
+      status: grantsPermanentAccess ? "active" : "pending",
+      accessExpiresAt: grantsPermanentAccess ? null : undefined,
       mustChangePassword: true,
     });
     const now = new Date().toISOString();
@@ -213,19 +226,40 @@ export async function POST(request: Request) {
          VALUES (?, ?, ?, ?, ?, '', ?, ?, ?)`,
       ).bind(id, crmStatus, clientType, category, JSON.stringify(tags), now, actor.id, now),
       dbBinding().prepare(
+        `INSERT INTO client_crm_activities
+           (id, user_id, activity_type, title, description, amount_cents, created_by, created_at)
+         VALUES (?, ?, 'purchase', 'Venta inicial', 'Venta registrada al crear el cliente.', ?, ?, ?)`,
+      ).bind(crypto.randomUUID(), id, saleAmountCents, actor.id, now),
+      dbBinding().prepare(
         `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
          VALUES (?, ?, 'crm_client_create', ?, ?)`,
-      ).bind(crypto.randomUUID(), actor.telegramUserId ?? actor.id, `${id}:${ownerId ?? "unassigned"}`, now),
+      ).bind(
+        crypto.randomUUID(),
+        actor.telegramUserId ?? actor.id,
+        `${id}:${ownerId ?? "unassigned"}:${saleAmountCents}`,
+        now,
+      ),
     ]);
     const invitation = await createInvitation(id);
     const activationUrl = new URL(invitation.activationPath, publicAppBaseUrl(request)).toString();
 
     return jsonOk({
-      client: { id, username: username.toLowerCase(), displayName, phone, status: "pending", ownerId },
+      client: {
+        id,
+        username: username.toLowerCase(),
+        displayName,
+        phone,
+        status: grantsPermanentAccess ? "active" : "pending",
+        ownerId,
+        crmStatus,
+        saleAmountCents,
+      },
       invitation: { activationUrl, expiresAt: invitation.expiresAt },
-      message: ownerId
-        ? "Cliente creado en el CRM y asignado correctamente. No tiene acceso al panel."
-        : "Cliente creado en el CRM sin vendedor asignado. No tiene acceso al panel.",
+      message: grantsPermanentAccess
+        ? "Cliente VIP creado con acceso permanente. No tiene acceso al panel administrativo."
+        : ownerId
+          ? "Cliente Nuevo creado. Actívalo para iniciar sus 3 días de prueba."
+          : "Cliente Nuevo creado sin vendedor asignado. Actívalo para iniciar sus 3 días de prueba.",
     }, { status: 201, headers: { "cache-control": "no-store" } });
   } catch (error) {
     return routeError(error);

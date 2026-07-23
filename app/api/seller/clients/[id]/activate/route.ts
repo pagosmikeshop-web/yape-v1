@@ -40,6 +40,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
          WHERE id = ? AND status = 'pending'
            AND EXISTS (SELECT 1 FROM activations WHERE id = ? AND user_id = ?)`,
       ).bind(now, accessExpiresAt, now, client.id, activationId, client.id),
+      database.prepare(
+        `INSERT INTO client_crm_profiles
+           (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
+         VALUES (?, 'new', 'individual', 'general', '[]', '', ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           crm_status = 'new',
+           updated_by = excluded.updated_by,
+           updated_at = excluded.updated_at`,
+      ).bind(client.id, now, actor.id, now),
     ]);
 
     if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {

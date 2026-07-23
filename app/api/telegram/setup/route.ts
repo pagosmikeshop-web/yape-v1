@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         url: webhookUrl,
         secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-        allowed_updates: ["message", "edited_message"],
+        allowed_updates: ["message"],
         drop_pending_updates: true,
       }),
       signal: AbortSignal.timeout(8_000),

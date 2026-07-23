@@ -157,7 +157,11 @@ test("registro y webhook no exponen endpoints GET de diagnóstico", async () => 
   assert.doesNotMatch(statusRoute, /FROM telegram_group_members/u);
   assert.doesNotMatch(registerRoute, /FROM telegram_group_members/u);
   assert.match(setupRoute, /bootstrapIsEnabled\(\)/u);
-  assert.match(telegramManager, /DISABLED_WRITE_COMMANDS/u);
+  assert.match(setupRoute, /allowed_updates:\s*\["message"\]/u);
+  assert.match(telegramManager, /String\(message\.chat\.id\) !== groupId/u);
+  assert.match(telegramManager, /command !== "\/redeem"/u);
+  assert.match(telegramManager, /INSERT OR IGNORE INTO telegram_updates/u);
+  assert.doesNotMatch(telegramManager, /case "\/clientes"|case "\/saldo"|command === "\/id"/u);
   assert.doesNotMatch(telegramManager, /Clave temporal:/u);
   assert.doesNotMatch(telegramManager, /telegram_(?:initial|topup|activation|password_reset)/u);
 });

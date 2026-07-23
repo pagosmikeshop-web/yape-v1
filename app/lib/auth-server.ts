@@ -669,7 +669,7 @@ export async function ensureAuthSchema() {
       `CREATE TABLE IF NOT EXISTS client_crm_profiles (
         user_id TEXT PRIMARY KEY,
         crm_status TEXT NOT NULL DEFAULT 'new'
-          CHECK (crm_status IN ('new','active','pending','suspended','vip','recurring')),
+          CHECK (crm_status IN ('new','vip')),
         client_type TEXT NOT NULL DEFAULT 'individual'
           CHECK (client_type IN ('individual','business')),
         category TEXT NOT NULL DEFAULT 'general',
@@ -700,6 +700,20 @@ export async function ensureAuthSchema() {
       "CREATE INDEX IF NOT EXISTS client_crm_activities_type_idx ON client_crm_activities(activity_type, created_at)",
     ];
     await db.batch(statements.map((sql) => db.prepare(sql)));
+    await db.prepare(
+      `UPDATE client_crm_profiles
+       SET crm_status = CASE
+         WHEN EXISTS (
+           SELECT 1 FROM users u
+           WHERE u.id = client_crm_profiles.user_id
+             AND u.role = 'client'
+             AND u.status = 'active'
+             AND u.access_expires_at IS NULL
+         ) THEN 'vip'
+         ELSE 'new'
+       END
+       WHERE user_id IN (SELECT id FROM users WHERE role = 'client')`,
+    ).run();
 
     const balanceColumns = await db.prepare("PRAGMA table_info(account_balances)").all<{ name: string }>();
     const knownBalanceColumns = new Set((balanceColumns.results ?? []).map((column) => column.name));
