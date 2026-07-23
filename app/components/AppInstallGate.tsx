@@ -2,23 +2,11 @@
 /* eslint-disable @next/next/no-img-element -- install screen uses the local Yape SVG */
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
-
-const BROWSER_ROUTES = new Set([
-  "/",
-  "/activar-cuenta",
-  "/admin",
-  "/cambiar-contrasena",
-  "/configurar-admin",
-  "/recuperar",
-  "/registro",
-  "/vendedor",
-]);
 
 function isStandaloneDisplay() {
   if (typeof window === "undefined") return true;
@@ -26,7 +14,6 @@ function isStandaloneDisplay() {
 }
 
 export function AppInstallGate({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [installed, setInstalled] = useState(true);
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
@@ -39,6 +26,11 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
     if (typeof navigator === "undefined") return false;
     return /iphone|ipad|ipod/iu.test(navigator.userAgent);
   }, []);
+  const isIpadOs = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /macintosh/iu.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+  }, []);
+  const isMobileDevice = isAndroid || isIos || isIpadOs;
 
   useEffect(() => {
     const updateInstalled = () => {
@@ -71,6 +63,10 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
   }, []);
 
   async function installApp() {
+    if (!isMobileDevice) {
+      setInstallHelpVisible(true);
+      return;
+    }
     if (!promptEvent) {
       setInstallHelpVisible(true);
       return;
@@ -83,22 +79,7 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
   }
 
   if (!ready) return null;
-  if (installed) return <>{children}</>;
-  if (BROWSER_ROUTES.has(pathname)) {
-    return (
-      <>
-        {children}
-        {pathname === "/" && isAndroid ? (
-          <aside className="entry-install-cta" aria-label="Instalar aplicación">
-            <button type="button" onClick={installApp}>Instalar app</button>
-            {installHelpVisible ? (
-              <p role="status">En Chrome abre el menú ⋮ y toca “Instalar aplicación”.</p>
-            ) : null}
-          </aside>
-        ) : null}
-      </>
-    );
-  }
+  if (installed && isMobileDevice) return <>{children}</>;
 
   return (
     <main className="install-gate" aria-label="Instalar aplicacion">
@@ -106,13 +87,15 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
         <img src="/assets/apk/icons/ic_logo_static.svg" alt="" aria-hidden="true" />
         <h1>Descarga la app para continuar</h1>
         <p>El acceso de clientes funciona solo desde la aplicacion instalada en el celular.</p>
-        {isAndroid ? <button type="button" onClick={installApp}>Instalar app</button> : null}
+        <button type="button" onClick={installApp}>Instalar app</button>
         {isIos ? (
           <ol>
             <li>Toca Compartir en Safari.</li>
             <li>Elige Agregar a pantalla de inicio.</li>
             <li>Abre la app desde el icono instalado.</li>
           </ol>
+        ) : !isMobileDevice && installHelpVisible ? (
+          <p className="install-help" role="status">Abre esta pagina desde tu celular para instalar la app.</p>
         ) : !promptEvent ? (
           <p className="install-help">Abre el menu del navegador y selecciona Instalar aplicacion o Agregar a pantalla de inicio.</p>
         ) : null}

@@ -311,6 +311,8 @@ test("la PWA ofrece instalación directa en Android con iconos válidos", async 
   assert.match(installGate, /beforeinstallprompt/u);
   assert.match(installGate, /appinstalled/u);
   assert.match(installGate, />Instalar app</u);
+  assert.match(installGate, /installed && isMobileDevice/u);
+  assert.doesNotMatch(installGate, /BROWSER_ROUTES/u);
 
   await Promise.all([
     assertFile("public/icons/yape-192.png"),
