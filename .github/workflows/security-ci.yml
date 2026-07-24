@@ -3,7 +3,10 @@ name: Security CI
 on:
   push:
     branches: ["main"]
+
   pull_request:
+    branches: ["main"]
+
   workflow_dispatch:
 
 concurrency:
@@ -18,8 +21,10 @@ jobs:
     name: Build, tests, SCA and SBOM
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     permissions:
       contents: read
+
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -65,9 +70,12 @@ jobs:
     name: CodeQL SAST
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     permissions:
       contents: read
+      actions: read
       security-events: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -75,11 +83,11 @@ jobs:
           persist-credentials: false
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@3b0bd1d116c0bde30213346b22d4f634d96a2fb0
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
 
       - name: Analyze
-        uses: github/codeql-action/analyze@3b0bd1d116c0bde30213346b22d4f634d96a2fb0
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript-typescript"
