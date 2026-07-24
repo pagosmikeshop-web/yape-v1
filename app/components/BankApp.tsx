@@ -1785,6 +1785,7 @@ function HomeView() {
           </div>
         </div>
       </section>
+      <HomeMainActions />
       {showAllServices ? (
         <AllServicesSheet
           closing={closingAllServices}
@@ -6764,7 +6765,6 @@ export function BankApp({ view }: { view: BankView }) {
           {view === "scanner" ? <ScannerView /> : null}
           {view === "transport-recharge" ? <TransportRechargeView /> : null}
         </div>
-        {view === "home" ? <HomeMainActions /> : null}
       </section>
     </main>
   );

@@ -467,7 +467,7 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .home-account-sheet {
-    flex: 1 0 auto !important;
+    flex: 1 1 auto !important;
     display: flex !important;
     flex-direction: column !important;
     min-height: auto !important;
@@ -479,7 +479,7 @@ canvas {
   }
 
   /* Safe-area una sola vez, en el contenedor de botones. */
-  .mobile-bank-shell.view-home > .home-main-actions {
+  .mobile-bank-shell.view-home .home-main-actions {
     position: relative !important;
     inset: auto !important;
     bottom: auto !important;
@@ -502,13 +502,13 @@ canvas {
     transform: none !important;
   }
 
-  .mobile-bank-shell.view-home > .home-main-actions::before,
-  .mobile-bank-shell.view-home > .home-main-actions::after {
+  .mobile-bank-shell.view-home .home-main-actions::before,
+  .mobile-bank-shell.view-home .home-main-actions::after {
     content: none !important;
     display: none !important;
   }
 
-  .mobile-bank-shell.view-home > .home-main-actions a {
+  .mobile-bank-shell.view-home .home-main-actions a {
     flex: 1 1 0;
     width: auto !important;
     max-width: none !important;
@@ -631,7 +631,7 @@ canvas {
     box-shadow: none;
   }
 
-  .mobile-bank-shell.view-home > .home-main-actions {
+  .mobile-bank-shell.view-home .home-main-actions {
     width: 100% !important;
     margin: 0 !important;
     padding-top: 8px !important;

@@ -578,7 +578,6 @@
 }
 
 .mobile-bank-shell .home-account-sheet {
-  min-height: 330px !important;
   padding: 14px 12px 0 !important;
 }
 
@@ -838,7 +837,8 @@
   max-width: none !important;
   height: auto !important;
   min-height: 0 !important;
-  margin: auto 0 0 !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
   padding: 12px clamp(16px, 4.72vw, 19.5px) !important;
   align-items: center !important;
   justify-content: space-between !important;
