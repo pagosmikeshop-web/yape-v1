@@ -305,19 +305,19 @@
 
 /* El comprobante debe cubrir hasta el último píxel inferior del dispositivo. */
 .mobile-bank-shell .bank-scroll-area:has(.yape-voucher) {
-  background-color: #790699 !important;
+  background-color: #660185 !important;
 }
 
 .mobile-bank-shell .yape-voucher {
   width: 100% !important;
-  min-height: 100dvh !important;
-  background-color: #790699 !important;
+  min-height: 100% !important;
+  background-color: #660185 !important;
 }
 
 .mobile-bank-shell .bank-scroll-area:has(.yape-success-voucher),
 .mobile-bank-shell .yape-success-voucher,
 .mobile-bank-shell .yape-success-voucher .voucher-content {
-  min-height: 100dvh !important;
+  min-height: 100% !important;
   background-color: #660185 !important;
 }
 
@@ -827,9 +827,9 @@
 }
 
 .mobile-bank-shell.view-home .home-main-actions {
-  position: sticky !important;
+  position: relative !important;
   right: auto !important;
-  bottom: 0 !important;
+  bottom: auto !important;
   left: auto !important;
   z-index: 30 !important;
   display: flex !important;
@@ -837,8 +837,8 @@
   max-width: none !important;
   height: auto !important;
   min-height: 0 !important;
-  margin: auto 0 0 !important;
-  padding: 10px clamp(16px, 4.72vw, 19.5px) env(safe-area-inset-bottom, 0px) !important;
+  margin: 0 !important;
+  padding: 8px clamp(16px, 4.72vw, 19.5px) env(safe-area-inset-bottom, 0px) !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
@@ -967,7 +967,7 @@
 
 .mobile-bank-shell .reference-home {
   min-height: 100%;
-  background: linear-gradient(180deg, var(--primary-500), var(--primary-700));
+  background: #ffffff;
 }
 
 .mobile-bank-shell .home-purple-zone {
@@ -2234,7 +2234,7 @@
 .mobile-bank-shell .yape-success-voucher {
   min-height: 100%;
   overflow: visible;
-  background: linear-gradient(180deg, rgb(74, 25, 114), rgb(117, 34, 133));
+  background: #660185;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-success-animation {
@@ -2263,7 +2263,7 @@
   width: 100%;
   min-height: min(55vw, 237px);
   padding: 0;
-  background: linear-gradient(180deg, rgb(74, 25, 114), rgb(117, 34, 133));
+  background: #660185;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-banner-image {
@@ -2585,11 +2585,10 @@
   grid-template-columns: repeat(2, minmax(0, min(43vw, 177px)));
   justify-content: space-between;
   gap: 0;
-  width: calc(100% + 36px);
-  min-height: calc(min(18vw, 74px) + env(safe-area-inset-bottom));
-  margin: min(3vw, 12px) -18px 0;
-  padding: min(3vw, 12px) min(4.72vw, 19px)
-    calc(min(2vh, 17px) + env(safe-area-inset-bottom));
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 8px min(4.72vw, 19px) env(safe-area-inset-bottom, 0px);
   background: #fff;
 }
 
@@ -2959,8 +2958,9 @@
 
 @media (max-width: 599px) {
   .banking-stage {
-    min-height: var(--app-viewport-height, 100svh);
-    max-height: var(--app-viewport-height, 100svh);
+    min-height: 100%;
+    max-height: 100%;
+    height: 100%;
     padding: 0;
     background: #ffffff;
   }

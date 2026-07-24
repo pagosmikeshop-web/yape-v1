@@ -15,10 +15,13 @@ export function MobileViewportSync() {
       const visualHeight = viewport
         ? viewport.height + viewport.offsetTop
         : 0;
-      // Usar el mayor valor evita franjas del color de fondo cuando iOS
-      // reporta un visualViewport más bajo que el área real de la app.
       const height = Math.round(
-        Math.max(visualHeight, window.innerHeight, document.documentElement.clientHeight, 1),
+        Math.max(
+          visualHeight,
+          window.innerHeight,
+          document.documentElement.clientHeight,
+          1,
+        ),
       );
       const width = Math.round(
         Math.max(viewport?.width ?? 0, window.innerWidth, 1),

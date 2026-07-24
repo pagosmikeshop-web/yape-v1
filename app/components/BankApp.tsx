@@ -1784,8 +1784,6 @@ function HomeView() {
             )}
           </div>
         </div>
-
-        <HomeMainActions />
       </section>
       {showAllServices ? (
         <AllServicesSheet
@@ -6769,6 +6767,7 @@ export function BankApp({ view }: { view: BankView }) {
           {view === "scanner" ? <ScannerView /> : null}
           {view === "transport-recharge" ? <TransportRechargeView /> : null}
         </div>
+        {view === "home" ? <HomeMainActions /> : null}
       </section>
     </main>
   );

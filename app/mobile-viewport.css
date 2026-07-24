@@ -344,31 +344,42 @@ canvas {
   }
 
   .mobile-bank-shell
-    .bank-scroll-area:has(.yape-success-voucher) {
-    height: 100%;
-    min-height: 0 !important;
-    max-height: 100%;
+    .bank-scroll-area:has(.yape-success-voucher),
+  .mobile-bank-shell
+    .bank-scroll-area:has(.yape-voucher) {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+    padding: 0 !important;
+    overflow-x: hidden !important;
     overflow-y: auto !important;
+    background: #660185 !important;
   }
 
   .mobile-bank-shell .yape-voucher,
   .mobile-bank-shell .yape-success-voucher,
-  .mobile-bank-shell .yape-success-voucher .voucher-content {
+  .mobile-bank-shell .yape-success-voucher .voucher-content,
+  .mobile-bank-shell .voucher-share-capture {
+    width: 100% !important;
     min-height: 100% !important;
+    background: #660185 !important;
+    background-color: #660185 !important;
+    background-image: none !important;
   }
 
   .mobile-bank-shell .yape-success-voucher .voucher-content {
-    padding-top: max(var(--app-safe-top), 10px);
-    padding-right: var(--app-safe-right);
-    padding-bottom: var(--app-safe-bottom);
-    padding-left: var(--app-safe-left);
+    box-sizing: border-box !important;
+    padding-top: max(8px, var(--app-safe-top)) !important;
+    padding-right: var(--app-safe-right) !important;
+    padding-bottom: max(12px, var(--app-safe-bottom)) !important;
+    padding-left: var(--app-safe-left) !important;
   }
 
   .mobile-bank-shell
     .yape-success-voucher
     .voucher-close-button {
-    top: calc(max(var(--app-safe-top), 10px) + min(2vw, 9px));
-    right: max(min(2vw, 9px), var(--app-safe-right));
+    top: calc(max(var(--app-safe-top), 8px) + min(2vw, 9px)) !important;
+    right: max(min(2vw, 9px), var(--app-safe-right)) !important;
     min-width: var(--app-touch-target);
     min-height: var(--app-touch-target);
   }
@@ -377,7 +388,7 @@ canvas {
     .yape-success-voucher
     .voucher-success-animation {
     position: absolute !important;
-    inset: 0 0 auto !important;
+    inset: 0 !important;
     width: 100% !important;
     height: 100% !important;
     min-height: 0 !important;
@@ -431,41 +442,39 @@ canvas {
   }
 
   /*
-   * Home: sin franja inferior de ningún color.
-   * La hoja blanca llega al borde del dispositivo; los botones van al final
-   * de esa hoja con solo el safe-area del home indicator (sin barra extra).
+   * Edge-to-edge: home y comprobante sin franjas arriba/abajo.
    */
   .mobile-bank-shell.view-home {
     display: flex !important;
     flex-direction: column !important;
     height: 100% !important;
     max-height: 100% !important;
-    background: var(--app-surface-bg) !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
   }
 
   .mobile-bank-shell.view-home .bank-scroll-area {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    height: 100% !important;
-    padding-bottom: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    background: var(--app-surface-bg) !important;
+    background: #ffffff !important;
   }
 
   .mobile-bank-shell.view-home .reference-home {
     min-height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    background: var(--app-surface-bg) !important;
+    background: #ffffff !important;
   }
 
   .mobile-bank-shell.view-home .home-purple-zone {
     flex: 0 0 auto !important;
-    background: linear-gradient(
-      rgb(117, 35, 134) 0 70%,
-      rgb(75, 26, 112) 100%
-    ) !important;
+    margin: 0 !important;
+    padding-top: max(12px, var(--app-safe-top)) !important;
+    background: #752386 !important;
   }
 
   .mobile-bank-shell.view-home .home-account-sheet {
@@ -474,16 +483,15 @@ canvas {
     flex-direction: column !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 12px 0 0 !important;
+    padding: 12px 0 8px !important;
     border-radius: 5vw 5vw 0 0 !important;
-    background: var(--app-surface-bg) !important;
+    background: #ffffff !important;
     box-shadow: none !important;
   }
 
-  .mobile-bank-shell.view-home .home-main-actions {
-    position: sticky !important;
-    bottom: 0 !important;
-    inset: auto 0 0 0 !important;
+  .mobile-bank-shell.view-home > .home-main-actions {
+    position: relative !important;
+    inset: auto !important;
     z-index: 40 !important;
     flex: 0 0 auto !important;
     display: flex !important;
@@ -494,27 +502,44 @@ canvas {
     max-width: none !important;
     height: auto !important;
     min-height: 0 !important;
-    margin: auto 0 0 !important;
-    padding: 10px max(16px, var(--app-inline-gutter))
-      var(--app-safe-bottom) !important;
-    background: var(--app-surface-bg) !important;
+    margin: 0 !important;
+    padding: 8px max(16px, var(--app-inline-gutter))
+      max(8px, var(--app-safe-bottom)) !important;
+    background: #ffffff !important;
     border: 0 !important;
     box-shadow: none !important;
     transform: none !important;
   }
 
-  .mobile-bank-shell.view-home .home-main-actions::before,
-  .mobile-bank-shell.view-home .home-main-actions::after {
+  .mobile-bank-shell.view-home > .home-main-actions::before,
+  .mobile-bank-shell.view-home > .home-main-actions::after {
     content: none !important;
     display: none !important;
   }
 
-  .mobile-bank-shell.view-home .home-main-actions a {
+  .mobile-bank-shell.view-home > .home-main-actions a {
     flex: 1 1 0;
     width: auto !important;
     max-width: none !important;
     height: 44px !important;
     min-height: 44px !important;
+  }
+
+  .mobile-bank-shell:has(.yape-success-voucher),
+  .mobile-bank-shell:has(.yape-voucher) {
+    background: #660185 !important;
+  }
+
+  html:has(.yape-success-voucher),
+  body:has(.yape-success-voucher),
+  .banking-stage:has(.yape-success-voucher) {
+    background: #660185 !important;
+  }
+
+  html:has(.mobile-bank-shell.view-home),
+  body:has(.mobile-bank-shell.view-home),
+  .banking-stage:has(.mobile-bank-shell.view-home) {
+    background: #ffffff !important;
   }
 
   .install-gate {
