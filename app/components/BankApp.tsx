@@ -1592,7 +1592,7 @@ function TransferView() {
         setRecipientIsNewNumber(true);
         setPhoneIsEditing(false);
         setDestination("Yape");
-        setNotice("Este número aún no está registrado como cliente. Lo guardamos y puedes continuar.");
+        setNotice("");
         setPhoneContacts((current) => {
           const normalizedNewNumber = newNumber.replace(/\D/g, "");
           if (current.some((contact) => contact.phone.replace(/\D/g, "") === normalizedNewNumber)) return current;

@@ -291,6 +291,8 @@ canvas {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover;
+    transform: translate(-10px, -15px) scale(1.05);
+    transform-origin: center;
   }
 
   .mobile-bank-shell.view-movements .reference-movements-view,
@@ -325,6 +327,14 @@ canvas {
   .mobile-bank-shell textarea,
   .login-card input:not([type="checkbox"]):not([type="radio"]) {
     font-size: max(16px, 1em);
+  }
+
+  /*
+   * El monto es un control visual de gran formato. Esta regla debe ir después
+   * del mínimo de 16 px usado para evitar el zoom automático de Safari.
+   */
+  .mobile-bank-shell .transfer-amount-field input {
+    font-size: clamp(68px, 19.44vw, 80px);
   }
 
   .mobile-bank-shell button,

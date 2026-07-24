@@ -34,31 +34,51 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let animationFrame = 0;
+    const settleTimers: number[] = [];
     const viewport = window.visualViewport;
     const syncViewportHeight = () => {
       window.cancelAnimationFrame(animationFrame);
       animationFrame = window.requestAnimationFrame(() => {
-        const visibleHeight = viewport?.height ?? window.innerHeight;
-        if (!Number.isFinite(visibleHeight) || visibleHeight < 320) return;
+        const layoutHeight = Math.max(
+          window.innerHeight,
+          document.documentElement.clientHeight,
+        );
+        const visualHeight = viewport?.height ?? layoutHeight;
+        const keyboardIsOpen = visualHeight < layoutHeight * 0.72;
+        const effectiveHeight = keyboardIsOpen ? visualHeight : layoutHeight;
+        if (!Number.isFinite(effectiveHeight) || effectiveHeight < 320) return;
         document.documentElement.style.setProperty(
           "--app-viewport-height",
-          `${Math.round(visibleHeight)}px`,
+          `${Math.round(effectiveHeight)}px`,
         );
       });
     };
+    const syncVisiblePage = () => {
+      if (document.visibilityState === "visible") syncViewportHeight();
+    };
 
     syncViewportHeight();
+    for (const delay of [120, 420, 900]) {
+      settleTimers.push(window.setTimeout(syncViewportHeight, delay));
+    }
     window.addEventListener("resize", syncViewportHeight);
     window.addEventListener("orientationchange", syncViewportHeight);
     window.addEventListener("pageshow", syncViewportHeight);
+    window.addEventListener("focus", syncViewportHeight);
+    document.addEventListener("visibilitychange", syncVisiblePage);
     viewport?.addEventListener("resize", syncViewportHeight);
+    viewport?.addEventListener("scroll", syncViewportHeight);
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
+      settleTimers.forEach((timer) => window.clearTimeout(timer));
       window.removeEventListener("resize", syncViewportHeight);
       window.removeEventListener("orientationchange", syncViewportHeight);
       window.removeEventListener("pageshow", syncViewportHeight);
+      window.removeEventListener("focus", syncViewportHeight);
+      document.removeEventListener("visibilitychange", syncVisiblePage);
       viewport?.removeEventListener("resize", syncViewportHeight);
+      viewport?.removeEventListener("scroll", syncViewportHeight);
       document.documentElement.style.removeProperty("--app-viewport-height");
     };
   }, []);
