@@ -688,12 +688,13 @@
 
 /* Copiado del MHTML de referencia: footer fijo y tipografía exacta del home. */
 .mobile-bank-shell.view-home .bank-scroll-area {
-  padding-bottom: calc(18vw + env(safe-area-inset-bottom, 0px) + 2vh) !important;
+  padding-bottom: 0 !important;
+  background: #ffffff !important;
 }
 
 .mobile-bank-shell.view-home .home-account-sheet {
   min-height: 0 !important;
-  padding: 0 0 calc(18vw + env(safe-area-inset-bottom, 0px) + 2vh) !important;
+  padding: 0 0 calc(clamp(66px, 18vw, 74px) + env(safe-area-inset-bottom, 0px) + 12px) !important;
   border-radius: 5vw 5vw 0 0 !important;
   background: rgb(255, 255, 255) !important;
   box-shadow: none !important;
@@ -827,22 +828,22 @@
 
 .mobile-bank-shell.view-home .home-main-actions {
   position: fixed !important;
-  right: auto !important;
+  right: 0 !important;
   bottom: 0 !important;
-  left: 50% !important;
+  left: 0 !important;
   z-index: 30 !important;
   display: flex !important;
-  width: min(100vw, 412px) !important;
-  max-width: 412px !important;
-  height: clamp(66px, 18vw, 74px) !important;
-  min-height: clamp(66px, 18vw, 74px) !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: calc(clamp(66px, 18vw, 74px) + env(safe-area-inset-bottom, 0px)) !important;
   margin: 0 !important;
-  padding: 0 clamp(18px, 4.72vw, 19.5px) calc(env(safe-area-inset-bottom, 0px) + 2vh) !important;
+  padding: 12px clamp(18px, 4.72vw, 19.5px) max(12px, env(safe-area-inset-bottom, 0px)) !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: 0 !important;
+  gap: 16px !important;
   background-color: rgb(255, 255, 255) !important;
-  transform: translateX(-50%) !important;
+  transform: none !important;
 }
 
 .mobile-bank-shell.view-home .home-main-actions a {
@@ -2563,7 +2564,8 @@
 /* Exact measurements recovered from the saved /home and /monto documents. */
 
 .mobile-bank-shell .reference-home {
-  background: rgb(73, 26, 110);
+  /* Blanco debajo: evita franja morada bajo la hoja de saldo/acciones. */
+  background: #ffffff;
 }
 
 .mobile-bank-shell .home-purple-zone {
@@ -2585,7 +2587,7 @@
   gap: 0;
   width: calc(100% + 36px);
   min-height: calc(min(18vw, 74px) + env(safe-area-inset-bottom));
-  margin: min(3vw, 12px) -18px calc(-20px - env(safe-area-inset-bottom));
+  margin: min(3vw, 12px) -18px 0;
   padding: min(3vw, 12px) min(4.72vw, 19px)
     calc(min(2vh, 17px) + env(safe-area-inset-bottom));
   background: #fff;
@@ -3010,6 +3012,7 @@
 /* Overrides finales: deben quedar después de todas las reglas de fidelidad. */
 .mobile-bank-shell .home-account-sheet {
   padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  background: #ffffff;
 }
 
 .mobile-bank-shell .home-main-actions {
@@ -3019,7 +3022,7 @@
   margin: 22px 0 0;
   padding: 0;
   gap: 16px;
-  background: transparent;
+  background: #ffffff;
 }
 
 .mobile-bank-shell .home-main-actions a {
