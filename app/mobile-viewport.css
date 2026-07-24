@@ -272,7 +272,25 @@ canvas {
   .mobile-bank-shell
     .yape-success-voucher
     .voucher-success-animation {
+    position: absolute !important;
+    inset: 0 0 auto !important;
+    width: 100% !important;
+    height: var(--app-viewport-height) !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden;
+    contain: layout paint;
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher
+    .voucher-success-animation canvas,
+  .mobile-bank-shell
+    .yape-success-voucher
+    .voucher-success-animation svg {
+    width: 100% !important;
     height: 100% !important;
+    object-fit: cover;
   }
 
   .mobile-bank-shell.view-movements .reference-movements-view,
