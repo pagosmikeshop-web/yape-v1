@@ -580,15 +580,15 @@ input:focus-visible {
 }
 
 .home-main-actions {
-  position: sticky;
-  bottom: 0;
+  position: relative;
+  bottom: auto;
   z-index: 12;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-top: 12px;
-  padding: 12px 0 max(10px, env(safe-area-inset-bottom));
-  background: #f9f8fc;
+  margin-top: 0;
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  background: #ffffff;
 }
 
 .home-main-actions a {
