@@ -4,6 +4,7 @@ import {
   basePermissions,
   DELEGABLE_PERMISSIONS,
   isPermission,
+  OWNER_ONLY_PERMISSIONS,
   permissionCatalog,
   permissionsFor,
   requirePermission,
@@ -37,6 +38,12 @@ function targetAuthUser(actor: AuthUser, target: TargetUser): AuthUser {
   };
 }
 
+function editablePermissions(actorIsOwner: boolean) {
+  if (!actorIsOwner) return [...DELEGABLE_PERMISSIONS];
+  const ownerOnly = new Set<string>(OWNER_ONLY_PERMISSIONS);
+  return permissionCatalog().filter((permission) => !ownerOnly.has(permission));
+}
+
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin"]);
@@ -46,7 +53,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     return jsonOk({
       permissions: [...await permissionsFor(targetAuthUser(actor, target))],
       catalog: actor.isOwner ? permissionCatalog() : [...DELEGABLE_PERMISSIONS],
-      editable: actor.isOwner ? permissionCatalog() : [...DELEGABLE_PERMISSIONS],
+      editable: editablePermissions(actor.isOwner),
     });
   } catch (error) {
     return routeError(error);
@@ -66,7 +73,13 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       return jsonError("La selección de permisos no es válida.");
     }
     const requested = new Set(body.permissions as string[]);
-    const editableList = actor.isOwner ? permissionCatalog() : [...DELEGABLE_PERMISSIONS];
+    const ownerOnly = new Set<string>(OWNER_ONLY_PERMISSIONS);
+    for (const permission of requested) {
+      if (ownerOnly.has(permission)) {
+        return jsonError("Esos permisos solo puede gestionarlos el propietario.", 403);
+      }
+    }
+    const editableList = editablePermissions(actor.isOwner);
     const targetUser = targetAuthUser(actor, target);
     const base = new Set(basePermissions(targetUser));
     const database = dbBinding();

@@ -1,5 +1,5 @@
 import { jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
-import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import { dbBinding, enforceAuthRateLimits, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
 import { canManageSeller } from "@/app/lib/management-server";
 import { requirePermission } from "@/app/lib/rbac";
 
@@ -9,6 +9,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const { user: admin } = await requireUnlockedSession(request, ["admin"]);
     await requirePermission(admin, "sellers:credits");
+    await enforceAuthRateLimits([
+      {
+        bucket: "credits-assign-user",
+        subject: admin.id,
+        limit: 40,
+        windowSeconds: 60 * 60,
+      },
+    ]);
     const { id } = await context.params;
     if (!(await canManageSeller(admin, id))) return jsonError("Vendedor no encontrado.", 404);
     const body = await readJson(request);
@@ -61,6 +69,14 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   try {
     const { user: admin } = await requireUnlockedSession(request, ["admin"]);
     await requirePermission(admin, "sellers:credits");
+    await enforceAuthRateLimits([
+      {
+        bucket: "credits-assign-user",
+        subject: admin.id,
+        limit: 40,
+        windowSeconds: 60 * 60,
+      },
+    ]);
     const { id } = await context.params;
     if (!(await canManageSeller(admin, id))) return jsonError("Vendedor no encontrado.", 404);
     const body = await readJson(request);

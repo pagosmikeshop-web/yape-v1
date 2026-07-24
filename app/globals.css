@@ -70,14 +70,14 @@
 
 html {
   min-width: 320px;
-  background: #221124;
+  background: #742284;
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100svh;
   margin: 0;
   color: var(--auth-text);
-  background: #221124;
+  background: #742284;
   font-family: "Yape", Roboto, Arial, sans-serif;
 }
 
@@ -93,12 +93,10 @@ input {
 }
 
 .site-stage {
-  min-height: 100svh;
+  min-height: var(--app-viewport-height, 100svh);
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 50% 10%, rgba(146, 11, 193, 0.18), transparent 34rem),
-    #221124;
+  background: #742284;
 }
 
 .bank-app {
@@ -735,8 +733,10 @@ input {
 }
 
 .returning-login {
-  min-height: 100svh;
-  background: #5b1374;
+  display: flex;
+  flex-direction: column;
+  min-height: var(--app-viewport-height, 100svh);
+  background: #ffffff;
 }
 
 .returning-purple-panel {

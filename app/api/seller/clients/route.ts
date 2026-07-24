@@ -2,6 +2,7 @@ import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   createUser,
   dbBinding,
+  enforceAuthRateLimits,
   ensureClientReferralCodes,
   generateTemporaryPassword,
   normalizePeruvianMobile,
@@ -24,34 +25,65 @@ export async function GET(request: Request) {
     const { user: actor } = await requireUnlockedSession(request, ["seller", "admin"]);
     await requirePermission(actor, "clients:view");
     await ensureClientReferralCodes();
+
+    const url = new URL(request.url);
+    const search = (url.searchParams.get("search") ?? "").trim().slice(0, 80).toLocaleLowerCase("es-PE");
+    const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.min(100, Math.max(10, Number.parseInt(url.searchParams.get("pageSize") ?? "20", 10) || 20));
     const canViewAll = actor.isOwner || await hasPermission(actor, "clients:view_all");
-    const scope = canViewAll
-      ? ""
-      : actor.role === "seller"
-        ? "AND u.owner_id = ?"
-        : `AND (
-            u.owner_id = ? OR u.owner_id IN (
-              SELECT id FROM users
-              WHERE role = 'seller' AND owner_id = ? AND deleted_at IS NULL
-            )
-          )`;
-    const statement = dbBinding().prepare(
+
+    const conditions = ["u.role = 'client'", "u.deleted_at IS NULL"];
+    const values: unknown[] = [];
+    if (!canViewAll) {
+      if (actor.role === "seller") {
+        conditions.push("u.owner_id = ?");
+        values.push(actor.id);
+      } else {
+        conditions.push(`(
+          u.owner_id = ? OR u.owner_id IN (
+            SELECT id FROM users
+            WHERE role = 'seller' AND owner_id = ? AND deleted_at IS NULL
+          )
+        )`);
+        values.push(actor.id, actor.id);
+      }
+    }
+    if (search) {
+      conditions.push(`(
+        LOWER(u.display_name) LIKE ? OR LOWER(u.username) LIKE ? OR
+        LOWER(u.email) LIKE ? OR COALESCE(d.phone_e164, '') LIKE ? OR
+        LOWER(COALESCE(u.referral_code, '')) LIKE ? OR LOWER(u.seller_code) LIKE ?
+      )`);
+      const term = `%${search}%`;
+      values.push(term, term, term, term, term, term);
+    }
+
+    const whereSql = conditions.join(" AND ");
+    const totalRow = await dbBinding().prepare(
+      `SELECT COUNT(*) AS total
+       FROM users u
+       LEFT JOIN payment_directory d ON d.user_id = u.id
+       WHERE ${whereSql}`,
+    ).bind(...values).first<{ total: number }>();
+    const total = Number(totalRow?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+
+    const clients = await dbBinding().prepare(
       `SELECT u.id, u.seller_code, u.username, u.display_name, u.email, u.status, u.owner_id,
               u.created_at, u.activated_at, u.device_id, u.referral_code, u.access_expires_at, d.phone_e164
        FROM users u
        LEFT JOIN payment_directory d ON d.user_id = u.id
-       WHERE u.role = 'client' AND u.deleted_at IS NULL ${scope}
-       ORDER BY u.created_at DESC LIMIT 250`,
-    );
-    const clients = canViewAll
-      ? await statement.all()
-      : actor.role === "seller"
-        ? await statement.bind(actor.id).all()
-        : await statement.bind(actor.id, actor.id).all();
+       WHERE ${whereSql}
+       ORDER BY u.created_at DESC
+       LIMIT ? OFFSET ?`,
+    ).bind(...values, pageSize, (safePage - 1) * pageSize).all();
+
     return jsonOk({
       clients: clients.results ?? [],
       credits: actor.credits,
       viewerRole: actor.isOwner ? "owner" : actor.role,
+      pagination: { page: safePage, pageSize, total, totalPages },
     });
   } catch (error) {
     return routeError(error);
@@ -62,6 +94,14 @@ export async function POST(request: Request) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["seller", "admin"]);
     await requirePermission(actor, "clients:create");
+    await enforceAuthRateLimits([
+      {
+        bucket: "seller-create-user",
+        subject: actor.id,
+        limit: 40,
+        windowSeconds: 60 * 60,
+      },
+    ]);
     const body = await readJson(request);
     const username = asString(body.username);
     const displayName = asString(body.displayName);

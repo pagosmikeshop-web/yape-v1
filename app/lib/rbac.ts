@@ -130,6 +130,15 @@ export const DELEGABLE_PERMISSIONS: readonly Permission[] = [
   "reports:view",
 ] as const;
 
+/** Permisos exclusivos del Owner: nunca se otorgan por override a admin/vendedor. */
+export const OWNER_ONLY_PERMISSIONS: readonly Permission[] = [
+  "admins:create",
+  "admins:update",
+  "admins:delete",
+  "roles:manage",
+  "settings:update",
+] as const;
+
 export async function permissionsFor(user: AuthUser) {
   const permissions = new Set(basePermissions(user));
   if (user.role === "client" || user.isOwner) return permissions;
@@ -144,6 +153,9 @@ export async function permissionsFor(user: AuthUser) {
     if (!isPermission(override.permission)) continue;
     if (override.effect === "allow") permissions.add(override.permission);
     else permissions.delete(override.permission);
+  }
+  for (const permission of OWNER_ONLY_PERMISSIONS) {
+    permissions.delete(permission);
   }
   return permissions;
 }

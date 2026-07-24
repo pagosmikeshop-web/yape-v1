@@ -7,13 +7,16 @@
  */
 
 :root {
-  --app-viewport-height: 100vh;
+  /* Fallback estable; MobileViewportSync lo reemplaza con visualViewport en runtime. */
+  --app-viewport-height: 100svh;
   --app-safe-top: env(safe-area-inset-top, 0px);
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-left: env(safe-area-inset-left, 0px);
   --app-inline-gutter: clamp(14px, 4vw, 22px);
   --app-touch-target: 44px;
+  --app-shell-bg: #742284;
+  --app-surface-bg: #ffffff;
 }
 
 @supports (height: 100dvh) {
@@ -22,11 +25,17 @@
   }
 }
 
+@supports (height: 100svh) {
+  :root {
+    --app-viewport-height: 100svh;
+  }
+}
+
 html {
   width: 100%;
   min-width: 320px;
-  min-height: 100%;
-  background: #221124;
+  min-height: var(--app-viewport-height);
+  background: var(--app-shell-bg);
   overflow-x: hidden;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
@@ -38,6 +47,26 @@ body {
   margin: 0;
   overflow-x: hidden;
   overscroll-behavior-x: none;
+  background: var(--app-shell-bg);
+}
+
+@media (max-width: 599px) {
+  html {
+    height: var(--app-viewport-height);
+    min-height: var(--app-viewport-height);
+    overflow: hidden;
+  }
+
+  body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: var(--app-viewport-height);
+    min-height: var(--app-viewport-height);
+    max-height: var(--app-viewport-height);
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
 }
 
 img,
@@ -51,12 +80,18 @@ canvas {
 .banking-stage,
 .install-gate {
   width: 100%;
+  height: var(--app-viewport-height);
   min-height: var(--app-viewport-height);
+  max-height: var(--app-viewport-height);
+  background: var(--app-shell-bg);
 }
 
 .bank-app,
 .mobile-bank-shell {
-  min-height: var(--app-viewport-height);
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  background: var(--app-surface-bg);
 }
 
 .bank-scroll-area,
@@ -100,6 +135,48 @@ canvas {
     min-inline-size: 0;
   }
 
+  /* Login / PIN: la hoja blanca debe llegar hasta el borde inferior (sin franja oscura). */
+  .returning-login {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    background: var(--app-surface-bg);
+  }
+
+  .returning-purple-panel {
+    flex: 0 0 auto;
+    min-height: clamp(280px, 42%, 420px);
+    padding-top: max(
+      calc(var(--app-safe-top) + 20px),
+      clamp(56px, 8%, 94px)
+    );
+    padding-right: max(30px, calc(var(--app-safe-right) + 22px));
+    padding-bottom: clamp(48px, 6%, 78px);
+    padding-left: max(30px, calc(var(--app-safe-left) + 22px));
+    gap: clamp(28px, 5%, 62px);
+  }
+
+  .returning-keypad-card {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin-top: -28px;
+    padding-right: max(16px, calc(var(--app-safe-right) + 12px));
+    padding-bottom: max(24px, calc(var(--app-safe-bottom) + 16px));
+    padding-left: max(16px, calc(var(--app-safe-left) + 12px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--app-surface-bg);
+    scrollbar-width: none;
+  }
+
+  .returning-keypad-card::-webkit-scrollbar {
+    display: none;
+  }
+
   .login-header {
     min-height: max(174px, calc(150px + var(--app-safe-top)));
     padding-top: max(34px, calc(var(--app-safe-top) + 12px));
@@ -108,45 +185,31 @@ canvas {
   }
 
   .login-card {
+    flex: 1;
     padding-right: max(28px, calc(var(--app-safe-right) + 20px));
     padding-bottom: max(25px, calc(var(--app-safe-bottom) + 18px));
     padding-left: max(28px, calc(var(--app-safe-left) + 20px));
+    background: var(--app-surface-bg);
   }
 
-  .returning-login {
+  .site-stage .login-shell,
+  .site-stage .auth-flow {
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-height: 0;
-    max-height: 100%;
-  }
-
-  .returning-purple-panel {
-    min-height: clamp(365px, 50.5dvh, 455px);
-    padding-top: max(
-      calc(var(--app-safe-top) + 20px),
-      clamp(70px, 10.5dvh, 94px)
-    );
-    padding-right: max(30px, calc(var(--app-safe-right) + 22px));
-    padding-bottom: clamp(60px, 8dvh, 78px);
-    padding-left: max(30px, calc(var(--app-safe-left) + 22px));
-    gap: clamp(38px, 7.2dvh, 62px);
-  }
-
-  .returning-keypad-card {
-    min-height: 0;
-    padding-right: max(16px, calc(var(--app-safe-right) + 12px));
-    padding-bottom: max(34px, calc(var(--app-safe-bottom) + 22px));
-    padding-left: max(16px, calc(var(--app-safe-left) + 12px));
-    overflow-x: hidden;
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-
-  .returning-keypad-card::-webkit-scrollbar {
-    display: none;
+    background: var(--app-surface-bg);
   }
 
   .numeric-keypad button {
     height: clamp(52px, 7.2dvh, 62px);
+  }
+
+  .bank-scroll-area,
+  .login-card,
+  .returning-keypad-card {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   .bank-scroll-area {
@@ -158,31 +221,38 @@ canvas {
 
   /*
    * Las vistas internas viven dentro de un shell que ya mide exactamente el
-   * viewport visible. Evitamos volver a sumar 100dvh, algo que en una PWA de
-   * iPhone desplaza el pie una segunda zona segura fuera de la pantalla.
+   * viewport visible. Evitamos volver a sumar 100dvh.
    */
   .mobile-bank-shell.view-transfer
-    .bank-scroll-area:has(.transfer-amount-screen) {
+    .bank-scroll-area:has(.transfer-amount-screen),
+  .mobile-bank-shell.view-transfer
+    .bank-scroll-area:has(.transfer-flow-footer) {
     width: 100%;
     height: 100%;
     min-height: 0;
     max-height: 100%;
     overflow: hidden;
+    background: var(--app-surface-bg);
   }
 
   .mobile-bank-shell .transfer-amount-screen {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     height: 100%;
-    min-height: 100%;
+    min-height: 0 !important;
     max-height: 100%;
     padding-bottom: 0;
     overflow: hidden;
     border-radius: 0;
+    background: var(--app-surface-bg);
   }
 
+  /* Elimina la franja púrpura artificial del pie (causa de la barra oscura). */
   .mobile-bank-shell .transfer-amount-screen::after {
-    height: max(min(4.5vw, 18px), var(--app-safe-bottom));
+    display: none !important;
+    content: none !important;
+    height: 0 !important;
+    background: transparent !important;
   }
 
   .mobile-bank-shell
@@ -220,16 +290,18 @@ canvas {
     margin-top: clamp(42px, 10.5dvh, 92px);
   }
 
-  .mobile-bank-shell .transfer-amount-footer {
+  .mobile-bank-shell .transfer-amount-footer,
+  .mobile-bank-shell .transfer-flow-footer {
     position: relative;
     inset: auto;
     z-index: 5;
     flex: none;
     padding-right: max(var(--app-inline-gutter), var(--app-safe-right));
     padding-bottom: calc(
-      max(min(4.5vw, 18px), var(--app-safe-bottom)) + clamp(8px, 2.4vw, 14px)
+      max(12px, var(--app-safe-bottom)) + clamp(8px, 2.4vw, 14px)
     );
     padding-left: max(var(--app-inline-gutter), var(--app-safe-left));
+    background: var(--app-surface-bg);
   }
 
   .mobile-bank-shell
@@ -237,6 +309,11 @@ canvas {
     .transfer-message-field,
   .mobile-bank-shell .transfer-amount-actions {
     width: min(100%, 371px);
+  }
+
+  html[data-keyboard-open="true"] .mobile-bank-shell .transfer-amount-footer,
+  html[data-keyboard-open="true"] .mobile-bank-shell .transfer-flow-footer {
+    padding-bottom: max(10px, var(--app-safe-bottom));
   }
 
   .mobile-bank-shell
@@ -275,7 +352,7 @@ canvas {
     position: absolute !important;
     inset: 0 0 auto !important;
     width: 100% !important;
-    height: var(--app-viewport-height) !important;
+    height: 100% !important;
     min-height: 0 !important;
     max-height: 100% !important;
     overflow: hidden;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type ManagerRole = "admin" | "seller";
@@ -36,6 +36,7 @@ type ManagedSeller = {
 type ClientsResponse = {
   clients?: ManagedClient[];
   credits?: number;
+  pagination?: { page: number; pageSize: number; total: number; totalPages: number };
   error?: string;
 };
 
@@ -48,6 +49,8 @@ type InvitationDetails = {
   activationUrl: string;
   expiresAt: string;
 };
+
+const PAGE_SIZE = 20;
 
 async function responseData<T>(response: Response) {
   const data = await response.json() as T & { error?: string };
@@ -67,6 +70,7 @@ function displayDate(value: string | null) {
 
 export function ClientManager({ role }: { role: ManagerRole }) {
   const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
   const [clients, setClients] = useState<ManagedClient[]>([]);
   const [sellers, setSellers] = useState<ManagedSeller[]>([]);
   const [credits, setCredits] = useState(0);
@@ -76,33 +80,100 @@ export function ClientManager({ role }: { role: ManagerRole }) {
   const [error, setError] = useState("");
   const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
   const [permanentToken, setPermanentToken] = useState<{ token: string; clientName: string } | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const sellersLoadedRef = useRef(false);
 
-  const loadClients = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({})) as {
+          user?: { role?: string; unlocked?: boolean } | null;
+        };
+        if (!response.ok || !data.user) throw new Error("unauthorized");
+        return data.user;
+      })
+      .then((user) => {
+        if (cancelled) return;
+        if (!user.unlocked || (role === "seller" && user.role !== "seller") || (role === "admin" && user.role !== "admin")) {
+          sessionStorage.removeItem("yape-unlocked");
+          router.replace("/");
+          return;
+        }
+        sessionStorage.setItem("yape-unlocked", "1");
+        setAuthorized(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          sessionStorage.removeItem("yape-unlocked");
+          router.replace("/");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role, router]);
+
+  const loadClients = useCallback(async (options?: { silent?: boolean }) => {
+    if (!authorized) return;
+    if (!options?.silent) setLoading(true);
     setError("");
     try {
-      const [data, usersData] = await Promise.all([
-        responseData<ClientsResponse>(await fetch("/api/seller/clients", { cache: "no-store" })),
-        role === "admin"
-          ? responseData<UsersResponse>(await fetch("/api/admin/users", { cache: "no-store" }))
-          : Promise.resolve<UsersResponse>({ users: [] }),
-      ]);
-      setClients(data.clients ?? []);
-      setCredits(Number(data.credits ?? 0));
-      setSellers((usersData.users ?? []).filter((user) => user.role === "seller"));
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (search) params.set("search", search);
+
+      const clientsPromise = fetch(`/api/seller/clients?${params}`, { cache: "no-store" })
+        .then((response) => responseData<ClientsResponse>(response));
+      const usersPromise = role === "admin" && !sellersLoadedRef.current
+        ? fetch("/api/admin/users", { cache: "no-store" }).then((response) => responseData<UsersResponse>(response))
+        : Promise.resolve<UsersResponse | null>(null);
+
+      const [clientsData, usersData] = await Promise.all([clientsPromise, usersPromise]);
+
+      setClients(clientsData.clients ?? []);
+      setCredits(Number(clientsData.credits ?? 0));
+      const pagination = clientsData.pagination;
+      setTotal(Number(pagination?.total ?? clientsData.clients?.length ?? 0));
+      setTotalPages(Math.max(1, Number(pagination?.totalPages ?? 1)));
+      if (pagination?.page && pagination.page !== page) setPage(pagination.page);
+
+      if (usersData) {
+        setSellers((usersData.users ?? []).filter((user) => user.role === "seller"));
+        sellersLoadedRef.current = true;
+      }
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "No se pudo cargar la lista de clientes.";
       setError(message);
       if (/autorizado|sesión|session/iu.test(message)) router.replace("/");
     } finally {
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
-  }, [role, router]);
+  }, [authorized, page, role, router, search]);
 
   useEffect(() => {
+    if (!authorized) return;
     const timer = window.setTimeout(() => void loadClients(), 0);
     return () => window.clearTimeout(timer);
-  }, [loadClients]);
+  }, [authorized, loadClients]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const nextSearch = searchInput.trim();
+      setSearch((current) => {
+        if (current === nextSearch) return current;
+        setPage(1);
+        return nextSearch;
+      });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   async function createClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -127,7 +198,8 @@ export function ClientManager({ role }: { role: ManagerRole }) {
       setNotice(data.message || "Cliente creado correctamente.");
       setInvitation(data.invitation ?? null);
       form.reset();
-      await loadClients();
+      setPage(1);
+      await loadClients({ silent: true });
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "No se pudo crear el cliente.");
     } finally {
@@ -157,7 +229,8 @@ export function ClientManager({ role }: { role: ManagerRole }) {
       setNotice(data.message || "Vendedor creado correctamente.");
       setInvitation(data.invitation ?? null);
       form.reset();
-      await loadClients();
+      sellersLoadedRef.current = false;
+      await loadClients({ silent: true });
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "No se pudo crear el vendedor.");
     } finally {
@@ -173,14 +246,18 @@ export function ClientManager({ role }: { role: ManagerRole }) {
     setError("");
     setNotice("");
     try {
-      const data = await responseData<{ message?: string }>(await fetch(`/api/admin/sellers/${seller.id}/credits`, {
+      const data = await responseData<{ message?: string; credits?: number }>(await fetch(`/api/admin/sellers/${seller.id}/credits`, {
         method: "POST",
         headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify({ amount }),
       }));
       setNotice(data.message || "Créditos asignados.");
       form.reset();
-      await loadClients();
+      setSellers((current) => current.map((entry) => (
+        entry.id === seller.id
+          ? { ...entry, credits: typeof data.credits === "number" ? data.credits : entry.credits + amount }
+          : entry
+      )));
     } catch (creditError) {
       setError(creditError instanceof Error ? creditError.message : "No se pudieron asignar los créditos.");
     } finally {
@@ -193,12 +270,21 @@ export function ClientManager({ role }: { role: ManagerRole }) {
     setError("");
     setNotice("");
     try {
-      const data = await responseData<{ message?: string; credits?: number }>(await fetch(`/api/seller/clients/${client.id}/activate`, {
+      const data = await responseData<{ message?: string; credits?: number; accessExpiresAt?: string }>(await fetch(`/api/seller/clients/${client.id}/activate`, {
         method: "POST",
       }));
       setNotice(data.message || "Cliente activado.");
       if (typeof data.credits === "number") setCredits(data.credits);
-      await loadClients();
+      setClients((current) => current.map((entry) => (
+        entry.id === client.id
+          ? {
+            ...entry,
+            status: "active",
+            activated_at: entry.activated_at ?? new Date().toISOString(),
+            access_expires_at: data.accessExpiresAt ?? entry.access_expires_at,
+          }
+          : entry
+      )));
     } catch (activateError) {
       setError(activateError instanceof Error ? activateError.message : "No se pudo activar el cliente.");
     } finally {
@@ -220,7 +306,9 @@ export function ClientManager({ role }: { role: ManagerRole }) {
       setPermanentToken({ token: data.token, clientName: data.clientName });
       setCredits(Number(data.credits));
       setNotice(data.message || "Token permanente creado.");
-      await loadClients();
+      setClients((current) => current.map((entry) => (
+        entry.id === client.id ? { ...entry, access_expires_at: null } : entry
+      )));
     } catch (tokenError) {
       setError(tokenError instanceof Error ? tokenError.message : "No se pudo crear el token permanente.");
     } finally {
@@ -239,12 +327,18 @@ export function ClientManager({ role }: { role: ManagerRole }) {
         body: JSON.stringify({}),
       }));
       setNotice(data.message || "Dispositivo restablecido.");
-      await loadClients();
+      setClients((current) => current.map((entry) => (
+        entry.id === client.id ? { ...entry, device_id: null } : entry
+      )));
     } catch (resetError) {
       setError(resetError instanceof Error ? resetError.message : "No se pudo restablecer el dispositivo.");
     } finally {
       setBusyId("");
     }
+  }
+
+  if (!authorized) {
+    return <main className="client-manager-page"><p className="client-manager-empty">Validando sesión...</p></main>;
   }
 
   return (
@@ -328,9 +422,25 @@ export function ClientManager({ role }: { role: ManagerRole }) {
         ) : null}
 
         <section className="client-manager-list" aria-busy={loading}>
-          <div className="client-manager-list-heading"><h2>Clientes</h2><button type="button" onClick={() => void loadClients()} disabled={loading}>Actualizar</button></div>
+          <div className="client-manager-list-heading">
+            <h2>Clientes</h2>
+            <button type="button" onClick={() => void loadClients()} disabled={loading}>Actualizar</button>
+          </div>
+          <label className="client-manager-search">
+            <span className="visually-hidden">Buscar clientes</span>
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Buscar por nombre, usuario, celular o código"
+              aria-label="Buscar clientes"
+            />
+          </label>
           {loading ? <p className="client-manager-empty">Cargando clientes...</p> : null}
-          {!loading && clients.length === 0 ? <p className="client-manager-empty">Todavía no hay clientes registrados.</p> : null}
+          {!loading && clients.length === 0 ? (
+            <p className="client-manager-empty">
+              {search ? "No hay clientes que coincidan con la búsqueda." : "Todavía no hay clientes registrados."}
+            </p>
+          ) : null}
           {clients.map((client) => (
             <article className="client-manager-item" key={client.id}>
               <span className="client-manager-avatar">{client.display_name.trim().slice(0, 2).toUpperCase()}</span>
@@ -348,6 +458,21 @@ export function ClientManager({ role }: { role: ManagerRole }) {
               {role === "admin" ? <button type="button" onClick={() => void resetClientDevice(client)} disabled={Boolean(busyId)}>{busyId === `device-${client.id}` ? "Restableciendo..." : "Restablecer dispositivo"}</button> : null}
             </article>
           ))}
+          {!loading && total > 0 ? (
+            <div className="client-manager-pagination">
+              <span>
+                {total} cliente{total === 1 ? "" : "s"} · Página {page} de {totalPages}
+              </span>
+              <div>
+                <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  Anterior
+                </button>
+                <button type="button" disabled={page >= totalPages || loading} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          ) : null}
         </section>
 
       </section>

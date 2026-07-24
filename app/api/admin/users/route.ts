@@ -41,25 +41,57 @@ export async function GET(request: Request) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin"]);
     await requirePermission(actor, "staff:view");
-    const select = `SELECT id, seller_code, username, display_name, email, role,
+
+    const url = new URL(request.url);
+    const search = (url.searchParams.get("search") ?? "").trim().slice(0, 80).toLocaleLowerCase("es-PE");
+    const roleFilter = url.searchParams.get("role") ?? "";
+    const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.min(100, Math.max(10, Number.parseInt(url.searchParams.get("pageSize") ?? "20", 10) || 20));
+
+    const conditions = ["deleted_at IS NULL", "role IN ('admin','seller')"];
+    const values: unknown[] = [];
+    if (!actor.isOwner) {
+      conditions.push("(id = ? OR (role = 'seller' AND owner_id = ?))");
+      values.push(actor.id, actor.id);
+    }
+    if (roleFilter === "admin" || roleFilter === "seller") {
+      conditions.push("role = ?");
+      values.push(roleFilter);
+    }
+    if (search) {
+      conditions.push(`(
+        LOWER(display_name) LIKE ? OR LOWER(username) LIKE ? OR
+        LOWER(email) LIKE ? OR LOWER(seller_code) LIKE ? OR
+        LOWER(COALESCE(telegram_user_id, '')) LIKE ?
+      )`);
+      const term = `%${search}%`;
+      values.push(term, term, term, term, term);
+    }
+
+    const whereSql = conditions.join(" AND ");
+    const totalRow = await dbBinding().prepare(
+      `SELECT COUNT(*) AS total FROM users WHERE ${whereSql}`,
+    ).bind(...values).first<{ total: number }>();
+    const total = Number(totalRow?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+
+    const result = await dbBinding().prepare(
+      `SELECT id, seller_code, username, display_name, email, role,
               CASE WHEN role = 'admin' AND is_owner = 1 THEN 'owner' ELSE role END AS effective_role,
               is_owner, owner_id, status, credits, telegram_user_id, referral_code,
               access_expires_at, created_at, activated_at
-       FROM users`;
-    const result = actor.isOwner
-      ? await dbBinding().prepare(
-        `${select} WHERE deleted_at IS NULL AND role IN ('admin','seller')
-         ORDER BY is_owner DESC, role, created_at DESC LIMIT 500`,
-      ).all<ListedUser>()
-      : await dbBinding().prepare(
-        `${select}
-         WHERE deleted_at IS NULL AND role IN ('admin','seller') AND (
-           id = ?
-           OR (role = 'seller' AND owner_id = ?)
-         )
-         ORDER BY role, created_at DESC LIMIT 500`,
-      ).bind(actor.id, actor.id).all<ListedUser>();
-    return jsonOk({ users: result.results ?? [], viewerRole: actor.isOwner ? "owner" : "admin" });
+       FROM users
+       WHERE ${whereSql}
+       ORDER BY is_owner DESC, role, created_at DESC
+       LIMIT ? OFFSET ?`,
+    ).bind(...values, pageSize, (safePage - 1) * pageSize).all<ListedUser>();
+
+    return jsonOk({
+      users: result.results ?? [],
+      viewerRole: actor.isOwner ? "owner" : "admin",
+      pagination: { page: safePage, pageSize, total, totalPages },
+    });
   } catch (error) {
     return routeError(error);
   }

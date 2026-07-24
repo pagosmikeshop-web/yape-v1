@@ -2,9 +2,11 @@ import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   createUser,
   dbBinding,
+  enforceAuthRateLimits,
   generateTemporaryPassword,
   normalizePeruvianMobile,
   publicAppBaseUrl,
+  requestIpRateLimitSubject,
   requireUnlockedSession,
   routeError,
   SELF_REGISTRATION_SELLER_CODE,
@@ -162,6 +164,20 @@ export async function POST(request: Request) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["seller", "admin"]);
     await requirePermission(actor, "clients:create");
+    await enforceAuthRateLimits([
+      {
+        bucket: "crm-create-user",
+        subject: actor.id,
+        limit: 40,
+        windowSeconds: 60 * 60,
+      },
+      {
+        bucket: "crm-create-ip",
+        subject: await requestIpRateLimitSubject(request),
+        limit: 80,
+        windowSeconds: 60 * 60,
+      },
+    ]);
     const body = await readJson(request);
     const username = asString(body.username);
     const displayName = asString(body.displayName).trim();

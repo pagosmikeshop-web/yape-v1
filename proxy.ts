@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BLOCKED_METHODS = new Set(["TRACE", "TRACK", "CONNECT"]);
 const HOSTED_ENVIRONMENTS = new Set(["staging", "production"]);
+const LOCAL_SESSION_COOKIE = "yape_session";
+const SECURE_SESSION_COOKIE = "__Host-yape_session";
+
+const PUBLIC_EXACT_PATHS = new Set([
+  "/",
+  "/registro",
+  "/recuperar",
+  "/cambiar-contrasena",
+  "/cambiar-numero",
+  "/activar-cuenta",
+  "/favicon.ico",
+  "/manifest.webmanifest",
+  "/sw.js",
+]);
 
 function validHttpsOrigin(value: string | undefined) {
   if (!value) return false;
@@ -64,6 +78,30 @@ function jsonError(message: string, status: number, requestId: string) {
   return response;
 }
 
+function isPublicPath(pathname: string) {
+  if (PUBLIC_EXACT_PATHS.has(pathname)) return true;
+  if (pathname.startsWith("/api/")) return true;
+  if (pathname.startsWith("/assets/")) return true;
+  if (pathname.startsWith("/icons/")) return true;
+  if (pathname.startsWith("/_next/")) return true;
+  return false;
+}
+
+function wantsHtmlDocument(request: NextRequest) {
+  if (request.method.toUpperCase() !== "GET" && request.method.toUpperCase() !== "HEAD") {
+    return false;
+  }
+  const accept = request.headers.get("accept") ?? "";
+  return accept.includes("text/html");
+}
+
+function hasSessionCookie(request: NextRequest) {
+  return Boolean(
+    request.cookies.get(SECURE_SESSION_COOKIE)?.value
+    || request.cookies.get(LOCAL_SESSION_COOKIE)?.value,
+  );
+}
+
 export function proxy(request: NextRequest) {
   const requestId = crypto.randomUUID();
   if (BLOCKED_METHODS.has(request.method.toUpperCase())) {
@@ -95,6 +133,22 @@ export function proxy(request: NextRequest) {
         308,
       );
     }
+  }
+
+  // Fuera de localhost: páginas HTML protegidas requieren cookie de sesión (validación real sigue en APIs).
+  if (
+    !isLoopback
+    && wantsHtmlDocument(request)
+    && !isPublicPath(request.nextUrl.pathname)
+    && !hasSessionCookie(request)
+  ) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/";
+    loginUrl.search = "";
+    const response = NextResponse.redirect(loginUrl, 307);
+    response.headers.set("x-request-id", requestId);
+    response.headers.set("cache-control", "no-store");
+    return response;
   }
 
   const requestHeaders = new Headers(request.headers);

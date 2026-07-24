@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AppInstallGate } from "./components/AppInstallGate";
+import { MobileViewportSync } from "./components/MobileViewportSync";
 import "./globals.css";
 import "./bank.css";
 import "./apk-fidelity.css";
@@ -45,6 +46,7 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: "#742284",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
@@ -55,6 +57,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body suppressHydrationWarning>
+        <MobileViewportSync />
         <AppInstallGate>{children}</AppInstallGate>
       </body>
     </html>

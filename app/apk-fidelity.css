@@ -2615,29 +2615,24 @@
 
 .mobile-bank-shell.view-transfer .bank-scroll-area:has(.transfer-amount-screen) {
   overflow: hidden;
-  background: #742284;
+  background: #ffffff;
 }
 
 .mobile-bank-shell .transfer-amount-screen {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 100dvh;
+  min-height: 0;
   overflow: hidden;
   border-radius: min(5vw, 21px) min(5vw, 21px) 0 0;
   background: #fff;
 }
 
 .mobile-bank-shell .transfer-amount-screen::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 6;
-  height: min(4.5vw, 18px);
-  background: #742284;
-  pointer-events: none;
+  display: none;
+  content: none;
+  height: 0;
+  background: transparent;
 }
 
 .mobile-bank-shell .transfer-amount-screen .transfer-flow-header {
@@ -2962,15 +2957,17 @@
 
 @media (max-width: 599px) {
   .banking-stage {
-    min-height: 100dvh;
+    min-height: var(--app-viewport-height, 100svh);
+    max-height: var(--app-viewport-height, 100svh);
     padding: 0;
     background: var(--surface-alt, #f9f8fc);
   }
 
   .mobile-bank-shell {
     width: 100%;
-    min-height: 100dvh;
-    max-height: none;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
     border: 0;
     border-radius: 0;
     box-shadow: none;

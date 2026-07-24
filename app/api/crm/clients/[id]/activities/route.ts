@@ -1,5 +1,5 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
-import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import { dbBinding, enforceAuthRateLimits, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
 import { requireClientAccess } from "@/app/lib/management-server";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +30,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { user: actor } = await requireUnlockedSession(request, ["seller", "admin"]);
     const { id } = await context.params;
     await requireClientAccess(actor, id, "clients:activity");
+    await enforceAuthRateLimits([
+      {
+        bucket: "crm-activity-user",
+        subject: actor.id,
+        limit: 100,
+        windowSeconds: 60 * 60,
+      },
+    ]);
     const body = await readJson(request);
     const activityType = asString(body.activityType);
     const title = asString(body.title).trim().slice(0, 100);

@@ -1,6 +1,7 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   dbBinding,
+  enforceAuthRateLimits,
   requireUnlockedSession,
   routeError,
   SELF_REGISTRATION_SELLER_CODE,
@@ -27,6 +28,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { user: actor } = await requireUnlockedSession(request, ["seller", "admin"]);
     const { id } = await context.params;
     await requireClientAccess(actor, id, "clients:update");
+    await enforceAuthRateLimits([
+      {
+        bucket: "crm-update-user",
+        subject: actor.id,
+        limit: 80,
+        windowSeconds: 60 * 60,
+      },
+    ]);
     const body = await readJson(request);
     const database = dbBinding();
     const current = await database.prepare(
