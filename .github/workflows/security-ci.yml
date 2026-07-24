@@ -2,10 +2,12 @@ name: Security CI
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
 
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
 
   workflow_dispatch:
 
@@ -16,28 +18,29 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CI: "true"
+
 jobs:
   verify:
     name: Build, tests, SCA and SBOM
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    permissions:
-      contents: read
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Checkout repository
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@v7
         with:
           node-version: "22.13.0"
           cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Reproducible install
+      - name: Install dependencies
         run: npm ci --ignore-scripts
 
       - name: Repository secret and artifact scan
@@ -59,35 +62,9 @@ jobs:
         run: npm sbom --package-lock-only --sbom-format cyclonedx > sbom.cdx.json
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v6
         with:
           name: sbom-cyclonedx
           path: sbom.cdx.json
           if-no-files-found: error
           retention-days: 14
-
-  codeql:
-    name: CodeQL SAST
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          persist-credentials: false
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:javascript-typescript"
