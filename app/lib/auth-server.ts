@@ -1100,9 +1100,16 @@ export async function verifyDeviceProof(input: {
 
 export async function findLoginUser(sellerCode: string, username: string) {
   await ensureAuthSchema();
-  return database().prepare(
+  const normalizedSellerCode = normalizeSellerCode(sellerCode);
+  const normalizedUsername = normalizeUsername(username);
+  const directMatch = await database().prepare(
     "SELECT * FROM users WHERE seller_code = ? AND username = ? AND deleted_at IS NULL LIMIT 1",
-  ).bind(normalizeSellerCode(sellerCode), normalizeUsername(username)).first<UserRow>();
+  ).bind(normalizedSellerCode, normalizedUsername).first<UserRow>();
+  if (directMatch || !/^\d{4,24}$/u.test(normalizedSellerCode)) return directMatch;
+
+  return database().prepare(
+    "SELECT * FROM users WHERE telegram_user_id = ? AND username = ? AND deleted_at IS NULL LIMIT 1",
+  ).bind(normalizedSellerCode, normalizedUsername).first<UserRow>();
 }
 
 export async function bindDevice(user: UserRow, deviceId: string, publicKey: JsonWebKey) {

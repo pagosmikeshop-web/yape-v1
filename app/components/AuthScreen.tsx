@@ -413,8 +413,9 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         await saveLocalRegistrationAnchor(fingerprintId);
         formRef.current?.reset();
         setRegisterAllowed(false);
+        const loginId = String(data?.user?.loginId ?? data?.user?.sellerCode ?? "");
         setNotice({
-          text: `${String(data.message ?? "Cuenta creada.")} Tu ID de ingreso es YAPE y tu codigo es ${String(data?.user?.referralCode ?? "")}.`,
+          text: `${String(data.message ?? "Cuenta creada.")} Tu ID de ingreso es ${loginId} y tu codigo es ${String(data?.user?.referralCode ?? "")}.`,
           tone: "info",
         });
         return;
@@ -598,7 +599,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
               ) : null}
               {screen === "login" ? (
                 <>
-                  <Field id="seller-id" label="Telegram ID" inputMode="numeric" pattern="[0-9]{4,20}" />
+                  <Field id="seller-id" label="Telegram ID" inputMode="numeric" pattern="[0-9]{4,24}" maxLength={24} />
                   <Field id="username" label="Usuario" autoComplete="username" />
                   <PasswordField id="password" label="Contraseña" autoComplete="current-password" />
                   <button className="login-button" type="submit" disabled={busy}>INICIAR SESIÓN</button>

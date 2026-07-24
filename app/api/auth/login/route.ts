@@ -56,9 +56,17 @@ export async function POST(request: Request) {
     }
 
     const user = await findLoginUser(sellerId, username);
-    if (!user || user.status !== "active") {
+    if (!user) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "credentials" });
       return jsonError("Credenciales invalidas.", 401);
+    }
+    if (user.status === "pending") {
+      writeSecurityEvent(request, "auth.login", "denied", { reason: "pending_approval", actorId: user.id });
+      return jsonError("Tu cuenta está pendiente de aprobación.", 403);
+    }
+    if (user.status !== "active") {
+      writeSecurityEvent(request, "auth.login", "denied", { reason: "account_inactive", actorId: user.id });
+      return jsonError("Tu cuenta no está activa. Contacta al administrador.", 403);
     }
     const validPassword = await verifySecret(password, user.password_salt, user.password_hash);
     if (!validPassword) {

@@ -97,7 +97,15 @@ export async function POST(request: Request) {
     });
 
     return jsonOk({
-      user: { id, sellerCode: SELF_REGISTRATION_SELLER_CODE, username: username.trim().toLowerCase(), displayName, status: "pending", referralCode: newReferralCode },
+      user: {
+        id,
+        sellerCode: SELF_REGISTRATION_SELLER_CODE,
+        loginId: telegramUserId,
+        username: username.trim().toLowerCase(),
+        displayName,
+        status: "pending",
+        referralCode: newReferralCode,
+      },
       message: "Cuenta creada. Queda pendiente de aprobacion para iniciar sesion.",
     }, { status: 201, headers: { "cache-control": "no-store" } });
   } catch (error) {
