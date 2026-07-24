@@ -442,7 +442,9 @@ canvas {
   }
 
   /*
-   * Edge-to-edge: home y comprobante sin franjas arriba/abajo.
+   * Home edge-to-edge:
+   * - Arriba morado (para que la status bar iOS no se vea negra sobre blanco).
+   * - Abajo hoja blanca con botones pegados al borde (solo safe-area).
    */
   .mobile-bank-shell.view-home {
     display: flex !important;
@@ -450,7 +452,7 @@ canvas {
     height: 100% !important;
     max-height: 100% !important;
     overflow: hidden !important;
-    background: #ffffff !important;
+    background: #752386 !important;
   }
 
   .mobile-bank-shell.view-home .bank-scroll-area {
@@ -460,20 +462,20 @@ canvas {
     padding: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    background: #ffffff !important;
+    background: #752386 !important;
   }
 
   .mobile-bank-shell.view-home .reference-home {
     min-height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    background: #ffffff !important;
+    background: #752386 !important;
   }
 
   .mobile-bank-shell.view-home .home-purple-zone {
     flex: 0 0 auto !important;
     margin: 0 !important;
-    padding-top: max(12px, var(--app-safe-top)) !important;
+    padding-top: max(10px, var(--app-safe-top)) !important;
     background: #752386 !important;
   }
 
@@ -481,14 +483,16 @@ canvas {
     flex: 1 1 auto !important;
     display: flex !important;
     flex-direction: column !important;
+    justify-content: flex-start !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 12px 0 8px !important;
+    padding: 14px 0 0 !important;
     border-radius: 5vw 5vw 0 0 !important;
     background: #ffffff !important;
     box-shadow: none !important;
   }
 
+  /* Botones al borde inferior real: sin hueco blanco extra debajo. */
   .mobile-bank-shell.view-home > .home-main-actions {
     position: relative !important;
     inset: auto !important;
@@ -503,8 +507,8 @@ canvas {
     height: auto !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 8px max(16px, var(--app-inline-gutter))
-      max(8px, var(--app-safe-bottom)) !important;
+    padding: 6px max(16px, var(--app-inline-gutter)) 0 !important;
+    padding-bottom: var(--app-safe-bottom) !important;
     background: #ffffff !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -536,10 +540,11 @@ canvas {
     background: #660185 !important;
   }
 
+  /* Home: fondo morado bajo la status bar (evita franja negra). */
   html:has(.mobile-bank-shell.view-home),
   body:has(.mobile-bank-shell.view-home),
   .banking-stage:has(.mobile-bank-shell.view-home) {
-    background: #ffffff !important;
+    background: #752386 !important;
   }
 
   .install-gate {
