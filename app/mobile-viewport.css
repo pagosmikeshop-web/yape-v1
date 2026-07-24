@@ -333,7 +333,9 @@ canvas {
    * El monto es un control visual de gran formato. Esta regla debe ir después
    * del mínimo de 16 px usado para evitar el zoom automático de Safari.
    */
-  .mobile-bank-shell .transfer-amount-field input {
+  .mobile-bank-shell
+    .transfer-amount-field
+    input:not([type="checkbox"]):not([type="radio"]) {
     font-size: clamp(68px, 19.44vw, 80px);
   }
 

@@ -1918,7 +1918,7 @@ function TransferView() {
                 style={{ width: `${Math.min(4.8, Math.max(0.58, Math.max(1, amount.length) * 0.58))}em` }}
               />
             </label>
-            <p className="transfer-amount-hint">Límite por yapeo S/500, límite por día S/2,000</p>
+            <p className="transfer-amount-hint">Puedes yapear hasta S/ 500 diarios</p>
           </div>
           <div className="transfer-flow-footer transfer-amount-footer">
             <label className="transfer-message-field">
