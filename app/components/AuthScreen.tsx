@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createDeviceProof } from "../lib/device-key";
+import { buildPaymentQrPayload } from "../lib/payment-qr";
 import { getFingerprintId, hasLocalRegistrationAnchor, saveLocalRegistrationAnchor } from "../lib/registration-device";
 import { unlockWithPlatformBiometric, WebAuthnClientError } from "../lib/webauthn-client";
 
@@ -209,11 +210,13 @@ function ReturningKeypad({
   onSubmit,
   onBioUnlock,
   notice,
+  recipientId,
 }: {
   mode: "set" | "verify";
   onSubmit: (pin: string) => Promise<void>;
   onBioUnlock?: () => Promise<void>;
   notice: Notice;
+  recipientId: string;
 }) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -224,21 +227,29 @@ function ReturningKeypad({
 
   useEffect(() => {
     let cancelled = false;
-    import("qrcode").then(async ({ default: QRCode }) => {
-      const image = await QRCode.toDataURL("yape://login", {
-        width: 360,
-        margin: 1,
-        errorCorrectionLevel: "H",
-        color: { dark: "#5c1b6d", light: "#ffffff" },
-      });
-      if (!cancelled) setLoginQrImage(image);
-    }).catch(() => {
-      if (!cancelled) setLoginQrImage("/assets/apk/images/qr_code_sample.png");
-    });
+
+    void (async () => {
+      try {
+        // Misma fuente de verdad que «Mi QR personal»: payload de cobro del usuario en sesión.
+        const payload = buildPaymentQrPayload(recipientId);
+        const { default: QRCode } = await import("qrcode");
+        const image = await QRCode.toDataURL(payload, {
+          width: 360,
+          margin: 1,
+          errorCorrectionLevel: "H",
+          color: { dark: "#5c1b6d", light: "#ffffff" },
+        });
+        if (!cancelled) setLoginQrImage(image);
+      } catch {
+        // No usar qr_code_sample ni yape://login: preferimos contenedor vacío a un QR incorrecto.
+        if (!cancelled) setLoginQrImage("");
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [recipientId]);
 
   useEffect(() => () => {
     if (keyFeedbackTimerRef.current !== null) window.clearTimeout(keyFeedbackTimerRef.current);
@@ -284,7 +295,11 @@ function ReturningKeypad({
       <section className="bank-app returning-login" aria-label="Entrar con clave">
         <div className="returning-purple-panel">
           <span className="returning-qr yape-qr-card yape-qr-card-compact">
-            <img src={loginQrImage || "/assets/apk/images/qr_code_sample.png"} alt="QR de acceso" />
+            {loginQrImage ? (
+              <img src={loginQrImage} alt="QR de cobro de tu cuenta" />
+            ) : (
+              <span className="returning-qr-slot" aria-hidden="true" />
+            )}
             <span className="yape-qr-logo-mark" aria-hidden="true">
               <img src="/assets/apk/icons/ic_logo_static.svg" alt="" />
             </span>
@@ -630,8 +645,10 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   if (screen === "login" && sessionUser) {
     return (
       <ReturningKeypad
+        key={sessionUser.id}
         mode={sessionUser.mustSetPin || !sessionUser.pinSet ? "set" : "verify"}
         notice={notice}
+        recipientId={sessionUser.id}
         onSubmit={unlockWithPin}
         onBioUnlock={unlockWithBio}
       />

@@ -802,6 +802,13 @@ input {
   margin-top: clamp(2px, 0.8svh, 10px);
 }
 
+.returning-qr-slot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+}
+
 .yape-qr-card {
   position: relative;
   display: grid;
