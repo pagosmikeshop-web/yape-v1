@@ -4,7 +4,6 @@
 import Link from "next/link";
 import {
   CSSProperties,
-  KeyboardEvent,
   PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -19,12 +18,12 @@ import {
   SimpleMovementList,
 } from "../BankApp";
 import { fetchAccountBalance } from "../../lib/balance-cache";
+import { HomeBannerCarousel } from "./HomeBannerCarousel";
 import { AssetIcon, LottiePlayer } from "./primitives";
 import { MovementVoucher } from "./MovementVoucher";
 import type {
   Movement,
   MovementHistoryItem,
-  PromoBanner,
   ServiceItem,
 } from "./types";
 
@@ -150,43 +149,6 @@ const allServicesSections: Array<{ title: string; items: ServiceItem[] }> = [
         iconSrc: "/assets/captured/all-services/pedir-gas.jpg",
       },
     ],
-  },
-];
-
-const HOME_BANNER_DWELL_MS = 4000;
-const HOME_BANNER_TRANSITION_MS = 500;
-const HOME_BANNER_CYCLE_MS = HOME_BANNER_DWELL_MS + HOME_BANNER_TRANSITION_MS;
-
-const homeBanners: PromoBanner[] = [
-  {
-    id: "h-fondo-1",
-    src: "/assets/captured/home/h_fondo1.jpg",
-    alt: "Beneficio disponible en Yape",
-  },
-  {
-    id: "h-fondo-2",
-    src: "/assets/captured/home/h_fondo2.jpg",
-    alt: "Promoción disponible en Yape",
-  },
-  {
-    id: "h-fondo-3",
-    src: "/assets/captured/home/h_fondo3.jpg",
-    alt: "Compras por internet con Yape",
-  },
-  {
-    id: "h-fondo-4",
-    src: "/assets/captured/home/h_fondo4.jpg",
-    alt: "Recarga con Yape",
-  },
-  {
-    id: "h-fondo-5",
-    src: "/assets/captured/home/h_fondo5.jpg",
-    alt: "Cyber Yape",
-  },
-  {
-    id: "h-fondo-6",
-    src: "/assets/captured/home/h_fondo6.jpg",
-    alt: "Buen Provecho en Yape",
   },
 ];
 
@@ -370,21 +332,8 @@ export function HomeView() {
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(
     null,
   );
-  const [activeBanner, setActiveBanner] = useState(0);
-  const [carouselCycle, setCarouselCycle] = useState(0);
   const [showAllServices, setShowAllServices] = useState(false);
   const [closingAllServices, setClosingAllServices] = useState(false);
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const carouselProgressRef = useRef<HTMLSpanElement>(null);
-  const isAutoScrolling = useRef(false);
-  const isCarouselInteracting = useRef(false);
-  const carouselPosition = useRef(0);
-  const carouselAnimationFrame = useRef<number | null>(null);
-  const manualScrollTimer = useRef<number | null>(null);
-  const carouselSnapTimer = useRef<number | null>(null);
-  const carouselDragStartX = useRef(0);
-  const carouselDragStartScrollLeft = useRef(0);
-  const ignoreCarouselScrollUntil = useRef(0);
   const allServicesCloseTimer = useRef<number | null>(null);
 
   const closeAllServices = useCallback(() => {
@@ -459,244 +408,6 @@ export function HomeView() {
     setShowAllServices(true);
   }
 
-  useEffect(() => {
-    const carouselNode = carouselRef.current;
-    const progressNode = carouselProgressRef.current;
-    if (!carouselNode || !progressNode) return;
-
-    const startedAt = performance.now();
-    const nextPosition = carouselPosition.current + 1;
-    const card = carouselNode.children[nextPosition];
-    const firstCard = carouselNode.children[0];
-    if (!(card instanceof HTMLElement) || !(firstCard instanceof HTMLElement))
-      return;
-
-    const startLeft = carouselNode.scrollLeft;
-    const targetLeft = card.offsetLeft - firstCard.offsetLeft;
-    const distance = targetLeft - startLeft;
-    const nextBannerIndex = nextPosition % homeBanners.length;
-    let indicatorAdvanced = false;
-    progressNode.style.transform = "scaleX(0)";
-
-    const animateCycle = (currentTime: number) => {
-      if (manualScrollTimer.current !== null) {
-        carouselAnimationFrame.current =
-          window.requestAnimationFrame(animateCycle);
-        return;
-      }
-
-      const elapsed = Math.min(currentTime - startedAt, HOME_BANNER_CYCLE_MS);
-      const dwellProgress = Math.min(elapsed / HOME_BANNER_DWELL_MS, 1);
-      progressNode.style.transform = `scaleX(${dwellProgress})`;
-
-      if (elapsed >= HOME_BANNER_DWELL_MS) {
-        if (!indicatorAdvanced) {
-          indicatorAdvanced = true;
-          setActiveBanner(nextBannerIndex);
-        }
-        if (!isAutoScrolling.current) {
-          isAutoScrolling.current = true;
-          carouselNode.classList.add("is-auto-animating");
-        }
-        const transitionProgress =
-          (elapsed - HOME_BANNER_DWELL_MS) / HOME_BANNER_TRANSITION_MS;
-        carouselNode.scrollLeft = startLeft + distance * transitionProgress;
-      }
-
-      if (elapsed < HOME_BANNER_CYCLE_MS) {
-        carouselAnimationFrame.current =
-          window.requestAnimationFrame(animateCycle);
-        return;
-      }
-
-      const wrappedToStart = nextPosition === homeBanners.length;
-      carouselPosition.current = wrappedToStart ? 0 : nextPosition;
-      ignoreCarouselScrollUntil.current = performance.now() + 200;
-      if (wrappedToStart) carouselNode.scrollTo({ left: 0, behavior: "auto" });
-      carouselNode.classList.remove("is-auto-animating");
-      setCarouselCycle((current) => current + 1);
-      isAutoScrolling.current = false;
-      carouselAnimationFrame.current = null;
-    };
-
-    carouselAnimationFrame.current = window.requestAnimationFrame(animateCycle);
-
-    return () => {
-      if (carouselAnimationFrame.current !== null) {
-        window.cancelAnimationFrame(carouselAnimationFrame.current);
-        carouselAnimationFrame.current = null;
-      }
-      if (manualScrollTimer.current !== null) {
-        window.clearTimeout(manualScrollTimer.current);
-        manualScrollTimer.current = null;
-      }
-      if (carouselSnapTimer.current !== null) {
-        window.clearTimeout(carouselSnapTimer.current);
-        carouselSnapTimer.current = null;
-      }
-      carouselNode?.classList.remove("is-auto-animating");
-      carouselNode?.classList.remove("is-user-dragging");
-      isAutoScrolling.current = false;
-    };
-  }, [carouselCycle]);
-
-  function handleCarouselPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    isCarouselInteracting.current = true;
-    carouselDragStartX.current = event.clientX;
-    carouselDragStartScrollLeft.current = event.currentTarget.scrollLeft;
-    if (carouselAnimationFrame.current !== null) {
-      window.cancelAnimationFrame(carouselAnimationFrame.current);
-      carouselAnimationFrame.current = null;
-    }
-    if (manualScrollTimer.current !== null) {
-      window.clearTimeout(manualScrollTimer.current);
-      manualScrollTimer.current = null;
-    }
-    if (carouselSnapTimer.current !== null) {
-      window.clearTimeout(carouselSnapTimer.current);
-      carouselSnapTimer.current = null;
-    }
-    carouselRef.current?.classList.remove("is-auto-animating");
-    carouselRef.current?.classList.add("is-user-dragging");
-    isAutoScrolling.current = false;
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function handleCarouselPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!isCarouselInteracting.current) return;
-    const delta = event.clientX - carouselDragStartX.current;
-    if (Math.abs(delta) < 2) return;
-    event.preventDefault();
-    event.currentTarget.scrollLeft =
-      carouselDragStartScrollLeft.current - delta;
-  }
-
-  function handleCarouselInteractionEnd(
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) {
-    if (!isCarouselInteracting.current) return;
-    isCarouselInteracting.current = false;
-    const node = event.currentTarget;
-    node.classList.remove("is-user-dragging");
-    if (node.hasPointerCapture(event.pointerId))
-      node.releasePointerCapture(event.pointerId);
-
-    const firstCard = node.children[0];
-    const secondCard = node.children[1];
-    if (
-      !(firstCard instanceof HTMLElement) ||
-      !(secondCard instanceof HTMLElement)
-    ) {
-      setCarouselCycle((current) => current + 1);
-      return;
-    }
-
-    const cardStride = secondCard.offsetLeft - firstCard.offsetLeft;
-    const dragDistance = event.clientX - carouselDragStartX.current;
-    const dragThreshold = node.clientWidth * 0.15;
-    let nextPosition = Math.round(node.scrollLeft / cardStride);
-    if (Math.abs(dragDistance) >= dragThreshold) {
-      nextPosition = carouselPosition.current + (dragDistance < 0 ? 1 : -1);
-    }
-    nextPosition = Math.min(homeBanners.length, Math.max(0, nextPosition));
-
-    const bannerIndex = nextPosition % homeBanners.length;
-    carouselPosition.current = nextPosition;
-    setActiveBanner(bannerIndex);
-    isAutoScrolling.current = true;
-    node.classList.add("is-auto-animating");
-    ignoreCarouselScrollUntil.current =
-      performance.now() + HOME_BANNER_TRANSITION_MS + 80;
-    node.scrollTo({ left: nextPosition * cardStride, behavior: "smooth" });
-
-    carouselSnapTimer.current = window.setTimeout(() => {
-      if (nextPosition === homeBanners.length) {
-        node.scrollTo({ left: 0, behavior: "auto" });
-        carouselPosition.current = 0;
-      }
-      node.classList.remove("is-auto-animating");
-      isAutoScrolling.current = false;
-      carouselSnapTimer.current = null;
-      setCarouselCycle((current) => current + 1);
-    }, HOME_BANNER_TRANSITION_MS + 10);
-  }
-
-  function handleCarouselScroll() {
-    const node = carouselRef.current;
-    if (
-      !node ||
-      isCarouselInteracting.current ||
-      isAutoScrolling.current ||
-      performance.now() < ignoreCarouselScrollUntil.current
-    )
-      return;
-    if (manualScrollTimer.current !== null)
-      window.clearTimeout(manualScrollTimer.current);
-
-    manualScrollTimer.current = window.setTimeout(() => {
-      const firstCard = node.children[0];
-      const secondCard = node.children[1];
-      if (
-        !(firstCard instanceof HTMLElement) ||
-        !(secondCard instanceof HTMLElement)
-      )
-        return;
-
-      const cardStride = secondCard.offsetLeft - firstCard.offsetLeft;
-      const position = Math.min(
-        homeBanners.length,
-        Math.max(0, Math.round(node.scrollLeft / cardStride)),
-      );
-      const bannerIndex = position % homeBanners.length;
-
-      if (position === carouselPosition.current) {
-        setCarouselCycle((current) => current + 1);
-        manualScrollTimer.current = null;
-        return;
-      }
-
-      carouselPosition.current = position;
-
-      if (position === homeBanners.length) {
-        isAutoScrolling.current = true;
-        ignoreCarouselScrollUntil.current = performance.now() + 200;
-        node.scrollTo({ left: 0, behavior: "auto" });
-        carouselPosition.current = 0;
-        window.requestAnimationFrame(() => {
-          isAutoScrolling.current = false;
-        });
-      }
-
-      setActiveBanner(bannerIndex);
-      setCarouselCycle((current) => current + 1);
-      manualScrollTimer.current = null;
-    }, 120);
-  }
-
-  function handleCarouselKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    const node = carouselRef.current;
-    const firstCard = node?.children[0];
-    const secondCard = node?.children[1];
-    if (
-      !node ||
-      !(firstCard instanceof HTMLElement) ||
-      !(secondCard instanceof HTMLElement)
-    )
-      return;
-
-    event.preventDefault();
-    const direction = event.key === "ArrowRight" ? 1 : -1;
-    const nextPosition =
-      (carouselPosition.current + direction + homeBanners.length) %
-      homeBanners.length;
-    const cardStride = secondCard.offsetLeft - firstCard.offsetLeft;
-    carouselPosition.current = nextPosition;
-    setActiveBanner(nextPosition);
-    node.scrollTo({ left: nextPosition * cardStride, behavior: "smooth" });
-    setCarouselCycle((current) => current + 1);
-  }
-
   if (selectedMovement) {
     return (
       <MovementVoucher
@@ -757,47 +468,7 @@ export function HomeView() {
           ))}
         </div>
 
-        <div
-          className="promo-carousel apk-banner-carousel"
-          aria-label="Promociones"
-          ref={carouselRef}
-          tabIndex={0}
-          onPointerDown={handleCarouselPointerDown}
-          onPointerMove={handleCarouselPointerMove}
-          onPointerUp={handleCarouselInteractionEnd}
-          onPointerCancel={handleCarouselInteractionEnd}
-          onKeyDown={handleCarouselKeyDown}
-          onScroll={handleCarouselScroll}
-        >
-          {homeBanners.map((banner) => (
-            <img
-              key={banner.id}
-              src={banner.src}
-              alt={banner.alt}
-              draggable={false}
-            />
-          ))}
-          <img
-            src={homeBanners[0].src}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            data-carousel-clone="true"
-          />
-          <span className="carousel-end-spacer" aria-hidden="true" />
-        </div>
-        <div className="carousel-dots" aria-hidden="true">
-          {homeBanners.map((banner, index) => (
-            <i
-              key={banner.id}
-              className={index === activeBanner ? "is-active" : ""}
-            >
-              {index === activeBanner ? (
-                <span key={carouselCycle} ref={carouselProgressRef} />
-              ) : null}
-            </i>
-          ))}
-        </div>
+        <HomeBannerCarousel />
       </section>
 
       <section className="home-account-sheet">

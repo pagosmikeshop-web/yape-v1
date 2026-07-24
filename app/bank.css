@@ -440,23 +440,30 @@ input:focus-visible {
   z-index: 2;
   display: flex;
   justify-content: center;
+  gap: 6px;
   padding: 10px 0 0;
 }
 
-.carousel-dots i {
+.carousel-dots button {
   position: relative;
   overflow: hidden;
   width: 5px;
   height: 5px;
+  min-width: 5px;
+  min-height: 5px;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.34);
+  cursor: pointer;
+  appearance: none;
 }
 
-.carousel-dots i.is-active {
+.carousel-dots button.is-active {
   width: 30px;
 }
 
-.carousel-dots i span {
+.carousel-dots .carousel-dot-progress {
   position: absolute;
   inset: 0;
   border-radius: inherit;
