@@ -442,35 +442,40 @@ canvas {
   }
 
   /*
-   * Home como antes: todo scrollea junto.
-   * Al deslizar con el dedo, la zona morada se oculta y la hoja blanca
-   * (saldo + botones) sube sin dejar el hueco morado entre medio.
+   * HOME — corrección estructural de franja inferior
+   *
+   * Causa: fondos #752386 en shell/scroll/reference-home quedaban expuestos
+   * debajo de .home-account-sheet porque la hoja blanca no rellenaba el alto
+   * restante (min-height:0 + sticky). El morado solo debe vivir en
+   * .home-purple-zone; la hoja blanca rellena hasta el borde + safe-area.
    */
   .mobile-bank-shell.view-home {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
     height: 100% !important;
     max-height: 100% !important;
     overflow: hidden !important;
-    background: #752386 !important;
+    background: #ffffff !important;
   }
 
   .mobile-bank-shell.view-home .bank-scroll-area {
-    height: 100% !important;
+    flex: 1 1 auto !important;
+    height: auto !important;
     min-height: 0 !important;
-    max-height: 100% !important;
+    max-height: none !important;
     padding: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
-    background: #752386 !important;
+    background: #ffffff !important;
   }
 
   .mobile-bank-shell.view-home .reference-home {
     min-height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    background: #752386 !important;
+    background: #ffffff !important;
   }
 
   .mobile-bank-shell.view-home .home-purple-zone {
@@ -481,10 +486,10 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .home-account-sheet {
-    flex: 1 1 auto !important;
+    flex: 1 0 auto !important;
     display: flex !important;
     flex-direction: column !important;
-    min-height: 0 !important;
+    min-height: auto !important;
     margin: 0 !important;
     padding: 14px 0 0 !important;
     border-radius: 5vw 5vw 0 0 !important;
@@ -492,12 +497,12 @@ canvas {
     box-shadow: none !important;
   }
 
-  /* Botones dentro de la hoja blanca, pegados abajo al scrollear. */
+  /* Safe-area una sola vez, en el contenedor de botones. */
   .mobile-bank-shell.view-home .home-main-actions {
-    position: sticky !important;
-    bottom: 0 !important;
-    inset: auto auto 0 auto !important;
-    z-index: 40 !important;
+    position: relative !important;
+    inset: auto !important;
+    bottom: auto !important;
+    z-index: 5 !important;
     flex: 0 0 auto !important;
     display: flex !important;
     align-items: center !important;
@@ -507,12 +512,9 @@ canvas {
     max-width: none !important;
     height: auto !important;
     min-height: 0 !important;
-    margin-top: auto !important;
-    margin-right: 0 !important;
-    margin-bottom: 0 !important;
-    margin-left: 0 !important;
-    padding: 10px max(16px, var(--app-inline-gutter)) 0 !important;
-    padding-bottom: max(10px, var(--app-safe-bottom)) !important;
+    margin: auto 0 0 !important;
+    padding: 12px max(16px, var(--app-inline-gutter))
+      calc(12px + env(safe-area-inset-bottom, 0px)) !important;
     background: #ffffff !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -533,6 +535,12 @@ canvas {
     min-height: 44px !important;
   }
 
+  html:has(.mobile-bank-shell.view-home),
+  body:has(.mobile-bank-shell.view-home),
+  .banking-stage:has(.mobile-bank-shell.view-home) {
+    background: #ffffff !important;
+  }
+
   .mobile-bank-shell:has(.yape-success-voucher),
   .mobile-bank-shell:has(.yape-voucher) {
     background: #660185 !important;
@@ -542,12 +550,6 @@ canvas {
   body:has(.yape-success-voucher),
   .banking-stage:has(.yape-success-voucher) {
     background: #660185 !important;
-  }
-
-  html:has(.mobile-bank-shell.view-home),
-  body:has(.mobile-bank-shell.view-home),
-  .banking-stage:has(.mobile-bank-shell.view-home) {
-    background: #752386 !important;
   }
 
   .install-gate {
