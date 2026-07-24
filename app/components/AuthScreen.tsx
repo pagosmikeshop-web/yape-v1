@@ -371,7 +371,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       if (cancelled) return;
       if (data?.code === "ACCESS_EXPIRED") {
         const code = typeof data.referralCode === "string" && data.referralCode ? ` Tu código es ${data.referralCode}.` : "";
-        setNotice({ text: `Tu suscripción terminó. Contacta a tu vendedor o usa un token permanente en Cambio de número.${code}`, tone: "error" });
+        setNotice({ text: `Tu suscripción terminó. Canjea un token permanente en Cambio de número o comparte tu código para que alguien del grupo escriba /redeem y te dé 3 días.${code}`, tone: "error" });
         return;
       }
       const user = data?.user as AuthUser | null;
@@ -391,7 +391,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     if (screen !== "login" || typeof window === "undefined") return;
     if (new URLSearchParams(window.location.search).get("reason") === "expired") {
       const timer = window.setTimeout(() => {
-        setNotice({ text: "Tu suscripción terminó. Contacta a tu vendedor o usa un token permanente en Cambio de número.", tone: "error" });
+        setNotice({ text: "Tu suscripción terminó. Canjea un token permanente en Cambio de número o comparte tu código para que alguien del grupo escriba /redeem y te dé 3 días.", tone: "error" });
       }, 0);
       return () => window.clearTimeout(timer);
     }
@@ -502,11 +502,21 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         await saveLocalRegistrationAnchor(fingerprintId);
         formRef.current?.reset();
         setRegisterAllowed(false);
-        const loginId = String(data?.user?.loginId ?? data?.user?.sellerCode ?? "");
+        const user = data.user as AuthUser & { loginId?: string };
+        const expiresLabel = typeof data.accessExpiresAt === "string"
+          ? new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(data.accessExpiresAt))
+          : "";
         setNotice({
-          text: `${String(data.message ?? "Cuenta creada.")} Tu ID de ingreso es ${loginId} y tu codigo es ${String(data?.user?.referralCode ?? "")}.`,
+          text: `${String(data.message ?? "Registro completado y prueba de 3 días activada.")}${expiresLabel ? ` Vence: ${expiresLabel}.` : ""} Tu ID de ingreso es ${String(user.loginId ?? "")}.`,
           tone: "info",
         });
+        sessionStorage.setItem(UNLOCK_KEY, "1");
+        setSessionUser({
+          ...user,
+          unlocked: true,
+          accessExpiresAt: typeof data.accessExpiresAt === "string" ? data.accessExpiresAt : user.accessExpiresAt ?? null,
+        });
+        window.setTimeout(() => router.replace(rolePath({ ...user, unlocked: true })), 900);
         return;
       }
 
@@ -708,7 +718,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
                 <>
                   <div className="registration-gate change-number-gate">
                     <AuthAssetIcon name="ic_smartphone_outline_yape" />
-                    <p>Si terminó tu prueba, aquí puedes consultar tus días, ver tu código personal o reclamar el token permanente de tu vendedor.</p>
+                    <p>Si terminó tu prueba, consulta tus días, comparte tu código para /redeem en el grupo o canjea el token permanente de tu vendedor.</p>
                   </div>
                   <Field id="change-number-telegram-id" label="ID de acceso (Telegram ID o YAPE)" maxLength={24} />
                   <Field id="change-number-username" label="Usuario" autoComplete="username" minLength={3} maxLength={40} />

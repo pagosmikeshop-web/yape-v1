@@ -49,7 +49,7 @@ export type AuthUser = {
   unlocked: boolean;
 };
 
-type UserRow = {
+export type UserRow = {
   id: string;
   seller_code: string;
   username: string;

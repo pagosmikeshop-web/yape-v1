@@ -154,6 +154,7 @@ test("registro y webhook no exponen endpoints GET de diagnóstico", async () => 
   assert.match(webhookRoute, /maxBytes:\s*64 \* 1024/u);
   assert.match(statusRoute, /checkCurrentTelegramGroupMember/u);
   assert.match(registerRoute, /checkCurrentTelegramGroupMember/u);
+  assert.match(registerRoute, /activateClientTrial/u);
   assert.doesNotMatch(statusRoute, /FROM telegram_group_members/u);
   assert.doesNotMatch(registerRoute, /FROM telegram_group_members/u);
   assert.match(setupRoute, /bootstrapIsEnabled\(\)/u);

@@ -1,22 +1,30 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
+  createSession,
   createUniqueReferralCode,
   createUser,
   dbBinding,
   enforceAuthRateLimits,
+  linkTelegramIdentity,
   publicSha256,
   requestIpRateLimitSubject,
   routeError,
+  safeUser,
   SELF_REGISTRATION_SELLER_CODE,
   validateDisplayName,
   validateOptionalEmail,
   validatePassword,
   validateUsername,
+  type UserRow,
 } from "@/app/lib/auth-server";
 import {
   checkCurrentTelegramGroupMember,
   telegramMembershipError,
 } from "@/app/lib/telegram-manager";
+import {
+  activateClientTrial,
+  TELEGRAM_TRIAL_SELLER_ID,
+} from "@/app/lib/trial-activation";
 
 export const dynamic = "force-dynamic";
 
@@ -96,18 +104,45 @@ export async function POST(request: Request) {
       mustChangePassword: false,
     });
 
+    const trial = await activateClientTrial({
+      userId: id,
+      sellerId: TELEGRAM_TRIAL_SELLER_ID,
+      updatedBy: id,
+    });
+    if (!trial.ok || !trial.activated) {
+      return jsonError("No se pudo activar la prueba gratuita. Intenta iniciar sesión o contacta soporte.", 500);
+    }
+
+    try {
+      await linkTelegramIdentity(id, telegramUserId);
+    } catch {
+      // La unicidad de telegram_identities puede fallar si ya existe; users.telegram_user_id ya está ligado.
+    }
+
+    const userRow = await database.prepare(
+      "SELECT * FROM users WHERE id = ? LIMIT 1",
+    ).bind(id).first<UserRow>();
+    if (!userRow) {
+      return jsonError("No se pudo completar el registro.", 500);
+    }
+
+    const cookie = await createSession(request, id, { unlocked: true });
+    const mapped = safeUser(userRow);
+
     return jsonOk({
       user: {
-        id,
-        sellerCode: SELF_REGISTRATION_SELLER_CODE,
+        ...mapped,
         loginId: telegramUserId,
-        username: username.trim().toLowerCase(),
-        displayName,
-        status: "pending",
+        status: "active",
         referralCode: newReferralCode,
+        accessExpiresAt: trial.accessExpiresAt,
       },
-      message: "Cuenta creada. Queda pendiente de aprobacion para iniciar sesion.",
-    }, { status: 201, headers: { "cache-control": "no-store" } });
+      accessExpiresAt: trial.accessExpiresAt,
+      message: "Registro completado. Validamos que perteneces al grupo y activamos tus 3 días gratuitos.",
+    }, {
+      status: 201,
+      headers: { "cache-control": "no-store", "set-cookie": cookie },
+    });
   } catch (error) {
     return routeError(error);
   }

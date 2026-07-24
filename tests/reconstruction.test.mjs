@@ -177,8 +177,8 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
   assert.match(management, /target\.owner_id === actor\.id/u);
   assert.match(creditsRoute, /web_credit_assignment/u);
   assert.match(creditsRoute, /idempotency-key/u);
-  assert.match(activationRoute, /database\.batch/u);
-  assert.match(activationRoute, /INSERT INTO activations/u);
+  assert.match(activationRoute, /activateClientTrial/u);
+  assert.match(activationRoute, /El cliente ya estaba activo/u);
   assert.doesNotMatch(activationRoute, /credits = credits -/u);
   assert.match(invitationRoute, /redeemInvitation/u);
   assert.match(rbac, /owner:\s*ALL_PERMISSIONS/u);
@@ -199,7 +199,7 @@ test("Owner, administradores y vendedores gestionan su jerarquía desde la web",
 });
 
 test("la prueba gratuita, los referidos y los tokens permanentes usan estados separados", async () => {
-  const [schema, authServer, accessServer, redeemRoute, referralRoute, tokenRoute, accessRoute, activationRoute, telegramManager, bankApp] = await Promise.all([
+  const [schema, authServer, accessServer, redeemRoute, referralRoute, tokenRoute, accessRoute, activationRoute, trialActivation, telegramManager, bankApp, registerRoute, loginRoute] = await Promise.all([
     source("db/schema.ts"),
     source("app/lib/auth-server.ts"),
     source("app/lib/access-server.ts"),
@@ -208,8 +208,11 @@ test("la prueba gratuita, los referidos y los tokens permanentes usan estados se
     source("app/api/seller/access-tokens/route.ts"),
     source("app/api/admin/users/[id]/access/route.ts"),
     source("app/api/seller/clients/[id]/activate/route.ts"),
+    source("app/lib/trial-activation.ts"),
     source("app/lib/telegram-manager.ts"),
     source("app/components/BankApp.tsx"),
+    source("app/api/auth/register/route.ts"),
+    source("app/api/auth/login/route.ts"),
   ]);
 
   assert.match(schema, /sqliteTable\("permanent_access_tokens"/u);
@@ -227,8 +230,18 @@ test("la prueba gratuita, los referidos y los tokens permanentes usan estados se
   assert.doesNotMatch(tokenRoute, /SELECT[^;]*token_hash/isu);
   assert.match(accessRoute, /mode === "permanent"/u);
   assert.match(accessRoute, /const crmStatus = mode === "permanent" \? "vip" : "new"/u);
+  assert.match(activationRoute, /activateClientTrial/u);
   assert.match(activationRoute, /recibió 3 días gratis/u);
-  assert.match(activationRoute, /crm_status = 'new'/u);
+  assert.match(trialActivation, /TELEGRAM_TRIAL_SELLER_ID/u);
+  assert.match(trialActivation, /crm_status = 'new'/u);
+  assert.match(trialActivation, /NOT EXISTS \(SELECT 1 FROM activations WHERE user_id = \?\)/u);
+  assert.match(registerRoute, /activateClientTrial/u);
+  assert.match(registerRoute, /createSession\(request, id, \{ unlocked: true \}\)/u);
+  assert.match(registerRoute, /3 días gratuitos/u);
+  assert.doesNotMatch(registerRoute, /pendiente de aprobacion/iu);
+  assert.doesNotMatch(registerRoute, /body\.trialDays|body\.isMember|autoApprove/u);
+  assert.match(loginRoute, /activateClientTrial/u);
+  assert.match(loginRoute, /claimPendingTelegramTrial/u);
   assert.match(telegramManager, /REFERRAL_MONTHLY_LIMIT/u);
   assert.match(telegramManager, /Esa cuenta ya tiene acceso permanente/u);
   assert.match(bankApp, /Reclamar token/u);

@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         ok: false,
         user: null,
         code: "ACCESS_EXPIRED",
-        error: "Tu suscripción terminó. Contacta a tu vendedor.",
+        error: "Tu suscripción terminó. Canjea un token permanente en Cambio de número o comparte tu código para que alguien del grupo escriba /redeem y te dé 3 días.",
         referralCode: await ensureReferralCodeForUser(expiredSession.user.id),
       }, { status: 403, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
     }

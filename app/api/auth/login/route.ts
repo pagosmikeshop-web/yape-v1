@@ -7,17 +7,90 @@ import {
   dbBinding,
   enforceAuthRateLimits,
   findLoginUser,
+  hashSecret,
   requestIpRateLimitSubject,
   routeError,
   safeUser,
   secretHashNeedsUpgrade,
-  hashSecret,
   verifyDeviceProof,
   verifySecret,
+  type UserRow,
 } from "@/app/lib/auth-server";
 import { writeSecurityEvent } from "@/app/lib/security-log";
+import {
+  checkCurrentTelegramGroupMember,
+  telegramMembershipError,
+} from "@/app/lib/telegram-manager";
+import {
+  activateClientTrial,
+  TELEGRAM_TRIAL_SELLER_ID,
+} from "@/app/lib/trial-activation";
 
 export const dynamic = "force-dynamic";
+
+async function claimPendingTelegramTrial(user: UserRow): Promise<
+  | { ok: true; user: UserRow }
+  | { ok: false; response: Response }
+> {
+  if (user.role !== "client" || !user.telegram_user_id) {
+    return {
+      ok: false,
+      response: jsonError("Tu cuenta está pendiente de aprobación.", 403),
+    };
+  }
+
+  const database = dbBinding();
+  const existingActivation = await database.prepare(
+    "SELECT id FROM activations WHERE user_id = ? LIMIT 1",
+  ).bind(user.id).first();
+  if (existingActivation) {
+    return {
+      ok: false,
+      response: jsonError("Tu cuenta está pendiente de aprobación.", 403),
+    };
+  }
+
+  const membership = await checkCurrentTelegramGroupMember(user.telegram_user_id);
+  if (!membership.member) {
+    const temporary =
+      membership.reason === "telegram-unavailable"
+      || membership.reason === "bot-not-authorized"
+      || membership.reason === "not-configured"
+      || membership.reason === "invalid-group";
+    return {
+      ok: false,
+      response: jsonError(
+        temporary
+          ? telegramMembershipError(membership)
+          : "No pudimos confirmar que perteneces al grupo. Únete al grupo y vuelve a iniciar sesión.",
+        403,
+      ),
+    };
+  }
+
+  const trial = await activateClientTrial({
+    userId: user.id,
+    sellerId: TELEGRAM_TRIAL_SELLER_ID,
+    updatedBy: user.id,
+  });
+  if (!trial.ok) {
+    return {
+      ok: false,
+      response: jsonError("Tu cuenta está pendiente de aprobación.", 403),
+    };
+  }
+
+  const refreshed = await database.prepare(
+    "SELECT * FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+  ).bind(user.id).first<UserRow>();
+  if (!refreshed || refreshed.status !== "active") {
+    return {
+      ok: false,
+      response: jsonError("Tu cuenta está pendiente de aprobación.", 403),
+    };
+  }
+  return { ok: true, user: refreshed };
+}
 
 export async function POST(request: Request) {
   try {
@@ -55,14 +128,18 @@ export async function POST(request: Request) {
       return jsonError("No se pudo verificar este dispositivo.", 403);
     }
 
-    const user = await findLoginUser(sellerId, username);
+    let user = await findLoginUser(sellerId, username);
     if (!user) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "credentials" });
       return jsonError("Credenciales invalidas.", 401);
     }
     if (user.status === "pending") {
-      writeSecurityEvent(request, "auth.login", "denied", { reason: "pending_approval", actorId: user.id });
-      return jsonError("Tu cuenta está pendiente de aprobación.", 403);
+      const claimed = await claimPendingTelegramTrial(user);
+      if (!claimed.ok) {
+        writeSecurityEvent(request, "auth.login", "denied", { reason: "pending_approval", actorId: user.id });
+        return claimed.response;
+      }
+      user = claimed.user;
     }
     if (user.status !== "active") {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "account_inactive", actorId: user.id });
@@ -94,7 +171,7 @@ export async function POST(request: Request) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "access_expired", actorId: user.id });
       return Response.json({
         ok: false,
-        error: "Tu suscripción terminó. Contacta a tu vendedor o ingresa un token permanente en Cambio de número.",
+        error: "Tu suscripción terminó. Canjea un token permanente en Cambio de número o comparte tu código para que alguien del grupo escriba /redeem y te dé 3 días.",
         code: "ACCESS_EXPIRED",
         referralCode: user.referral_code,
       }, { status: 403, headers: { "cache-control": "no-store" } });

@@ -4,6 +4,9 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+/** Debe coincidir con TELEGRAM_TRIAL_SELLER_ID en trial-activation.ts */
+const TELEGRAM_TRIAL_SELLER_ID = "system-telegram-trial";
+
 type ManagerRole = "admin" | "seller";
 
 type ManagedClient = {
@@ -20,6 +23,7 @@ type ManagedClient = {
   access_expires_at: string | null;
   owner_id: string | null;
   device_id: string | null;
+  activation_seller_id?: string | null;
 };
 
 type ManagedSeller = {
@@ -447,12 +451,25 @@ export function ClientManager({ role }: { role: ManagerRole }) {
               <div>
                 <strong>{client.display_name}</strong>
                 {client.referral_code ? <small>Codigo: {client.referral_code}</small> : null}
+                {client.status === "active" && client.activation_seller_id === TELEGRAM_TRIAL_SELLER_ID ? (
+                  <small>Activación: prueba Telegram (grupo)</small>
+                ) : null}
                 {client.status === "active" ? <small>{client.access_expires_at ? `Acceso hasta: ${displayDate(client.access_expires_at)}` : "Acceso permanente"}</small> : null}
                 <small>{displayPhone(client.phone_e164)} · @{client.username}</small>
                 {role === "admin" ? <small>Dispositivo: {client.device_id ? "Vinculado" : "Disponible"}</small> : null}
                 {role === "admin" ? <small>Vendedor: {client.seller_code}</small> : null}
               </div>
-              <span className={`client-status is-${client.status}`}>{client.status === "active" ? "Activo" : client.status === "pending" ? "Pendiente" : "Deshabilitado"}</span>
+              <span className={`client-status is-${client.status}`}>
+                {client.status === "active"
+                  ? (client.activation_seller_id === TELEGRAM_TRIAL_SELLER_ID && client.access_expires_at
+                    ? "Prueba activa"
+                    : client.access_expires_at
+                      ? "Activo"
+                      : "Permanente")
+                  : client.status === "pending"
+                    ? "Pendiente"
+                    : "Deshabilitado"}
+              </span>
               {client.status === "pending" ? <button type="button" onClick={() => void activateClient(client)} disabled={Boolean(busyId)}>{busyId === client.id ? "Activando..." : "Activar"}</button> : null}
               {client.status === "active" && client.access_expires_at ? <button type="button" onClick={() => void issuePermanentToken(client)} disabled={Boolean(busyId)}>{busyId === `token-${client.id}` ? "Creando..." : "Crear token"}</button> : null}
               {role === "admin" ? <button type="button" onClick={() => void resetClientDevice(client)} disabled={Boolean(busyId)}>{busyId === `device-${client.id}` ? "Restableciendo..." : "Restablecer dispositivo"}</button> : null}

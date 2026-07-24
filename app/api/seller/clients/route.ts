@@ -71,9 +71,11 @@ export async function GET(request: Request) {
 
     const clients = await dbBinding().prepare(
       `SELECT u.id, u.seller_code, u.username, u.display_name, u.email, u.status, u.owner_id,
-              u.created_at, u.activated_at, u.device_id, u.referral_code, u.access_expires_at, d.phone_e164
+              u.created_at, u.activated_at, u.device_id, u.referral_code, u.access_expires_at,
+              d.phone_e164, a.seller_id AS activation_seller_id
        FROM users u
        LEFT JOIN payment_directory d ON d.user_id = u.id
+       LEFT JOIN activations a ON a.user_id = u.id
        WHERE ${whereSql}
        ORDER BY u.created_at DESC
        LIMIT ? OFFSET ?`,
