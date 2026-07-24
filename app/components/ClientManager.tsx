@@ -153,7 +153,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
       setError(message);
       if (/autorizado|sesión|session/iu.test(message)) router.replace("/");
     } finally {
-      if (!cancelled) setLoading(false);
+      setLoading(false);
     }
   }, [authorized, page, role, router, search]);
 
