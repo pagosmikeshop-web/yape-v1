@@ -82,9 +82,11 @@ function membershipFailureMessage(check: TelegramMembershipCheck) {
     case "invalid-user-id":
       return "Ingresa un Telegram ID válido.";
     case "not-configured":
+      return "Falta configurar el grupo de Telegram.";
     case "invalid-group":
+      return "El grupo de Telegram configurado no es válido.";
     case "bot-not-authorized":
-      return "La validación del grupo necesita configuración del administrador.";
+      return "El bot no puede consultar el grupo. Verifica que pertenezca al grupo y sea administrador.";
     case "telegram-unavailable":
       return "Telegram no respondió. Intenta validar nuevamente.";
     case "user-not-found":
