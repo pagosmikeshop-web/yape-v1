@@ -1,0 +1,22 @@
+---
+description: Reglas generales y arquitectura del proyecto
+globs:
+alwaysApply: true
+---
+
+# Reglas generales
+
+- Responde siempre en español.
+- Antes de modificar código, analiza los archivos relacionados.
+- Mantén la arquitectura y los patrones existentes del proyecto.
+- No elimines funcionalidades existentes sin autorización.
+- No inventes componentes, endpoints, tablas, variables ni dependencias.
+- Reutiliza componentes y funciones existentes cuando sea posible.
+- No modifiques archivos que no estén relacionados con la tarea.
+- Evita duplicar código.
+- Mantén el diseño responsive para dispositivos móviles.
+- Conserva los roles, permisos y restricciones de seguridad existentes.
+- Antes de implementar una tarea grande, presenta un plan breve.
+- Después de modificar el proyecto, ejecuta el linter, las pruebas y la compilación.
+- Corrige los errores generados por tus propios cambios.
+- Al finalizar, indica qué archivos modificaste y qué cambios realizaste.
