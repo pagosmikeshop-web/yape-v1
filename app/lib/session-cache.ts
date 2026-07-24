@@ -77,7 +77,10 @@ export function fetchSession(options?: {
           status: response.status,
           unauthorized: true,
         };
-        cached = { at: Date.now(), result };
+        /* Solo cachear 401/403 reales; otros errores no bloquean reintentos. */
+        if (response.status === 401 || response.status === 403) {
+          cached = { at: Date.now(), result };
+        }
         return result;
       }
       const result: SessionResult = { ok: true, user: data.user };
@@ -85,12 +88,12 @@ export function fetchSession(options?: {
       return result;
     })
     .catch(() => {
+      /* No cachear fallos de red: evita falsos logouts durante 45s. */
       const result: SessionResult = {
         ok: false,
         status: 0,
         unauthorized: true,
       };
-      cached = { at: Date.now(), result };
       return result;
     })
     .finally(() => {

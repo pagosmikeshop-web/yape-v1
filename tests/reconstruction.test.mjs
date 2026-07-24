@@ -105,13 +105,18 @@ test("cada cliente puede guardar QR cifrados y únicamente usar destinatarios in
 });
 
 test("el directorio resuelve un número únicamente a un cliente activo y limita consultas", async () => {
-  const [schema, authServer, lookupRoute, bankApp, migration] = await Promise.all([
+  const [schema, authServer, lookupRoute, bankApp, transferView, migration] = await Promise.all([
     source("db/schema.ts"),
     source("app/lib/auth-server.ts"),
     source("app/api/payments/recipient-lookup/route.ts"),
     source("app/components/BankApp.tsx"),
+    source("app/components/bank/TransferView.tsx"),
     source("drizzle/0002_orange_saracen.sql"),
   ]);
+
+  // El flujo de transferencia se movió a app/components/bank/TransferView.tsx,
+  // por lo que el string de recipient-lookup puede vivir en cualquiera de los dos.
+  const transferSources = `${bankApp}\n${transferView}`;
 
   assert.match(schema, /sqliteTable\("payment_directory"/u);
   assert.match(schema, /uniqueIndex\("payment_directory_phone_unique"\)/u);
@@ -121,7 +126,7 @@ test("el directorio resuelve un número únicamente a un cliente activo y limita
   assert.match(lookupRoute, /d\.discoverable = 1/u);
   assert.match(lookupRoute, /u\.role = 'client' AND u\.status = 'active'/u);
   assert.match(lookupRoute, /No puedes transferirte a tu propia cuenta/u);
-  assert.match(bankApp, /fetch\("\/api\/payments\/recipient-lookup"/u);
+  assert.match(transferSources, /fetch\("\/api\/payments\/recipient-lookup"/u);
   assert.match(migration, /CREATE TABLE `payment_directory`/u);
   assert.match(migration, /CREATE TABLE `recipient_lookup_attempts`/u);
 });
@@ -326,4 +331,48 @@ test("la PWA ofrece instalación directa y una altura adaptable con zonas segura
     assertFile("public/icons/yape-512.png"),
     assertFile("public/icons/yape-maskable-512.png"),
   ]);
+});
+
+test("HomeMainActions vive en HomeView y no se monta en el voucher histórico", async () => {
+  const [bankApp, homeView, movementVoucher, balanceCache, sessionCache] = await Promise.all([
+    source("app/components/BankApp.tsx"),
+    source("app/components/bank/HomeView.tsx"),
+    source("app/components/bank/MovementVoucher.tsx"),
+    source("app/lib/balance-cache.ts"),
+    source("app/lib/session-cache.ts"),
+  ]);
+
+  assert.match(homeView, /function HomeMainActions\(/u);
+  assert.match(homeView, /<HomeMainActions\s*\/>/u);
+  assert.match(homeView, /export function HomeView\(/u);
+  assert.doesNotMatch(bankApp, /view === "home"\s*\?\s*<HomeMainActions/u);
+  assert.doesNotMatch(movementVoucher, /HomeMainActions/u);
+  assert.doesNotMatch(movementVoucher, /Escanear QR/u);
+  assert.match(balanceCache, /export function fetchAccountBalance/u);
+  assert.match(sessionCache, /No cachear fallos de red/u);
+  assert.match(bankApp, /HISTORY_CLEARED_EVENT/u);
+  assert.match(homeView, /HISTORY_CLEARED_EVENT/u);
+});
+
+test("bootstrap, permisos y tokens de cuenta fallan cerrados", async () => {
+  const [authServer, permissionsRoute, accountTokens, nextConfig] = await Promise.all([
+    source("app/lib/auth-server.ts"),
+    source("app/api/admin/users/[id]/permissions/route.ts"),
+    source("app/api/account/tokens/validate/route.ts"),
+    source("next.config.ts"),
+  ]);
+
+  assert.match(
+    authServer,
+    /export function bootstrapIsEnabled\(\)\s*\{[\s\S]*return configured === "true";/u,
+  );
+  assert.match(permissionsRoute, /await requirePermission\(actor, "roles:manage"\)/u);
+  assert.doesNotMatch(
+    permissionsRoute,
+    /if \(actor\.isOwner\) await requirePermission\(actor, "roles:manage"\)/u,
+  );
+  assert.match(accountTokens, /userBoundToken/u);
+  assert.match(accountTokens, /HMAC/u);
+  assert.match(nextConfig, /Content-Security-Policy.*ENFORCED_CSP/u);
+  assert.match(nextConfig, /default-src 'self'/u);
 });

@@ -20,15 +20,16 @@
   --app-auth-bg: #742284;
 }
 
-@supports (height: 100dvh) {
-  :root {
-    --app-viewport-height: 100dvh;
-  }
-}
-
+/* Preferir dvh cuando exista; svh solo como fallback previo al @supports dvh. */
 @supports (height: 100svh) {
   :root {
     --app-viewport-height: 100svh;
+  }
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-viewport-height: 100dvh;
   }
 }
 

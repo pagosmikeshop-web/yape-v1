@@ -146,8 +146,8 @@ export function configuredOwnerTelegramId() {
 
 export function bootstrapIsEnabled() {
   const configured = authEnv().AUTH_BOOTSTRAP_ENABLED?.trim().toLowerCase();
-  if (isHostedEnvironment()) return configured === "true";
-  return configured !== "false";
+  /* Fail-closed: solo se habilita con AUTH_BOOTSTRAP_ENABLED=true explícito. */
+  return configured === "true";
 }
 
 export function publicAppBaseUrl(request: Request) {

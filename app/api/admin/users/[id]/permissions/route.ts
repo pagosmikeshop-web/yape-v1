@@ -66,7 +66,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const { id } = await context.params;
     const target = await permissionTarget(actor.id, actor.isOwner, id);
     if (!target) return jsonError("Usuario interno no encontrado o fuera de tu alcance.", 404);
-    if (actor.isOwner) await requirePermission(actor, "roles:manage");
+    /* Solo el owner (roles:manage) puede alterar overrides de permisos. */
+    await requirePermission(actor, "roles:manage");
 
     const body = await readJson(request);
     if (!Array.isArray(body.permissions) || body.permissions.some((entry) => typeof entry !== "string" || !isPermission(entry))) {

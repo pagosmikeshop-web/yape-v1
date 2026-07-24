@@ -22,6 +22,26 @@ async function tokensMatch(received: string, expected: string) {
   return difference === 0;
 }
 
+/** Token por usuario: HMAC-SHA256(master, `${userId}:${kind}`) en hex truncado. */
+async function userBoundToken(masterSecret: string, userId: string, kind: string) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(masterSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const mac = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(`${userId}:${kind}`),
+  );
+  return Array.from(new Uint8Array(mac), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("").slice(0, 32);
+}
+
 export async function POST(request: Request) {
   try {
     const { user } = await requireUnlockedSession(request);
@@ -32,17 +52,18 @@ export async function POST(request: Request) {
     if (kind !== "sms" && kind !== "auto") return jsonError("Tipo de token inválido.");
     if (!token) return jsonError("Ingresa el token que deseas validar.");
 
-    const expected = (kind === "sms"
+    const master = (kind === "sms"
       ? authEnv().ACCOUNT_SMS_VALIDATION_TOKEN
       : authEnv().ACCOUNT_AUTO_VALIDATION_TOKEN)?.trim() ?? "";
 
-    if (expected.length < 8) {
+    if (master.length < 32) {
       return jsonError("La validación de esta opción no está configurada.", 503);
     }
 
     const rateLimitSubject = `${user.id}:${kind}`;
     await enforceAuthRateLimits([{ bucket: "account-token", subject: rateLimitSubject, limit: 8, windowSeconds: 10 * 60 }]);
 
+    const expected = await userBoundToken(master, user.id, kind);
     if (!(await tokensMatch(token, expected))) return jsonError("El token no es válido.", 401);
 
     await clearAuthRateLimit("account-token", rateLimitSubject);

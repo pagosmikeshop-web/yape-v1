@@ -238,6 +238,10 @@ test("las credenciales legadas migran a un hash versionado y bootstrap falla cer
   assert.match(authServer, /LEGACY_PBKDF2_ITERATIONS\s*=\s*120_000/u);
   assert.match(authServer, /CURRENT_PBKDF2_ITERATIONS\s*=\s*600_000/u);
   assert.match(authServer, /HASH_FORMAT\s*=\s*"pbkdf2-sha256"/u);
+  assert.match(
+    authServer,
+    /export function bootstrapIsEnabled\(\)\s*\{[\s\S]*return configured === "true";/u,
+  );
   assert.match(login, /secretHashNeedsUpgrade\(user\.password_hash\)/u);
   assert.match(worker, /const ownerTelegramId = env\.AUTH_OWNER_TELEGRAM_ID\?\.trim\(\) \?\? ""/u);
   assert.match(environmentExample, /^AUTH_BOOTSTRAP_ENABLED=false$/mu);
