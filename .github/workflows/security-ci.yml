@@ -59,7 +59,7 @@ jobs:
         run: npm test
 
       - name: Generate CycloneDX SBOM
-        run: npm sbom --package-lock-only --sbom-format cyclonedx > sbom.cdx.json
+        run: npm sbom --package-lock-only --omit=optional --sbom-format cyclonedx > sbom.cdx.json
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v6
