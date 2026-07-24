@@ -288,11 +288,23 @@ canvas {
   .mobile-bank-shell
     .yape-success-voucher
     .voucher-success-animation svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
     width: 100% !important;
     height: 100% !important;
     object-fit: cover;
-    transform: translate(-10px, -15px) scale(1.05);
-    transform-origin: center;
+    object-position: center;
+    transform: translate(-50%, -50%);
+    transform-origin: center center;
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-logo-badge {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
 
   .mobile-bank-shell.view-movements .reference-movements-view,
