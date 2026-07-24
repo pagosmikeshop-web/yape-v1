@@ -1575,20 +1575,20 @@
 }
 
 .mobile-bank-shell.profile-entry-animate .reference-profile {
-  animation: yape-screen-from-left 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: yape-screen-from-left 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .mobile-bank-shell.account-data-entry-animate .account-hub {
-  animation: yape-screen-from-right 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: yape-screen-from-right 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes yape-screen-from-left {
-  from { opacity: 0.35; transform: translateX(-100%); }
+  from { opacity: 0.7; transform: translateX(-18%); }
   to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes yape-screen-from-right {
-  from { opacity: 0.35; transform: translateX(100%); }
+  from { opacity: 0.7; transform: translateX(18%); }
   to { opacity: 1; transform: translateX(0); }
 }
 

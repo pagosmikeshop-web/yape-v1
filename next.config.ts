@@ -41,6 +41,9 @@ const SECURITY_HEADERS = [
 const nextConfig: NextConfig = {
   devIndicators: false,
   poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ["lottie-web", "qrcode", "@zxing/browser"],
+  },
   async headers() {
     return [
       { source: "/:path*", headers: SECURITY_HEADERS },

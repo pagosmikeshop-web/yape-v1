@@ -17,6 +17,12 @@ import {
   buildPaymentQrPayload,
   parsePaymentQrPayload,
 } from "../lib/payment-qr";
+import {
+  clearSessionCache,
+  fetchSession,
+  hasOptimisticUnlock,
+  setOptimisticUnlock,
+} from "../lib/session-cache";
 
 const APK_ASSET_ROOT = "/assets/apk";
 
@@ -50,6 +56,8 @@ function AssetIcon({
       src={`${APK_ASSET_ROOT}/icons/${name}.svg`}
       alt=""
       aria-hidden="true"
+      decoding="async"
+      loading="lazy"
     />
   );
 }
@@ -1107,16 +1115,43 @@ function ServiceTile({
   item: ServiceItem;
   onUnavailable: (label: string) => void;
 }) {
+  const [showLottie, setShowLottie] = useState(false);
   const hasVisual = Boolean(item.iconSrc || item.iconLottie || item.sticker);
+
+  useEffect(() => {
+    if (!item.iconLottie) return;
+    let cancelled = false;
+    const start = () => {
+      if (!cancelled) setShowLottie(true);
+    };
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(start, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(start, 400);
+    }
+    return () => {
+      cancelled = true;
+      if (idleId !== undefined) window.cancelIdleCallback(idleId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [item.iconLottie]);
+
   const content = (
     <>
       <span
         className={`service-icon home-menu-icon${item.fullTile ? " is-full-tile" : ""}${item.frameless ? " is-frameless" : ""}${hasVisual ? "" : " is-missing"}`}
         aria-hidden="true"
       >
-        {item.iconLottie ? <LottiePlayer name={item.iconLottie} /> : null}
+        {item.iconLottie && showLottie ? (
+          <LottiePlayer name={item.iconLottie} />
+        ) : null}
         {item.iconSrc && !item.iconLottie ? (
-          <img src={item.iconSrc} alt="" />
+          <img src={item.iconSrc} alt="" decoding="async" loading="lazy" />
+        ) : null}
+        {item.iconLottie && !showLottie && item.iconSrc ? (
+          <img src={item.iconSrc} alt="" decoding="async" />
         ) : null}
         {item.sticker ? (
           <span className="home-menu-sticker">{item.sticker}</span>
@@ -1866,7 +1901,7 @@ type TransferStage =
   | "confirm-processing"
   | "success";
 
-const TRANSFER_LOADING_MS = 2000;
+const TRANSFER_LOADING_MS = 900;
 
 type PhoneContact = {
   name: string;
@@ -2314,18 +2349,14 @@ function TransferView() {
     }, 0);
 
     let cancelled = false;
-    fetch("/api/auth/me")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (cancelled) return;
-        const userId =
-          typeof data?.user?.id === "string" ? data.user.id : "local";
-        setContactsCacheKey(`${PHONE_CONTACTS_CACHE_KEY}:${userId}`);
-      })
-      .catch(() => {
-        if (!cancelled)
-          setContactsCacheKey(`${PHONE_CONTACTS_CACHE_KEY}:local`);
-      });
+    void fetchSession().then((result) => {
+      if (cancelled) return;
+      const userId =
+        result.ok && typeof result.user.id === "string"
+          ? result.user.id
+          : "local";
+      setContactsCacheKey(`${PHONE_CONTACTS_CACHE_KEY}:${userId}`);
+    });
 
     return () => {
       cancelled = true;
@@ -3980,23 +4011,27 @@ function PersonalQrView() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/me")
-      .then(async (response) => {
-        const data = (await response.json()) as {
-          user?: { id?: string; displayName?: string; role?: string };
-          error?: string;
-        };
-        if (!response.ok || !data.user?.id || !data.user.displayName) {
-          throw new Error(data.error || "No pudimos preparar tu QR.");
-        }
-        if (data.user.role !== "client")
-          throw new Error(
-            "El QR de cobro está disponible para cuentas de cliente.",
-          );
-        return data.user as { id: string; displayName: string };
-      })
-      .then(async (user) => {
-        const payload = buildPaymentQrPayload(user.id);
+    void fetchSession().then(async (result) => {
+      if (cancelled) return;
+      if (!result.ok || !result.user) {
+        setNotice("No pudimos preparar tu QR.");
+        return;
+      }
+      const user = result.user;
+      const id = typeof user.id === "string" ? user.id : "";
+      const displayName =
+        typeof user.displayName === "string" ? user.displayName : "";
+      const role = typeof user.role === "string" ? user.role : "";
+      if (!id || !displayName) {
+        setNotice("No pudimos preparar tu QR.");
+        return;
+      }
+      if (role !== "client") {
+        setNotice("El QR de cobro está disponible para cuentas de cliente.");
+        return;
+      }
+      try {
+        const payload = buildPaymentQrPayload(id);
         const { default: QRCode } = await import("qrcode");
         const image = await QRCode.toDataURL(payload, {
           width: 640,
@@ -4005,14 +4040,18 @@ function PersonalQrView() {
           color: { dark: "#5c1b6d", light: "#ffffff" },
         });
         if (cancelled) return;
-        setClientName(user.displayName);
+        setClientName(displayName);
         setQrPayload(payload);
         setQrImage(image);
-      })
-      .catch((error: Error) => {
+      } catch (error) {
         if (!cancelled)
-          setNotice(error.message || "No pudimos preparar tu QR.");
-      });
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : "No pudimos preparar tu QR.",
+          );
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -4143,8 +4182,9 @@ function ProfileView() {
   const [notice] = useState("");
 
   async function logout() {
+    clearSessionCache();
+    setOptimisticUnlock(false);
     await fetch("/api/auth/logout", { method: "POST" });
-    sessionStorage.removeItem("yape-unlocked");
     router.replace("/");
   }
 
@@ -4195,7 +4235,7 @@ function ProfileView() {
       <section className="profile-menu-section profile-settings-section">
         <h2>Ajustes</h2>
         <ProfileMenuItem
-          animatedIcon="icon_huella_rostro"
+          icon="ic_lock_outline_yape_primary"
           label="Biometría digital"
           href="/biometria"
         />
@@ -4401,12 +4441,10 @@ function AccountDataView() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => {
-        if (!cancelled && data?.user) setUser(data.user as AccountHubUser);
-      })
-      .catch(() => undefined);
+    void fetchSession().then((result) => {
+      if (!cancelled && result.ok && result.user)
+        setUser(result.user as AccountHubUser);
+    });
     return () => {
       cancelled = true;
     };
@@ -5279,16 +5317,13 @@ function AccountDetailsView() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/me")
-      .then((response) => response.json())
-      .then((data) => {
-        if (cancelled || !data?.user) return;
-        const sessionUser = data.user as AccountDetailsUser;
-        setUser(sessionUser);
-        setReceiptEmail(sessionUser.email || "");
-        setRecoveryEmail(sessionUser.email || "");
-      })
-      .catch(() => undefined);
+    void fetchSession().then((result) => {
+      if (cancelled || !result.ok || !result.user) return;
+      const sessionUser = result.user as AccountDetailsUser;
+      setUser(sessionUser);
+      setReceiptEmail(sessionUser.email || "");
+      setRecoveryEmail(sessionUser.email || "");
+    });
     return () => {
       cancelled = true;
     };
@@ -6654,51 +6689,38 @@ function isLocalEditMode() {
 
 export function BankApp({ view }: { view: BankView }) {
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(false);
+  const [authorized, setAuthorized] = useState(() =>
+    isLocalEditMode() ? true : hasOptimisticUnlock(),
+  );
 
   useEffect(() => {
     if (isLocalEditMode()) {
-      const animationFrame = window.requestAnimationFrame(() =>
-        setAuthorized(true),
-      );
-      return () => window.cancelAnimationFrame(animationFrame);
+      setAuthorized(true);
+      return;
     }
 
     let cancelled = false;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({}));
-        if (response.status === 403 && data?.code === "ACCESS_EXPIRED") {
-          sessionStorage.removeItem("yape-unlocked");
+    void fetchSession().then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setOptimisticUnlock(false);
+        clearSessionCache();
+        if (result.code === "ACCESS_EXPIRED") {
           router.replace("/?reason=expired");
-          return null;
-        }
-        if (!response.ok) throw new Error("unauthorized");
-        return data as { user?: { unlocked?: boolean } | null };
-      })
-      .then((data) => {
-        if (cancelled) return;
-        if (!data) return;
-        const user = data.user;
-        if (!user) {
-          sessionStorage.removeItem("yape-unlocked");
-          router.replace("/");
           return;
         }
-        if (!user.unlocked) {
-          sessionStorage.removeItem("yape-unlocked");
-          router.replace("/");
-          return;
-        }
-        sessionStorage.setItem("yape-unlocked", "1");
-        setAuthorized(true);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          sessionStorage.removeItem("yape-unlocked");
-          router.replace("/");
-        }
-      });
+        router.replace("/");
+        return;
+      }
+      if (!result.user.unlocked) {
+        setOptimisticUnlock(false);
+        setAuthorized(false);
+        router.replace("/");
+        return;
+      }
+      setOptimisticUnlock(true);
+      setAuthorized(true);
+    });
 
     return () => {
       cancelled = true;
@@ -6717,7 +6739,6 @@ export function BankApp({ view }: { view: BankView }) {
   return (
     <main className="banking-stage">
       <section
-        key={view}
         className={`mobile-bank-shell view-${view}${entryAnimationClass}`}
         aria-label={view === "home" ? "Inicio de Yape" : viewTitles[view]}
       >
