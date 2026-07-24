@@ -25,7 +25,7 @@
   width: 100%;
   min-height: 0;
   margin: auto 0 0;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 16px;
   gap: 12px;
   background: #ffffff;
 }
@@ -588,7 +588,7 @@
   gap: 16px !important;
   width: 100% !important;
   margin: auto 0 0 !important;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 12px 16px !important;
   background: #ffffff !important;
 }
 
@@ -839,8 +839,7 @@
   height: auto !important;
   min-height: 0 !important;
   margin: auto 0 0 !important;
-  padding: 12px clamp(16px, 4.72vw, 19.5px)
-    calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 12px clamp(16px, 4.72vw, 19.5px) !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
@@ -1178,7 +1177,7 @@
 .mobile-bank-shell .home-main-actions {
   gap: 12px;
   margin-top: auto;
-  padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 0;
   background: #ffffff;
 }
 
@@ -2590,7 +2589,7 @@
   width: 100%;
   min-height: 0;
   margin: auto 0 0;
-  padding: 12px min(4.72vw, 19px) calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 12px min(4.72vw, 19px);
   background: #fff;
 }
 
@@ -3023,7 +3022,7 @@
   width: 100%;
   min-height: 0;
   margin: auto 0 0;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 16px;
   gap: 12px;
   background: #ffffff;
 }
