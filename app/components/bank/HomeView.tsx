@@ -27,6 +27,8 @@ import type {
   ServiceItem,
 } from "./types";
 
+const VIAJAR_BUS_ICON = "/assets/captured/all-services/viajar-bus.jpg";
+
 const serviceItems: ServiceItem[] = [
   {
     label: "Recargar celular",
@@ -63,7 +65,7 @@ const serviceItems: ServiceItem[] = [
     iconLottie: "ic_tienda_cyber_animated_001",
     fullTile: true,
   },
-  { label: "Viajar en bus", iconSrc: "/assets/icons/remesas.svg" },
+  { label: "Viajar en bus", iconSrc: VIAJAR_BUS_ICON },
   {
     label: "Ver todo",
     iconSrc: "/assets/icons/ver-todo.svg",
@@ -131,7 +133,7 @@ const allServicesSections: Array<{ title: string; items: ServiceItem[] }> = [
     items: [
       {
         label: "Viajar en bus",
-        iconSrc: "/assets/captured/all-services/viajar-bus.jpg",
+        iconSrc: VIAJAR_BUS_ICON,
       },
       { label: "Tienda", iconSrc: "/assets/icons/tienda.svg" },
       {
@@ -264,6 +266,8 @@ function AllServicesSheet({
   return (
     <section
       className={`all-services-sheet${closing ? " is-closing" : ""}${dragging ? " is-dragging" : ""}`}
+      role="dialog"
+      aria-modal="true"
       aria-label="Todos los servicios"
       style={{ "--all-services-drag": `${dragOffset}px` } as CSSProperties}
     >
@@ -383,12 +387,18 @@ export function HomeView() {
     if (!showAllServices) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const scrollArea = document.querySelector(
+      ".mobile-bank-shell.view-home .bank-scroll-area",
+    ) as HTMLElement | null;
+    const previousScrollTop = scrollArea?.scrollTop ?? 0;
+    if (scrollArea) scrollArea.scrollTop = 0;
     const handleEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") closeAllServices();
     };
     window.addEventListener("keydown", handleEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
+      if (scrollArea) scrollArea.scrollTop = previousScrollTop;
       window.removeEventListener("keydown", handleEscape);
     };
   }, [closeAllServices, showAllServices]);
