@@ -442,13 +442,12 @@ canvas {
   }
 
   /*
-   * Home edge-to-edge:
-   * - Arriba morado (para que la status bar iOS no se vea negra sobre blanco).
-   * - Abajo hoja blanca con botones pegados al borde (solo safe-area).
+   * Home como antes: todo scrollea junto.
+   * Al deslizar con el dedo, la zona morada se oculta y la hoja blanca
+   * (saldo + botones) sube sin dejar el hueco morado entre medio.
    */
   .mobile-bank-shell.view-home {
-    display: flex !important;
-    flex-direction: column !important;
+    display: block !important;
     height: 100% !important;
     max-height: 100% !important;
     overflow: hidden !important;
@@ -456,12 +455,14 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .bank-scroll-area {
-    flex: 1 1 auto !important;
+    height: 100% !important;
     min-height: 0 !important;
-    height: auto !important;
+    max-height: 100% !important;
     padding: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
     background: #752386 !important;
   }
 
@@ -483,7 +484,6 @@ canvas {
     flex: 1 1 auto !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: flex-start !important;
     min-height: 0 !important;
     margin: 0 !important;
     padding: 14px 0 0 !important;
@@ -492,10 +492,11 @@ canvas {
     box-shadow: none !important;
   }
 
-  /* Botones al borde inferior real: sin hueco blanco extra debajo. */
-  .mobile-bank-shell.view-home > .home-main-actions {
-    position: relative !important;
-    inset: auto !important;
+  /* Botones dentro de la hoja blanca, pegados abajo al scrollear. */
+  .mobile-bank-shell.view-home .home-main-actions {
+    position: sticky !important;
+    bottom: 0 !important;
+    inset: auto auto 0 auto !important;
     z-index: 40 !important;
     flex: 0 0 auto !important;
     display: flex !important;
@@ -506,22 +507,25 @@ canvas {
     max-width: none !important;
     height: auto !important;
     min-height: 0 !important;
-    margin: 0 !important;
-    padding: 6px max(16px, var(--app-inline-gutter)) 0 !important;
-    padding-bottom: var(--app-safe-bottom) !important;
+    margin-top: auto !important;
+    margin-right: 0 !important;
+    margin-bottom: 0 !important;
+    margin-left: 0 !important;
+    padding: 10px max(16px, var(--app-inline-gutter)) 0 !important;
+    padding-bottom: max(10px, var(--app-safe-bottom)) !important;
     background: #ffffff !important;
     border: 0 !important;
     box-shadow: none !important;
     transform: none !important;
   }
 
-  .mobile-bank-shell.view-home > .home-main-actions::before,
-  .mobile-bank-shell.view-home > .home-main-actions::after {
+  .mobile-bank-shell.view-home .home-main-actions::before,
+  .mobile-bank-shell.view-home .home-main-actions::after {
     content: none !important;
     display: none !important;
   }
 
-  .mobile-bank-shell.view-home > .home-main-actions a {
+  .mobile-bank-shell.view-home .home-main-actions a {
     flex: 1 1 0;
     width: auto !important;
     max-width: none !important;
@@ -540,7 +544,6 @@ canvas {
     background: #660185 !important;
   }
 
-  /* Home: fondo morado bajo la status bar (evita franja negra). */
   html:has(.mobile-bank-shell.view-home),
   body:has(.mobile-bank-shell.view-home),
   .banking-stage:has(.mobile-bank-shell.view-home) {
