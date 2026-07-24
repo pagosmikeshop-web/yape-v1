@@ -302,7 +302,7 @@ canvas {
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-logo-badge {
-    top: 40%;
+    top: 45%;
     left: 17%;
     transform: translate(-50%, -50%);
   }
