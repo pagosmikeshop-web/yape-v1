@@ -15,8 +15,7 @@
   --app-safe-left: env(safe-area-inset-left, 0px);
   --app-inline-gutter: clamp(14px, 4vw, 22px);
   --app-touch-target: 44px;
-  /* Blanco por defecto: cualquier hueco inferior deja de verse morado. */
-  --app-shell-bg: #ffffff;
+  --app-shell-bg: #742284;
   --app-surface-bg: #ffffff;
   --app-auth-bg: #742284;
 }
@@ -54,20 +53,36 @@ body {
 
 @media (max-width: 599px) {
   html {
-    height: var(--app-viewport-height);
-    min-height: var(--app-viewport-height);
+    height: 100%;
+    height: -webkit-fill-available;
+    min-height: 100%;
+    min-height: -webkit-fill-available;
     overflow: hidden;
+    background: var(--app-shell-bg);
   }
 
   body {
     position: fixed;
     inset: 0;
     width: 100%;
-    height: var(--app-viewport-height);
-    min-height: var(--app-viewport-height);
-    max-height: var(--app-viewport-height);
+    height: 100%;
+    height: -webkit-fill-available;
+    min-height: 100%;
+    min-height: -webkit-fill-available;
+    max-height: none;
     overflow: hidden;
     overscroll-behavior: none;
+    background: var(--app-shell-bg);
+  }
+
+  .site-stage,
+  .banking-stage,
+  .install-gate,
+  .bank-app,
+  .mobile-bank-shell {
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
   }
 }
 
@@ -112,9 +127,9 @@ canvas {
   .site-stage,
   .banking-stage,
   .install-gate {
-    height: var(--app-viewport-height);
-    min-height: var(--app-viewport-height);
-    max-height: var(--app-viewport-height);
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
     overflow: hidden;
   }
 
@@ -123,6 +138,11 @@ canvas {
     display: flex;
     align-items: stretch;
     justify-content: center;
+    background: var(--app-surface-bg);
+  }
+
+  .site-stage {
+    background: var(--app-auth-bg);
   }
 
   .bank-app,
@@ -411,27 +431,37 @@ canvas {
   }
 
   /*
-   * Home: pie anclado al shell (fuera del scroll).
-   * Fondo blanco total debajo; el morado solo en .home-purple-zone.
+   * Home: sin franja inferior de ningún color.
+   * La hoja blanca llega al borde del dispositivo; los botones van al final
+   * de esa hoja con solo el safe-area del home indicator (sin barra extra).
    */
   .mobile-bank-shell.view-home {
     display: flex !important;
     flex-direction: column !important;
+    height: 100% !important;
+    max-height: 100% !important;
     background: var(--app-surface-bg) !important;
   }
 
   .mobile-bank-shell.view-home .bank-scroll-area {
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    height: 100% !important;
+    padding-bottom: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     background: var(--app-surface-bg) !important;
   }
 
   .mobile-bank-shell.view-home .reference-home {
     min-height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
     background: var(--app-surface-bg) !important;
   }
 
   .mobile-bank-shell.view-home .home-purple-zone {
+    flex: 0 0 auto !important;
     background: linear-gradient(
       rgb(117, 35, 134) 0 70%,
       rgb(75, 26, 112) 100%
@@ -443,42 +473,48 @@ canvas {
     display: flex !important;
     flex-direction: column !important;
     min-height: 0 !important;
-    margin-bottom: 0 !important;
-    padding: 0 0 12px !important;
+    margin: 0 !important;
+    padding: 12px 0 0 !important;
     border-radius: 5vw 5vw 0 0 !important;
     background: var(--app-surface-bg) !important;
     box-shadow: none !important;
   }
 
-  .mobile-bank-shell.view-home > .home-main-actions {
-    position: relative !important;
-    inset: auto !important;
-    right: auto !important;
-    bottom: auto !important;
-    left: auto !important;
+  .mobile-bank-shell.view-home .home-main-actions {
+    position: sticky !important;
+    bottom: 0 !important;
+    inset: auto 0 0 0 !important;
     z-index: 40 !important;
     flex: 0 0 auto !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    gap: 16px !important;
+    gap: 12px !important;
     width: 100% !important;
     max-width: none !important;
     height: auto !important;
-    min-height: clamp(66px, 18vw, 74px) !important;
-    margin: 0 !important;
-    padding: 12px max(18px, var(--app-inline-gutter))
-      max(16px, calc(var(--app-safe-bottom) + 8px)) !important;
+    min-height: 0 !important;
+    margin: auto 0 0 !important;
+    padding: 10px max(16px, var(--app-inline-gutter))
+      var(--app-safe-bottom) !important;
     background: var(--app-surface-bg) !important;
-    border-top: 0 !important;
+    border: 0 !important;
     box-shadow: none !important;
     transform: none !important;
   }
 
-  .mobile-bank-shell.view-home > .home-main-actions a {
+  .mobile-bank-shell.view-home .home-main-actions::before,
+  .mobile-bank-shell.view-home .home-main-actions::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .mobile-bank-shell.view-home .home-main-actions a {
     flex: 1 1 0;
     width: auto !important;
     max-width: none !important;
+    height: 44px !important;
+    min-height: 44px !important;
   }
 
   .install-gate {

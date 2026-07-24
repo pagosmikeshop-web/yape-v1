@@ -70,14 +70,14 @@
 
 html {
   min-width: 320px;
-  background: #ffffff;
+  background: #742284;
 }
 
 body {
   min-height: 100svh;
   margin: 0;
   color: var(--auth-text);
-  background: #ffffff;
+  background: #742284;
   font-family: "Yape", Roboto, Arial, sans-serif;
 }
 
