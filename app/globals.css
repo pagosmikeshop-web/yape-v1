@@ -102,7 +102,7 @@ input {
   min-height: var(--app-viewport-height, 100svh);
   display: grid;
   place-items: center;
-  background: #742284;
+  background: #7a2185;
 }
 
 .bank-app {
@@ -609,23 +609,25 @@ input {
 }
 
 .returning-login {
-  background: #f9f8fc;
+  background: #7a2185;
 }
 
 .returning-purple-panel {
   min-height: 44svh;
   padding: max(36px, env(safe-area-inset-top)) 24px 34px;
-  display: grid;
-  align-content: start;
-  justify-items: center;
-  gap: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
   color: white;
-  background: linear-gradient(180deg, #920bc1 0%, #790699 100%);
+  background: linear-gradient(180deg, #7a2185 0%, #59146f 70%, #4e1069 100%);
 }
 
 .returning-qr {
   width: min(62vw, 246px);
   aspect-ratio: 1;
+  flex: 0 0 auto;
   padding: 12px;
   border-radius: 18px;
   background: #ffffff;
@@ -634,16 +636,38 @@ input {
 
 .returning-top-actions {
   width: 100%;
-  display: flex;
-  justify-content: space-between;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: center;
+  align-content: center;
+  align-items: start;
   gap: 14px;
+  margin-top: clamp(16px, 3svh, 28px);
 }
 
 .returning-top-actions a {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(2.4em, auto);
+  justify-items: center;
+  align-content: start;
+  gap: 10px;
   color: #ffffff;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
+}
+
+.returning-action-label {
+  min-height: 2.4em;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  max-width: 7.5em;
+  line-height: 1.15;
+  text-align: center;
 }
 
 .returning-keypad-card {
@@ -667,6 +691,14 @@ input {
   font-size: 28px;
   font-weight: 700;
   line-height: 1.15;
+}
+
+.returning-pin-hint {
+  margin: 10px 0 0;
+  color: #6f6872;
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .pin-dots {
@@ -742,16 +774,21 @@ input {
   display: flex;
   flex-direction: column;
   min-height: var(--app-viewport-height, 100svh);
-  background: #ffffff;
+  background: #7a2185;
 }
 
 .returning-purple-panel {
-  min-height: clamp(365px, 50.5svh, 455px);
-  padding: clamp(58px, 8.2svh, 76px) 30px clamp(76px, 10svh, 98px);
-  display: grid;
-  align-content: start;
-  justify-items: center;
-  gap: clamp(44px, 7.5svh, 68px);
+  flex: 1 1 auto;
+  min-height: clamp(260px, 42svh, 430px);
+  padding:
+    calc(env(safe-area-inset-top, 0px) + clamp(14px, 2.4svh, 28px))
+    clamp(18px, 5vw, 30px)
+    clamp(56px, 8svh, 88px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
   color: white;
   background:
     radial-gradient(circle at 50% 24%, rgba(139, 49, 158, 0.42), transparent 150px),
@@ -761,6 +798,8 @@ input {
 .returning-qr {
   width: clamp(118px, 34vw, 148px);
   aspect-ratio: 1;
+  flex: 0 0 auto;
+  margin-top: clamp(2px, 0.8svh, 10px);
 }
 
 .yape-qr-card {
@@ -819,21 +858,31 @@ input {
 
 .returning-top-actions {
   width: 100%;
+  max-width: 360px;
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   justify-content: center;
-  gap: clamp(18px, 8vw, 38px);
+  align-content: center;
+  align-items: start;
+  justify-items: center;
+  gap: clamp(12px, 4.5vw, 28px);
+  margin-top: clamp(18px, 2.8svh, 32px);
+  padding-inline: 4px;
 }
 
 .returning-top-actions a {
   min-width: 0;
+  width: 100%;
   display: grid;
+  grid-template-rows: auto minmax(2.5em, auto);
   justify-items: center;
-  gap: 12px;
+  align-content: start;
+  gap: clamp(8px, 1.4svh, 12px);
   color: #ffffff;
-  font-size: 14px;
+  font-size: clamp(12.5px, 3.4vw, 14px);
   font-weight: 700;
-  line-height: 1.08;
+  line-height: 1.12;
   text-align: center;
   text-decoration: none;
 }
@@ -854,9 +903,22 @@ input {
   filter: brightness(0) invert(1);
 }
 
+.returning-action-label {
+  min-height: 2.5em;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  max-width: 8em;
+  padding-inline: 2px;
+  line-height: 1.15;
+  text-align: center;
+  text-wrap: balance;
+}
+
 .returning-keypad-card {
-  flex: 1;
-  margin-top: -30px;
+  flex: 1.15 1 auto;
+  margin-top: -28px;
   padding: clamp(30px, 4.5svh, 38px) 16px max(34px, calc(env(safe-area-inset-bottom) + 22px));
   border-radius: 24px 24px 0 0;
   background: #ffffff;
@@ -869,6 +931,14 @@ input {
   font-size: clamp(22px, 6vw, 25px);
   font-weight: 900;
   line-height: 1.15;
+}
+
+.returning-pin-hint {
+  margin: -10px 18px 16px;
+  color: #6f6872;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .returning-keypad-card .pin-dots {
@@ -949,19 +1019,57 @@ input {
 }
 
 .auth-lottie-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  overflow: visible;
+}
+
+.auth-lottie-canvas,
+.auth-lottie-fallback {
+  grid-area: 1 / 1;
+}
+
+.auth-lottie-canvas {
   display: block;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
 }
 
-.returning-bio-lottie {
-  width: 34px;
-  height: 34px;
-}
-
-.returning-bio-lottie svg {
+.auth-lottie-canvas svg {
   width: 100% !important;
   height: 100% !important;
   display: block;
+}
+
+.auth-lottie-fallback {
+  width: 30px;
+  height: 30px;
+  display: block;
+  object-fit: contain;
+}
+
+.returning-bio-lottie {
+  width: 36px;
+  height: 36px;
+}
+
+.returning-bio-lottie svg,
+.returning-bio-lottie .auth-lottie-fallback {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.numeric-keypad .returning-bio-key:disabled {
+  opacity: 0.45;
+}
+
+.numeric-keypad .returning-bio-key:not(:disabled) .auth-lottie-icon {
+  opacity: 1;
 }
 
 .numeric-keypad .returning-delete-key {
@@ -990,14 +1098,14 @@ input {
 
 @media (max-height: 700px) {
   .returning-purple-panel {
-    min-height: clamp(315px, 47svh, 345px);
-    padding-top: clamp(42px, 6.8svh, 56px);
-    padding-bottom: clamp(56px, 8svh, 68px);
-    gap: 34px;
+    min-height: clamp(220px, 38svh, 300px);
+    padding-top: calc(env(safe-area-inset-top, 0px) + clamp(10px, 1.8svh, 18px));
+    padding-bottom: clamp(56px, 8svh, 78px);
   }
 
   .returning-qr {
     width: clamp(104px, 29vw, 124px);
+    margin-top: 0;
   }
 
   .returning-action-icon {
@@ -1008,6 +1116,11 @@ input {
   .returning-top-actions a {
     gap: 8px;
     font-size: 12.5px;
+  }
+
+  .returning-action-label {
+    min-height: 2.3em;
+    max-width: 7.2em;
   }
 
   .returning-keypad-card {

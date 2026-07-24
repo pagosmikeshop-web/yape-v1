@@ -3568,7 +3568,62 @@ function InsuranceView() {
 }
 
 function BiometricView() {
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; tone: "info" | "error" } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    import("../lib/webauthn-client")
+      .then(({ fetchWebAuthnStatus }) => fetchWebAuthnStatus())
+      .then((isEnabled) => {
+        if (!cancelled) setEnabled(isEnabled);
+      })
+      .catch(() => {
+        if (!cancelled) setEnabled(false);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function toggleBiometric() {
+    if (busy || loading) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const {
+        disablePlatformBiometric,
+        registerPlatformBiometric,
+      } = await import("../lib/webauthn-client");
+      if (enabled) {
+        await disablePlatformBiometric();
+        setEnabled(false);
+        setNotice({
+          text: "Biometría desactivada. Puedes seguir entrando con tu clave.",
+          tone: "info",
+        });
+      } else {
+        await registerPlatformBiometric();
+        setEnabled(true);
+        setNotice({
+          text: "Biometría activada. Si no quieres usarla, sigue entrando con tu clave.",
+          tone: "info",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "No se pudo actualizar la biometría.";
+      setNotice({ text: message, tone: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="reference-biometric-view">
@@ -3579,20 +3634,30 @@ function BiometricView() {
           className="biometric-mark"
         />
         <h1>
-          {enabled
-            ? "Tienes activa tu biometría digital en Yape"
-            : "Biometría digital desactivada"}
+          {loading
+            ? "Cargando biometría…"
+            : enabled
+              ? "Tienes activa tu biometría digital en Yape"
+              : "Biometría digital desactivada"}
         </h1>
         <p>
-          Recuerda que también puedes entrar a Yape con tu clave de siempre.
+          Recuerda que también puedes entrar a Yape con tu clave de siempre,
+          aunque no uses Face ID o huella.
         </p>
+        {notice ? (
+          <p className={`form-notice is-${notice.tone}`} role="status">
+            {notice.text}
+          </p>
+        ) : null}
       </section>
       <div className="biometric-actions">
         <Link href="/inicio">Ir al inicio</Link>
-        <button type="button" onClick={() => setEnabled((current) => !current)}>
-          {enabled
-            ? "Desactivar biometría digital"
-            : "Activar biometría digital"}
+        <button type="button" disabled={busy || loading} onClick={() => void toggleBiometric()}>
+          {busy
+            ? "Espera…"
+            : enabled
+              ? "Desactivar biometría digital"
+              : "Activar biometría digital"}
         </button>
       </div>
     </div>

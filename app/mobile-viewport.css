@@ -15,9 +15,9 @@
   --app-safe-left: env(safe-area-inset-left, 0px);
   --app-inline-gutter: clamp(14px, 4vw, 22px);
   --app-touch-target: 44px;
-  --app-shell-bg: #742284;
+  --app-shell-bg: #7a2185;
   --app-surface-bg: #ffffff;
-  --app-auth-bg: #742284;
+  --app-auth-bg: #7a2185;
 }
 
 /* Preferir dvh cuando exista; svh solo como fallback previo al @supports dvh. */
@@ -54,9 +54,13 @@ body {
 }
 
 @media (max-width: 599px) {
+  /*
+   * En móvil el rebote elástico debe mostrar el morado de auth/PWA,
+   * no blanco ni negro detrás de la barra de estado.
+   */
   html {
     min-height: 100%;
-    background: var(--app-surface-bg);
+    background: var(--app-auth-bg);
   }
 
   body {
@@ -64,7 +68,7 @@ body {
     min-height: 100%;
     min-height: 100dvh;
     overflow-x: hidden;
-    background: var(--app-surface-bg);
+    background: var(--app-auth-bg);
   }
 }
 
@@ -144,31 +148,32 @@ canvas {
     min-inline-size: 0;
   }
 
-  /* Login / PIN: la hoja blanca debe llegar hasta el borde inferior (sin franja oscura). */
+  /* Login / PIN: morado continuo hasta el borde superior; hoja blanca hasta el inferior. */
   .returning-login {
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
     max-height: 100%;
-    background: var(--app-surface-bg);
+    background: var(--app-auth-bg);
   }
 
   .returning-purple-panel {
-    flex: 0 0 auto;
-    min-height: clamp(280px, 42%, 420px);
-    padding-top: max(
-      calc(var(--app-safe-top) + 20px),
-      clamp(56px, 8%, 94px)
-    );
-    padding-right: max(30px, calc(var(--app-safe-right) + 22px));
-    padding-bottom: clamp(48px, 6%, 78px);
-    padding-left: max(30px, calc(var(--app-safe-left) + 22px));
-    gap: clamp(28px, 5%, 62px);
+    flex: 1 1 auto;
+    min-height: clamp(240px, 40%, 420px);
+    padding-top: calc(var(--app-safe-top) + clamp(12px, 2.2%, 24px));
+    padding-right: max(22px, calc(var(--app-safe-right) + 16px));
+    padding-bottom: clamp(56px, 7.5%, 88px);
+    padding-left: max(22px, calc(var(--app-safe-left) + 16px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0;
   }
 
   .returning-keypad-card {
-    flex: 1 1 auto;
+    flex: 1.2 1 auto;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -586,13 +591,9 @@ canvas {
   }
 
   .returning-purple-panel {
-    min-height: clamp(315px, 47dvh, 345px);
-    padding-top: max(
-      calc(var(--app-safe-top) + 12px),
-      clamp(46px, 8dvh, 58px)
-    );
-    padding-bottom: clamp(46px, 7dvh, 56px);
-    gap: clamp(26px, 5dvh, 34px);
+    min-height: clamp(210px, 36dvh, 290px);
+    padding-top: calc(var(--app-safe-top) + clamp(8px, 1.6dvh, 14px));
+    padding-bottom: clamp(52px, 7.5dvh, 72px);
   }
 
   .returning-keypad-card {

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createDeviceProof } from "../lib/device-key";
 import { getFingerprintId, hasLocalRegistrationAnchor, saveLocalRegistrationAnchor } from "../lib/registration-device";
+import { unlockWithPlatformBiometric, WebAuthnClientError } from "../lib/webauthn-client";
 
 type Screen = "login" | "register" | "change-password" | "recover" | "change-number";
 type Notice = { text: string; tone: "info" | "error" } | null;
@@ -71,19 +72,38 @@ function AuthAssetIcon({ name }: { name: string }) {
   return <img src={`/assets/apk/icons/${name}.svg`} alt="" aria-hidden="true" />;
 }
 
-function AuthLottieIcon({ name, className = "" }: { name: string; className?: string }) {
+function AuthLottieIcon({
+  name,
+  className = "",
+  fallbackIcon = "ic_touch_id_outline_yape_primary",
+}: {
+  name: string;
+  className?: string;
+  fallbackIcon?: string;
+}) {
   const containerRef = useRef<HTMLSpanElement>(null);
+  const [showFallback, setShowFallback] = useState(true);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     let cancelled = false;
-    let animation: { destroy: () => void } | null = null;
+    let destroyAnimation: (() => void) | null = null;
+    let readyTimer: number | undefined;
+    let removeDomLoaded: (() => void) | null = null;
+    let removeDataFailed: (() => void) | null = null;
+
+    const markReady = () => {
+      if (!cancelled) setShowFallback(false);
+    };
+    const markFailed = () => {
+      if (!cancelled) setShowFallback(true);
+    };
 
     import("lottie-web/build/player/lottie_light").then(({ default: lottie }) => {
       if (cancelled || !containerRef.current) return;
-      animation = lottie.loadAnimation({
+      const animation = lottie.loadAnimation({
         container: containerRef.current,
         renderer: "svg",
         loop: true,
@@ -94,18 +114,41 @@ function AuthLottieIcon({ name, className = "" }: { name: string; className?: st
           progressiveLoad: true,
         },
       });
+      destroyAnimation = () => animation.destroy();
+      removeDomLoaded = animation.addEventListener("DOMLoaded", markReady);
+      removeDataFailed = animation.addEventListener("data_failed", markFailed);
+      // Si el JSON tarda, el fallback SVG permanece visible.
+      readyTimer = window.setTimeout(() => {
+        if (!cancelled && containerRef.current && containerRef.current.childElementCount > 0) {
+          markReady();
+        }
+      }, 1200);
     }).catch(() => {
-      // Si Lottie no carga, el botón sigue existiendo y no bloquea el ingreso.
+      markFailed();
     });
 
     return () => {
       cancelled = true;
-      animation?.destroy();
+      if (readyTimer !== undefined) window.clearTimeout(readyTimer);
+      removeDomLoaded?.();
+      removeDataFailed?.();
+      destroyAnimation?.();
       container.innerHTML = "";
     };
   }, [name]);
 
-  return <span ref={containerRef} className={`auth-lottie-icon ${className}`.trim()} aria-hidden="true" />;
+  return (
+    <span className={`auth-lottie-icon ${className}`.trim()} aria-hidden="true">
+      {showFallback ? (
+        <img
+          className="auth-lottie-fallback"
+          src={`/assets/apk/icons/${fallbackIcon}.svg`}
+          alt=""
+        />
+      ) : null}
+      <span ref={containerRef} className="auth-lottie-canvas" />
+    </span>
+  );
 }
 
 function Field({
@@ -164,10 +207,12 @@ function Header({ screen, onRefresh }: { screen: Screen; onRefresh: () => void }
 function ReturningKeypad({
   mode,
   onSubmit,
+  onBioUnlock,
   notice,
 }: {
   mode: "set" | "verify";
   onSubmit: (pin: string) => Promise<void>;
+  onBioUnlock?: () => Promise<void>;
   notice: Notice;
 }) {
   const [pin, setPin] = useState("");
@@ -212,7 +257,13 @@ function ReturningKeypad({
   }
 
   async function pushKey(key: string) {
-    if (key === "bio") return;
+    if (key === "bio") {
+      // Face ID / huella es opcional: si cancela o falla, el teclado PIN sigue disponible.
+      if (mode !== "verify" || !onBioUnlock || busy) return;
+      setBusy(true);
+      void onBioUnlock().finally(() => setBusy(false));
+      return;
+    }
     if (key === "del") {
       submittedPinRef.current = "";
       setPin((current) => current.slice(0, -1));
@@ -242,16 +293,21 @@ function ReturningKeypad({
             {returningActions.map((action) => (
               action.external ? <a href={action.href} key={action.label} aria-label={action.label}>
                 <span className="returning-action-icon"><AuthAssetIcon name={action.icon} /></span>
-                <span>{action.label}</span>
+                <span className="returning-action-label">{action.label}</span>
               </a> : <Link href={action.href} key={action.label} aria-label={action.label}>
                 <span className="returning-action-icon"><AuthAssetIcon name={action.icon} /></span>
-                <span>{action.label}</span>
+                <span className="returning-action-label">{action.label}</span>
               </Link>
             ))}
           </div>
         </div>
         <section className="returning-keypad-card">
           <h1>{mode === "set" ? "Configura tu clave" : "Ingresa tu clave"}</h1>
+          {mode === "verify" ? (
+            <p className="returning-pin-hint">
+              También puedes usar Face ID o huella. Si no quieres, escribe tu clave de 6 dígitos.
+            </p>
+          ) : null}
           <div className="pin-dots" aria-label={`${pin.length} dígitos ingresados`}>
             {[0, 1, 2, 3, 4, 5].map((item) => <span key={item} className={item < pin.length ? "is-filled" : ""} />)}
           </div>
@@ -262,10 +318,10 @@ function ReturningKeypad({
                 key={key}
                 type="button"
                 className={`${key === "bio" ? "returning-bio-key" : key === "del" ? "returning-delete-key" : ""}${pressedKey === key ? " is-key-pressed" : ""}`.trim()}
-                disabled={busy}
+                disabled={busy || (key === "bio" && mode !== "verify")}
                 onPointerDown={() => showKeyFeedback(key)}
                 onClick={() => pushKey(key)}
-                aria-label={key === "bio" ? "Biometría" : key === "del" ? "Borrar" : `Número ${key}`}
+                aria-label={key === "bio" ? "Biometría (opcional; también puedes usar tu clave)" : key === "del" ? "Borrar" : `Número ${key}`}
               >
                 {key === "bio" ? <AuthLottieIcon name="icon_huella_rostro" className="returning-bio-lottie" /> : key === "del" ? <AuthAssetIcon name="ic_arrow_left_yape" /> : key}
               </button>
@@ -364,6 +420,24 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     if (!data || !sessionUser) return;
     sessionStorage.setItem(UNLOCK_KEY, "1");
     router.replace(rolePath({ ...sessionUser, mustSetPin: false, pinSet: true }));
+  }
+
+  async function unlockWithBio() {
+    setNotice(null);
+    try {
+      await unlockWithPlatformBiometric();
+      if (!sessionUser) return;
+      sessionStorage.setItem(UNLOCK_KEY, "1");
+      router.replace(rolePath({ ...sessionUser, mustSetPin: false, pinSet: true }));
+    } catch (error) {
+      const message = error instanceof WebAuthnClientError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : "No pudimos usar el biométrico. Usa tu clave.";
+      // Fallback explícito: el teclado PIN sigue activo; solo avisamos.
+      setNotice({ text: message, tone: "info" });
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -559,6 +633,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         mode={sessionUser.mustSetPin || !sessionUser.pinSet ? "set" : "verify"}
         notice={notice}
         onSubmit={unlockWithPin}
+        onBioUnlock={unlockWithBio}
       />
     );
   }

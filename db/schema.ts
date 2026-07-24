@@ -324,3 +324,33 @@ export const clientCrmActivities = sqliteTable("client_crm_activities", {
   index("client_crm_activities_user_idx").on(table.userId, table.createdAt),
   index("client_crm_activities_type_idx").on(table.activityType, table.createdAt),
 ]);
+
+export const webauthnCredentials = sqliteTable("webauthn_credentials", {
+  credentialId: text("credential_id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  publicKey: text("public_key").notNull(),
+  counter: integer("counter").notNull().default(0),
+  transports: text("transports"),
+  deviceType: text("device_type"),
+  backedUp: integer("backed_up", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+  lastUsedAt: text("last_used_at"),
+}, (table) => [
+  index("webauthn_credentials_user_idx").on(table.userId),
+]);
+
+export const webauthnChallenges = sqliteTable("webauthn_challenges", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  challenge: text("challenge").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  index("webauthn_challenges_user_type_idx").on(table.userId, table.type),
+  index("webauthn_challenges_expiry_idx").on(table.expiresAt),
+]);

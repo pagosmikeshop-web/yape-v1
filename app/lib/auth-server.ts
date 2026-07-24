@@ -698,6 +698,30 @@ export async function ensureAuthSchema() {
       )`,
       "CREATE INDEX IF NOT EXISTS client_crm_activities_user_idx ON client_crm_activities(user_id, created_at)",
       "CREATE INDEX IF NOT EXISTS client_crm_activities_type_idx ON client_crm_activities(activity_type, created_at)",
+      `CREATE TABLE IF NOT EXISTS webauthn_credentials (
+        credential_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        public_key TEXT NOT NULL,
+        counter INTEGER NOT NULL DEFAULT 0,
+        transports TEXT,
+        device_type TEXT,
+        backed_up INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        last_used_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE INDEX IF NOT EXISTS webauthn_credentials_user_idx ON webauthn_credentials(user_id)",
+      `CREATE TABLE IF NOT EXISTS webauthn_challenges (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL CHECK (type IN ('registration','authentication')),
+        challenge TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE INDEX IF NOT EXISTS webauthn_challenges_user_type_idx ON webauthn_challenges(user_id, type)",
+      "CREATE INDEX IF NOT EXISTS webauthn_challenges_expiry_idx ON webauthn_challenges(expires_at)",
     ];
     await db.batch(statements.map((sql) => db.prepare(sql)));
     await db.prepare(

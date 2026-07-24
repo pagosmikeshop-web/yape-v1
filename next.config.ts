@@ -1,8 +1,13 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const ENFORCED_CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  // React DevTools / reconstrucción de callstacks en Turbopack usa eval() solo en desarrollo.
+  isDev
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
@@ -18,7 +23,9 @@ const ENFORCED_CSP = [
 
 const STRICT_CSP_REPORT_ONLY = [
   "default-src 'self'",
-  "script-src 'self'",
+  isDev
+    ? "script-src 'self' 'unsafe-eval'"
+    : "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
