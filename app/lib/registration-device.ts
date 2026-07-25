@@ -133,3 +133,19 @@ export async function saveLocalRegistrationAnchor(fingerprintId: string) {
   localStorage.setItem(ANCHOR_LOCAL_KEY, encrypted);
   await writeIndexedAnchor(encrypted);
 }
+
+export async function clearLocalRegistrationAnchor() {
+  localStorage.removeItem(ANCHOR_LOCAL_KEY);
+  if (!("indexedDB" in window)) return;
+  const db = await openAnchorDb().catch(() => null);
+  if (!db) return;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = db.transaction(ANCHOR_STORE, "readwrite").objectStore(ANCHOR_STORE).delete(ANCHOR_KEY);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error ?? new Error("No se pudo limpiar el anclaje local."));
+    });
+  } finally {
+    db.close();
+  }
+}

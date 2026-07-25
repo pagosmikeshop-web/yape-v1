@@ -47,30 +47,48 @@ export async function POST(request: Request) {
     const [telegramCheck, linkedTelegram, duplicateDevice] = await Promise.all([
       checkCurrentTelegramGroupMember(telegramUserId),
       telegramUserId
-        ? dbBinding().prepare("SELECT id FROM users WHERE telegram_user_id = ? LIMIT 1")
-          .bind(telegramUserId).first()
+        ? dbBinding().prepare(
+          "SELECT id FROM users WHERE telegram_user_id = ? AND deleted_at IS NULL LIMIT 1",
+        ).bind(telegramUserId).first()
         : null,
       fingerprintHash
-        ? dbBinding().prepare("SELECT id FROM users WHERE fingerprint_id_hash = ? LIMIT 1")
-          .bind(fingerprintHash).first()
+        ? dbBinding().prepare(
+          "SELECT id FROM users WHERE fingerprint_id_hash = ? AND deleted_at IS NULL LIMIT 1",
+        ).bind(fingerprintHash).first()
         : null,
     ]);
 
-    const allowed = Boolean(
-      telegramUserId
-      && fingerprintHash
-      && telegramCheck.member
-      && !linkedTelegram
-      && !duplicateDevice,
-    );
+    if (linkedTelegram) {
+      return jsonOk({
+        allowed: false,
+        groupInviteUrl: "/api/telegram/group",
+        reason: "telegram-already-registered",
+        error: "Ese Telegram ID ya tiene una cuenta. Inicia sesión o recupera tu acceso.",
+      });
+    }
+    if (duplicateDevice) {
+      return jsonOk({
+        allowed: false,
+        groupInviteUrl: "/api/telegram/group",
+        reason: "device-already-registered",
+        error: "Este dispositivo ya tiene una cuenta registrada. Usa otra cuenta o contacta soporte.",
+      });
+    }
+    if (!telegramCheck.member) {
+      return jsonOk({
+        allowed: false,
+        groupInviteUrl: "/api/telegram/group",
+        reason: telegramCheck.reason,
+        error: telegramMembershipError(telegramCheck),
+      });
+    }
+
+    const allowed = Boolean(telegramUserId && fingerprintHash && telegramCheck.member);
     return jsonOk({
       allowed,
       groupInviteUrl: "/api/telegram/group",
-      error: allowed
-        ? ""
-        : !telegramCheck.member
-          ? telegramMembershipError(telegramCheck)
-          : "No se pudo habilitar el registro con estos datos.",
+      reason: allowed ? "ok" : "incomplete",
+      error: allowed ? "" : "No se pudo habilitar el registro con estos datos.",
     });
   } catch (error) {
     return routeError(error);

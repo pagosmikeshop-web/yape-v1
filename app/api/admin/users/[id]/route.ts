@@ -111,11 +111,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const { user: actor } = await requireUnlockedSession(request, ["admin"]);
+    const { user: actor } = await requireUnlockedSession(request, ["admin", "seller"]);
     const { id } = await context.params;
     if (id === actor.id) return jsonError("No puedes eliminar tu propia cuenta.", 409);
     const target = await requireManagedAccount(actor, id);
     if (target.is_owner) return jsonError("La cuenta Owner no puede eliminarse.", 403);
+    if (actor.role === "seller" && target.role !== "client") {
+      return jsonError("Solo puedes eliminar clientes de tu cartera.", 403);
+    }
     await requirePermission(
       actor,
       target.role === "admin" ? "admins:delete" : target.role === "seller" ? "sellers:delete" : "clients:delete",
@@ -161,6 +164,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
         "UPDATE client_crm_profiles SET updated_by = ?, updated_at = ? WHERE updated_by = ? AND user_id <> ?",
       ).bind(actor.id, now, id, id),
       database.prepare("DELETE FROM client_crm_profiles WHERE user_id = ?").bind(id),
+      database.prepare("DELETE FROM webauthn_credentials WHERE user_id = ?").bind(id),
+      database.prepare("DELETE FROM webauthn_challenges WHERE user_id = ?").bind(id),
       database.prepare(
         `UPDATE users SET seller_code = ?, username = ?, display_name = 'Usuario eliminado', email = '',
            status = 'disabled', owner_id = NULL, credits = 0, device_id = NULL, device_public_key = NULL,
@@ -173,7 +178,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
          VALUES (?, ?, 'web_delete_user', ?, ?)`,
       ).bind(crypto.randomUUID(), actor.telegramUserId ?? actor.id, `${id}:${target.role}`, now),
     ]);
-    return jsonOk({ message: "Usuario eliminado correctamente." });
+    return jsonOk({
+      message: "Usuario eliminado. Su Telegram ID y dispositivo quedan libres para un nuevo registro.",
+    });
   } catch (error) {
     return routeError(error);
   }

@@ -320,6 +320,28 @@ export function ClientManager({ role }: { role: ManagerRole }) {
     }
   }
 
+  async function deleteClient(client: ManagedClient) {
+    const confirmed = window.confirm(
+      `¿Eliminar a ${client.display_name}? Se liberará su Telegram ID y dispositivo para que pueda registrarse otra vez.`,
+    );
+    if (!confirmed) return;
+    setBusyId(`delete-${client.id}`);
+    setError("");
+    setNotice("");
+    try {
+      const data = await responseData<{ message?: string }>(await fetch(`/api/admin/users/${client.id}`, {
+        method: "DELETE",
+      }));
+      setNotice(data.message || "Cliente eliminado. Ya puede registrarse de nuevo.");
+      setClients((current) => current.filter((entry) => entry.id !== client.id));
+      setTotal((current) => Math.max(0, current - 1));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar el cliente.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   async function resetClientDevice(client: ManagedClient) {
     setBusyId(`device-${client.id}`);
     setError("");
@@ -473,6 +495,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
               {client.status === "pending" ? <button type="button" onClick={() => void activateClient(client)} disabled={Boolean(busyId)}>{busyId === client.id ? "Activando..." : "Activar"}</button> : null}
               {client.status === "active" && client.access_expires_at ? <button type="button" onClick={() => void issuePermanentToken(client)} disabled={Boolean(busyId)}>{busyId === `token-${client.id}` ? "Creando..." : "Crear token"}</button> : null}
               {role === "admin" ? <button type="button" onClick={() => void resetClientDevice(client)} disabled={Boolean(busyId)}>{busyId === `device-${client.id}` ? "Restableciendo..." : "Restablecer dispositivo"}</button> : null}
+              <button type="button" onClick={() => void deleteClient(client)} disabled={Boolean(busyId)}>{busyId === `delete-${client.id}` ? "Eliminando..." : "Eliminar"}</button>
             </article>
           ))}
           {!loading && total > 0 ? (

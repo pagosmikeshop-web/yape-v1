@@ -69,17 +69,28 @@ export async function POST(request: Request) {
     const database = dbBinding();
     const [telegramCheck, existingTelegram, existingDevice, existingUser] = await Promise.all([
       checkCurrentTelegramGroupMember(telegramUserId),
-      database.prepare("SELECT id FROM users WHERE telegram_user_id = ? LIMIT 1").bind(telegramUserId).first(),
-      database.prepare("SELECT id FROM users WHERE fingerprint_id_hash = ? LIMIT 1").bind(fingerprintHash).first(),
-      database.prepare("SELECT id FROM users WHERE seller_code = ? AND username = ? LIMIT 1")
-        .bind(SELF_REGISTRATION_SELLER_CODE, username.trim().toLowerCase()).first(),
+      database.prepare(
+        "SELECT id FROM users WHERE telegram_user_id = ? AND deleted_at IS NULL LIMIT 1",
+      ).bind(telegramUserId).first(),
+      database.prepare(
+        "SELECT id FROM users WHERE fingerprint_id_hash = ? AND deleted_at IS NULL LIMIT 1",
+      ).bind(fingerprintHash).first(),
+      database.prepare(
+        "SELECT id FROM users WHERE seller_code = ? AND username = ? AND deleted_at IS NULL LIMIT 1",
+      ).bind(SELF_REGISTRATION_SELLER_CODE, username.trim().toLowerCase()).first(),
     ]);
 
     if (!telegramCheck.member) {
       return jsonError(telegramMembershipError(telegramCheck), 403);
     }
-    if (existingTelegram || existingDevice || existingUser) {
-      return jsonError("No se pudo crear la cuenta con esos datos.", 409);
+    if (existingTelegram) {
+      return jsonError("Ese Telegram ID ya tiene una cuenta. Inicia sesión o recupera tu acceso.", 409);
+    }
+    if (existingDevice) {
+      return jsonError("Este dispositivo ya tiene una cuenta registrada. Usa otro dispositivo o contacta soporte.", 409);
+    }
+    if (existingUser) {
+      return jsonError("Ese nombre de usuario ya está en uso. Elige otro.", 409);
     }
 
     const referrer = referralCode

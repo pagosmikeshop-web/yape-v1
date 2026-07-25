@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createDeviceProof } from "../lib/device-key";
 import { buildPaymentQrPayload } from "../lib/payment-qr";
-import { getFingerprintId, hasLocalRegistrationAnchor, saveLocalRegistrationAnchor } from "../lib/registration-device";
+import { getFingerprintId, hasLocalRegistrationAnchor, saveLocalRegistrationAnchor, clearLocalRegistrationAnchor } from "../lib/registration-device";
 import { unlockWithPlatformBiometric, WebAuthnClientError } from "../lib/webauthn-client";
 
 type Screen = "login" | "register" | "change-password" | "recover" | "change-number";
@@ -403,11 +403,6 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     getFingerprintId().then(async (id) => {
       if (cancelled) return;
       setFingerprintId(id);
-      const blocked = await hasLocalRegistrationAnchor(id);
-      if (cancelled) return;
-      if (blocked) {
-        setNotice({ text: "Este dispositivo ya tiene una cuenta registrada.", tone: "error" });
-      }
     }).catch((error: Error) => {
       if (!cancelled) setNotice({ text: error.message, tone: "error" });
     }).finally(() => {
@@ -486,8 +481,6 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         if (!fingerprintId) throw new Error("Espera la validacion del dispositivo.");
         if (password !== confirmation) throw new Error("Las contrasenas no coinciden.");
         if (pin !== pinConfirmation) throw new Error("Las claves de 6 digitos no coinciden.");
-        const blocked = await hasLocalRegistrationAnchor(fingerprintId);
-        if (blocked) throw new Error("Este dispositivo ya tiene una cuenta registrada.");
         const data = await apiPost("/api/auth/register", {
           telegramUserId: String(formData.get("telegram-id") ?? ""),
           username: String(formData.get("username") ?? ""),
@@ -606,8 +599,6 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     try {
       if (!fingerprintId) throw new Error("Espera la validacion del dispositivo.");
       const telegramId = String(new FormData(formRef.current ?? undefined).get("telegram-id") ?? "");
-      const blocked = await hasLocalRegistrationAnchor(fingerprintId);
-      if (blocked) throw new Error("Este dispositivo ya tiene una cuenta registrada.");
       const response = await fetch("/api/auth/register/status", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -616,7 +607,13 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       });
       const data = await response.json();
       setGroupInviteUrl(String(data.groupInviteUrl ?? ""));
-      if (!response.ok || !data.ok || !data.allowed) throw new Error(String(data.error ?? "Aun no puedes registrarte."));
+      if (!response.ok || !data.ok || !data.allowed) {
+        throw new Error(String(data.error ?? "Aun no puedes registrarte."));
+      }
+      // Si el servidor liberó el dispositivo (p. ej. cuenta eliminada), limpia el ancla local.
+      if (await hasLocalRegistrationAnchor(fingerprintId)) {
+        await clearLocalRegistrationAnchor().catch(() => undefined);
+      }
       setRegisterAllowed(true);
       setNotice({ text: "Telegram validado. Ya puedes crear tu cuenta.", tone: "info" });
     } catch (error) {
