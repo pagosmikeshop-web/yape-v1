@@ -8,6 +8,8 @@ type AuthEnv = {
   TURSO_DATABASE_URL?: string;
   TURSO_AUTH_TOKEN?: string;
   APP_ENV?: string;
+  /** En production=true permite PUT /api/account/balance (saldo cosmético/demo). */
+  ALLOW_CLIENT_BALANCE_EDIT?: string;
   ADMIN_WEB_URL?: string;
   ADMIN_PROXY_SECRET?: string;
   PUBLIC_APP_URL?: string;
@@ -823,6 +825,7 @@ export async function ensureAuthSchema() {
       db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS users_telegram_user_unique ON users(telegram_user_id) WHERE telegram_user_id IS NOT NULL"),
       db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_unique ON users(referral_code) WHERE referral_code IS NOT NULL"),
       db.prepare("CREATE INDEX IF NOT EXISTS users_owner_role_idx ON users(owner_id, role, deleted_at)"),
+      db.prepare("CREATE INDEX IF NOT EXISTS users_role_deleted_created_idx ON users(role, deleted_at, created_at)"),
     ];
     const ownerTelegramId = configuredOwnerTelegramId();
     if (ownerTelegramId) {

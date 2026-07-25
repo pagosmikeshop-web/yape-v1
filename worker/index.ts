@@ -8,6 +8,7 @@ interface Env {
   TURSO_DATABASE_URL?: string;
   TURSO_AUTH_TOKEN?: string;
   APP_ENV?: string;
+  ALLOW_CLIENT_BALANCE_EDIT?: string;
   PUBLIC_APP_URL?: string;
   ADMIN_WEB_URL?: string;
   ADMIN_PROXY_SECRET?: string;

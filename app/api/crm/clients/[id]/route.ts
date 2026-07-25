@@ -3,6 +3,7 @@ import {
   dbBinding,
   enforceAuthRateLimits,
   requireUnlockedSession,
+  revokeUserSessions,
   routeError,
   SELF_REGISTRATION_SELLER_CODE,
   trialExpiresAt,
@@ -89,6 +90,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return jsonError("Para otorgar acceso VIP, genera una key permanente usando un crédito.", 403);
     }
 
+    // AUTH-003: sellers no togglean status libremente; activación vía /activate; disabled vía clients:suspend.
+    const statusChanging =
+      Object.prototype.hasOwnProperty.call(body, "accountStatus")
+      && accountStatus !== String(current.status);
+    if (statusChanging) {
+      if (accountStatus === "disabled") {
+        await requirePermission(actor, "clients:suspend");
+      } else if (actor.role === "seller") {
+        if (accountStatus === "active") {
+          return jsonError("Para activar al cliente usa la acción Activar 3 días.", 403);
+        }
+        return jsonError("Los vendedores no pueden cambiar el estado de cuenta de forma arbitraria.", 403);
+      }
+    }
+
     let ownerId = current.owner_id ? String(current.owner_id) : null;
     let sellerCode = String(current.seller_code);
     if (Object.prototype.hasOwnProperty.call(body, "sellerId")) {
@@ -117,6 +133,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     let resolvedAccountStatus = accountStatus;
     let accessExpiresAt = current.access_expires_at ? String(current.access_expires_at) : null;
     let activatedAt = current.activated_at ? String(current.activated_at) : null;
+    let vipDowngradeTrialAudit = false;
 
     if (becomesVip) {
       resolvedAccountStatus = "active";
@@ -127,8 +144,30 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       && resolvedAccountStatus === "active"
       && (currentCrmStatus === "vip" || String(current.status) !== "active" || !accessExpiresAt)
     ) {
-      accessExpiresAt = trialExpiresAt();
-      activatedAt ??= now;
+      // TRIAL-001: no reiniciar el reloj si ya existe activation (salvo VIP→new auditado por owner/admin).
+      const existingActivation = await database.prepare(
+        "SELECT id FROM activations WHERE user_id = ? LIMIT 1",
+      ).bind(id).first<{ id: string }>();
+
+      if (existingActivation) {
+        if (currentCrmStatus === "vip") {
+          if (actor.role !== "admin" && !actor.isOwner) {
+            return jsonError("Solo un administrador puede degradar VIP a prueba con nuevo reloj.", 403);
+          }
+          accessExpiresAt = trialExpiresAt();
+          activatedAt ??= now;
+          vipDowngradeTrialAudit = true;
+        } else if (String(current.status) === "active" && accessExpiresAt) {
+          // Conservar expiry existente; no regenerar clock.
+        } else if (!accessExpiresAt && String(current.status) === "active") {
+          // Ya era permanente/new inconsistente con activation: no forzar trial aquí.
+        } else {
+          // Pendiente/disabled → active con activation previa: conservar fechas si hay; si no, no inventar reloj.
+        }
+      } else {
+        accessExpiresAt = trialExpiresAt();
+        activatedAt ??= now;
+      }
     }
 
     await database.batch([
@@ -163,15 +202,30 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ).bind(id, crmStatus, clientType, category, JSON.stringify(tags), notes, now, actor.id, now),
       database.prepare(
         `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
-         VALUES (?, ?, 'crm_client_update', ?, ?)`,
-      ).bind(crypto.randomUUID(), actor.telegramUserId ?? actor.id, `${id}:${crmStatus}:${ownerId ?? "unassigned"}`, now),
+         VALUES (?, ?, ?, ?, ?)`,
+      ).bind(
+        crypto.randomUUID(),
+        actor.telegramUserId ?? actor.id,
+        vipDowngradeTrialAudit ? "crm_vip_downgrade_trial" : "crm_client_update",
+        vipDowngradeTrialAudit
+          ? `${id}:vip→new:${accessExpiresAt}`
+          : `${id}:${crmStatus}:${ownerId ?? "unassigned"}`,
+        now,
+      ),
     ]);
+
+    if (resolvedAccountStatus === "disabled" && String(current.status) !== "disabled") {
+      await revokeUserSessions(id);
+    }
+
     return jsonOk({
       message: becomesVip
         ? `${displayName} ahora es VIP y tiene acceso permanente.`
-        : currentCrmStatus === "vip" && crmStatus === "new" && resolvedAccountStatus === "active"
-          ? `${displayName} ahora es Nuevo y tiene 3 días de prueba.`
-          : "Perfil del cliente actualizado.",
+        : vipDowngradeTrialAudit
+          ? `${displayName} ahora es Nuevo y tiene 3 días de prueba (reloj regenerado por admin).`
+          : currentCrmStatus === "vip" && crmStatus === "new" && resolvedAccountStatus === "active"
+            ? `${displayName} ahora es Nuevo.`
+            : "Perfil del cliente actualizado.",
       client: {
         id,
         ownerId,

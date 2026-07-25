@@ -2,13 +2,16 @@ import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   dbBinding,
   requireUnlockedSession,
+  revokeUserSessions,
   routeError,
   SELF_REGISTRATION_SELLER_CODE,
+  trialExpiresAt,
   validateDisplayName,
   validateOptionalEmail,
 } from "@/app/lib/auth-server";
 import { canManageSeller, requireManagedAccount } from "@/app/lib/management-server";
 import { requirePermission } from "@/app/lib/rbac";
+import { activateClientTrial } from "@/app/lib/trial-activation";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +24,8 @@ type EditableUser = {
   status: "pending" | "active" | "disabled";
   owner_id: string | null;
   seller_code: string;
+  access_expires_at: string | null;
+  activated_at: string | null;
 };
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -31,7 +36,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const body = await readJson(request);
     const database = dbBinding();
     const current = await database.prepare(
-      `SELECT id, display_name, email, role, is_owner, status, owner_id, seller_code
+      `SELECT id, display_name, email, role, is_owner, status, owner_id, seller_code,
+              access_expires_at, activated_at
        FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
     ).bind(id).first<EditableUser>();
     if (!current) return jsonError("Usuario no encontrado.", 404);
@@ -54,6 +60,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!validateDisplayName(displayName)) return jsonError("Ingresa un nombre válido.");
     if (!validateOptionalEmail(email)) return jsonError("Ingresa un correo válido.");
     if (!/^(pending|active|disabled)$/u.test(requestedStatus)) return jsonError("Estado inválido.");
+
+    if (
+      current.role === "client"
+      && Object.prototype.hasOwnProperty.call(body, "status")
+      && requestedStatus === "disabled"
+      && current.status !== "disabled"
+    ) {
+      await requirePermission(actor, "clients:suspend");
+    }
 
     let ownerId = current.owner_id;
     let sellerCode = current.seller_code;
@@ -90,18 +105,98 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const now = new Date().toISOString();
+    let accessExpiresAt = current.access_expires_at;
+    let activatedAt = current.activated_at;
+    const intentionalPermanent =
+      body.accessMode === "permanent"
+      || body.vip === true
+      || asString(body.crmStatus) === "vip";
+
+    // ADMIN-001: activar cliente sin expiry no debe quedar permanente por accidente.
+    if (
+      current.role === "client"
+      && requestedStatus === "active"
+      && current.status !== "active"
+      && !intentionalPermanent
+    ) {
+      if (current.status === "pending" && !accessExpiresAt) {
+        const trial = await activateClientTrial({
+          userId: current.id,
+          sellerId: ownerId ?? actor.id,
+          updatedBy: actor.id,
+        });
+        if (trial.ok && trial.activated) {
+          accessExpiresAt = trial.accessExpiresAt;
+          activatedAt = trial.activatedAt;
+        } else if (trial.ok && !trial.activated) {
+          accessExpiresAt = trial.accessExpiresAt;
+          activatedAt = trial.activatedAt;
+        } else if (!accessExpiresAt) {
+          accessExpiresAt = trialExpiresAt();
+          activatedAt ??= now;
+        }
+      } else if (!accessExpiresAt) {
+        const existingActivation = await database.prepare(
+          "SELECT id FROM activations WHERE user_id = ? LIMIT 1",
+        ).bind(current.id).first();
+        accessExpiresAt = trialExpiresAt();
+        activatedAt ??= now;
+        if (!existingActivation) {
+          await database.prepare(
+            `INSERT INTO activations (id, user_id, seller_id, credits_charged, created_at)
+             VALUES (?, ?, ?, 0, ?)`,
+          ).bind(crypto.randomUUID(), current.id, ownerId ?? actor.id, now).run();
+        }
+      }
+    }
+
+    if (intentionalPermanent && current.role === "client" && requestedStatus === "active") {
+      accessExpiresAt = null;
+      activatedAt ??= now;
+    }
+
     await database.batch([
       database.prepare(
-        `UPDATE users SET display_name = ?, email = ?, status = ?, owner_id = ?, seller_code = ?, updated_at = ?
+        `UPDATE users SET display_name = ?, email = ?, status = ?, owner_id = ?, seller_code = ?,
+             access_expires_at = ?, activated_at = ?, updated_at = ?
          WHERE id = ? AND is_owner = 0 AND deleted_at IS NULL`,
-      ).bind(displayName, email, requestedStatus, ownerId, sellerCode, now, current.id),
+      ).bind(
+        displayName,
+        email,
+        requestedStatus,
+        ownerId,
+        sellerCode,
+        accessExpiresAt,
+        activatedAt,
+        now,
+        current.id,
+      ),
       database.prepare(
         `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
          VALUES (?, ?, 'web_update_user', ?, ?)`,
-      ).bind(crypto.randomUUID(), actor.telegramUserId ?? actor.id, `${current.id}:${current.role}`, now),
+      ).bind(
+        crypto.randomUUID(),
+        actor.telegramUserId ?? actor.id,
+        `${current.id}:${current.role}:${requestedStatus}:${accessExpiresAt ?? "permanent"}`,
+        now,
+      ),
     ]);
+
+    if (requestedStatus === "disabled" && current.status !== "disabled") {
+      await revokeUserSessions(current.id);
+    }
+
     return jsonOk({
-      user: { id: current.id, displayName, email, role: current.role, status: requestedStatus, ownerId, sellerCode },
+      user: {
+        id: current.id,
+        displayName,
+        email,
+        role: current.role,
+        status: requestedStatus,
+        ownerId,
+        sellerCode,
+        accessExpiresAt,
+      },
       message: "Datos del usuario actualizados.",
     });
   } catch (error) {

@@ -133,6 +133,18 @@ export async function POST(request: Request) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "credentials" });
       return jsonError("Credenciales invalidas.", 401);
     }
+    const validPassword = await verifySecret(password, user.password_salt, user.password_hash);
+    if (!validPassword) {
+      writeSecurityEvent(request, "auth.login", "denied", { reason: "credentials", actorId: user.id });
+      return jsonError("Credenciales invalidas.", 401);
+    }
+    if (secretHashNeedsUpgrade(user.password_hash)) {
+      const upgraded = await hashSecret(password);
+      await dbBinding().prepare(
+        "UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?",
+      ).bind(upgraded.hash, upgraded.salt, new Date().toISOString(), user.id).run();
+    }
+    // AUTH-001: claim trial solo tras password válida (no quemar trial ajeno).
     if (user.status === "pending") {
       const claimed = await claimPendingTelegramTrial(user);
       if (!claimed.ok) {
@@ -144,17 +156,6 @@ export async function POST(request: Request) {
     if (user.status !== "active") {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "account_inactive", actorId: user.id });
       return jsonError("Tu cuenta no está activa. Contacta al administrador.", 403);
-    }
-    const validPassword = await verifySecret(password, user.password_salt, user.password_hash);
-    if (!validPassword) {
-      writeSecurityEvent(request, "auth.login", "denied", { reason: "credentials", actorId: user.id });
-      return jsonError("Credenciales invalidas.", 401);
-    }
-    if (secretHashNeedsUpgrade(user.password_hash)) {
-      const upgraded = await hashSecret(password);
-      await dbBinding().prepare(
-        "UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?",
-      ).bind(upgraded.hash, upgraded.salt, new Date().toISOString(), user.id).run();
     }
     if (user.role === "client") {
       const bound = await bindDevice(user, deviceId, publicKey);

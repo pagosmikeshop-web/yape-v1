@@ -242,8 +242,16 @@ test("la prueba gratuita, los referidos y los tokens permanentes usan estados se
   assert.doesNotMatch(registerRoute, /body\.trialDays|body\.isMember|autoApprove/u);
   assert.match(loginRoute, /activateClientTrial/u);
   assert.match(loginRoute, /claimPendingTelegramTrial/u);
+  // AUTH-001: password (verifySecret) antes de claimPendingTelegramTrial.
+  {
+    const verifyIdx = loginRoute.indexOf("verifySecret(");
+    const claimIdx = loginRoute.indexOf("claimPendingTelegramTrial(user)");
+    assert.ok(verifyIdx >= 0 && claimIdx >= 0, "login debe llamar verifySecret y claimPendingTelegramTrial");
+    assert.ok(verifyIdx < claimIdx, "AUTH-001: verifySecret debe ejecutarse antes de claimPendingTelegramTrial");
+  }
   assert.match(telegramManager, /REFERRAL_MONTHLY_LIMIT/u);
   assert.match(telegramManager, /Esa cuenta ya tiene acceso permanente/u);
+  assert.match(telegramManager, /no tiene Telegram vinculado/u);
   assert.match(bankApp, /Reclamar token/u);
   assert.match(bankApp, /días restantes/u);
   assert.match(bankApp, /fetch\("\/api\/account\/referral"/u);

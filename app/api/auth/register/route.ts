@@ -81,7 +81,14 @@ export async function POST(request: Request) {
     ]);
 
     if (!telegramCheck.member) {
-      return jsonError(telegramMembershipError(telegramCheck), 403);
+      // AUTH-002 (mitigación parcial): re-verificamos membresía en el servidor.
+      // Limitación residual: el cliente envía el Telegram ID; sin Login Widget / deep-link OTP
+      // no demostramos posesión del ID (solo que ese ID es miembro del grupo).
+      // TODO(AUTH-002): Telegram Login Widget o challenge one-time del bot para binding fuerte.
+      return jsonError(
+        `${telegramMembershipError(telegramCheck)} Solo se aceptan IDs que pertenezcan al grupo; aún así, asegúrate de usar tu propio Telegram ID.`,
+        403,
+      );
     }
     if (existingTelegram) {
       return jsonError("Ese Telegram ID ya tiene una cuenta. Inicia sesión o recupera tu acceso.", 409);
@@ -121,7 +128,26 @@ export async function POST(request: Request) {
       updatedBy: id,
     });
     if (!trial.ok || !trial.activated) {
-      return jsonError("No se pudo activar la prueba gratuita. Intenta iniciar sesión o contacta soporte.", 500);
+      // Evita dejar cuentas "pending" huérfanas que en el panel piden Activar 3 días.
+      const now = new Date().toISOString();
+      const deletedLogin = `deleted_${id.replace(/-/gu, "").slice(0, 12)}`;
+      try {
+        await database.batch([
+          database.prepare("DELETE FROM activations WHERE user_id = ?").bind(id),
+          database.prepare("DELETE FROM client_crm_profiles WHERE user_id = ?").bind(id),
+          database.prepare("DELETE FROM payment_directory WHERE user_id = ?").bind(id),
+          database.prepare(
+            `UPDATE users SET seller_code = ?, username = ?, display_name = 'Usuario eliminado', email = '',
+               status = 'disabled', fingerprint_id_hash = NULL, telegram_user_id = NULL,
+               referral_code = NULL, referred_by_user_id = NULL, access_expires_at = NULL,
+               deleted_at = ?, updated_at = ?
+             WHERE id = ? AND deleted_at IS NULL`,
+          ).bind(deletedLogin, deletedLogin.toLowerCase(), now, now, id),
+        ]);
+      } catch {
+        // Si el rollback falla, el error de trial sigue siendo la respuesta principal.
+      }
+      return jsonError("No se pudo activar la prueba gratuita. Intenta registrarte de nuevo o contacta soporte.", 500);
     }
 
     try {

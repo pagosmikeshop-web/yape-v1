@@ -65,7 +65,7 @@ const serviceItems: ServiceItem[] = [
     iconLottie: "ic_tienda_cyber_animated_001",
     fullTile: true,
   },
-  { label: "Viajar en bus", iconSrc: VIAJAR_BUS_ICON },
+  { label: "Viajar en bus", iconSrc: VIAJAR_BUS_ICON, href: "/recargar-transportes" },
   {
     label: "Ver todo",
     iconSrc: "/assets/icons/ver-todo.svg",
@@ -134,6 +134,7 @@ const allServicesSections: Array<{ title: string; items: ServiceItem[] }> = [
       {
         label: "Viajar en bus",
         iconSrc: VIAJAR_BUS_ICON,
+        href: "/recargar-transportes",
       },
       { label: "Tienda", iconSrc: "/assets/icons/tienda.svg" },
       {

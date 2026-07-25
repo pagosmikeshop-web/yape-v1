@@ -208,10 +208,20 @@ async function redeemReferralCode(telegramId: string, args: string) {
     "SELECT id, display_name, telegram_user_id, access_expires_at FROM users WHERE referral_code = ? AND status = 'active' LIMIT 1",
   ).bind(code).first<{ id: string; display_name: string; telegram_user_id: string | null; access_expires_at: string | null }>();
   if (!referrer) throw new Error("Codigo no encontrado.");
+  // TRIAL-002: bloquear self-redeem sin telegram ligado o por dueño del referral.
+  if (!referrer.telegram_user_id) {
+    throw new Error("Ese codigo no tiene Telegram vinculado; no se puede canjear.");
+  }
   if (referrer.telegram_user_id === telegramId) throw new Error("No puedes canjear tu propio codigo.");
   if (!referrer.access_expires_at) throw new Error("Esa cuenta ya tiene acceso permanente.");
   if (!(await isCurrentTelegramGroupMember(telegramId))) {
     throw new Error("Primero debes estar en el grupo.");
+  }
+
+  const redeemer = await dbBinding().prepare("SELECT id FROM users WHERE telegram_user_id = ? LIMIT 1")
+    .bind(telegramId).first<{ id: string }>();
+  if (redeemer?.id === referrer.id) {
+    throw new Error("No puedes canjear tu propio codigo.");
   }
 
   const key = monthKey();
@@ -220,8 +230,6 @@ async function redeemReferralCode(telegramId: string, args: string) {
   ).bind(referrer.id, key).first<{ total: number }>();
   if (Number(current?.total ?? 0) >= REFERRAL_MONTHLY_LIMIT) throw new Error("Ese codigo llego al limite mensual.");
 
-  const redeemer = await dbBinding().prepare("SELECT id FROM users WHERE telegram_user_id = ? LIMIT 1")
-    .bind(telegramId).first<{ id: string }>();
   const now = new Date().toISOString();
   const nextAccess = addDaysFromCurrent(referrer.access_expires_at, REFERRAL_EXTENSION_DAYS);
   const redemptionId = crypto.randomUUID();

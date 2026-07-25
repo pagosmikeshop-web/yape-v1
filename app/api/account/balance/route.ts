@@ -1,9 +1,30 @@
 import { jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
-import { dbBinding, requireSession, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import {
+  authEnv,
+  dbBinding,
+  enforceAuthRateLimits,
+  requireSession,
+  requireUnlockedSession,
+  routeError,
+} from "@/app/lib/auth-server";
+import { writeSecurityEvent } from "@/app/lib/security-log";
 
 export const dynamic = "force-dynamic";
 
 const MAX_BALANCE_CENTS = 99_999_999_999;
+
+/**
+ * El saldo de cuenta es cosmético/demo (no ledger de autoridad externa).
+ * En APP_ENV=production el PUT requiere ALLOW_CLIENT_BALANCE_EDIT=true.
+ * En non-prod el PUT se permite por defecto (demo local/staging).
+ */
+function clientBalanceEditAllowed() {
+  const env = authEnv();
+  const appEnv = env.APP_ENV?.trim().toLowerCase() ?? "";
+  const flag = env.ALLOW_CLIENT_BALANCE_EDIT?.trim().toLowerCase() === "true";
+  if (appEnv === "production") return flag;
+  return true;
+}
 
 async function readBalance(userId: string) {
   return dbBinding().prepare(
@@ -31,6 +52,26 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     const { user } = await requireUnlockedSession(request);
+    if (!clientBalanceEditAllowed()) {
+      writeSecurityEvent(request, "account.balance_edit", "denied", {
+        actorId: user.id,
+        reason: "production_flag_required",
+      });
+      return jsonError(
+        "La edición de saldo está deshabilitada en producción. Activa ALLOW_CLIENT_BALANCE_EDIT=true solo si el saldo demo es intencional.",
+        403,
+      );
+    }
+
+    await enforceAuthRateLimits([
+      {
+        bucket: "account-balance-put",
+        subject: user.id,
+        limit: 30,
+        windowSeconds: 15 * 60,
+      },
+    ]);
+
     const body = await readJson(request);
     const balanceCents = typeof body.balanceCents === "number" ? body.balanceCents : Number.NaN;
     if (!Number.isSafeInteger(balanceCents) || balanceCents < 0 || balanceCents > MAX_BALANCE_CENTS) {
@@ -43,6 +84,11 @@ export async function PUT(request: Request) {
        VALUES (?, ?, 1, ?)
        ON CONFLICT(user_id) DO UPDATE SET balance_cents = excluded.balance_cents, is_configured = 1, updated_at = excluded.updated_at`,
     ).bind(user.id, balanceCents, updatedAt).run();
+
+    writeSecurityEvent(request, "account.balance_edit", "success", {
+      actorId: user.id,
+      balanceCents,
+    });
 
     return jsonOk({ balanceCents, balance: balanceCents / 100, updatedAt }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
