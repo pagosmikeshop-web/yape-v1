@@ -48,12 +48,14 @@ export async function GET(request: Request) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
     const pageSize = Math.min(100, Math.max(10, Number.parseInt(url.searchParams.get("pageSize") ?? "20", 10) || 20));
 
-    const conditions = ["deleted_at IS NULL", "role IN ('admin','seller')"];
-    const values: unknown[] = [];
+    const scopeConditions = ["deleted_at IS NULL", "role IN ('admin','seller')"];
+    const scopeValues: unknown[] = [];
     if (!actor.isOwner) {
-      conditions.push("(id = ? OR (role = 'seller' AND owner_id = ?))");
-      values.push(actor.id, actor.id);
+      scopeConditions.push("(id = ? OR (role = 'seller' AND owner_id = ?))");
+      scopeValues.push(actor.id, actor.id);
     }
+    const conditions = [...scopeConditions];
+    const values: unknown[] = [...scopeValues];
     if (roleFilter === "admin" || roleFilter === "seller") {
       conditions.push("role = ?");
       values.push(roleFilter);
@@ -69,9 +71,25 @@ export async function GET(request: Request) {
     }
 
     const whereSql = conditions.join(" AND ");
-    const totalRow = await dbBinding().prepare(
-      `SELECT COUNT(*) AS total FROM users WHERE ${whereSql}`,
-    ).bind(...values).first<{ total: number }>();
+    const [totalRow, summaryRow] = await Promise.all([
+      dbBinding().prepare(
+        `SELECT COUNT(*) AS total FROM users WHERE ${whereSql}`,
+      ).bind(...values).first<{ total: number }>(),
+      dbBinding().prepare(
+        `SELECT
+           SUM(CASE WHEN is_owner = 1 THEN 1 ELSE 0 END) AS owners,
+           SUM(CASE WHEN role = 'admin' AND is_owner = 0 THEN 1 ELSE 0 END) AS admins,
+           SUM(CASE WHEN role = 'seller' THEN 1 ELSE 0 END) AS sellers,
+           COUNT(*) AS active
+         FROM users
+         WHERE ${scopeConditions.join(" AND ")}`,
+      ).bind(...scopeValues).first<{
+        owners: number;
+        admins: number;
+        sellers: number;
+        active: number;
+      }>(),
+    ]);
     const total = Number(totalRow?.total ?? 0);
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
@@ -91,6 +109,12 @@ export async function GET(request: Request) {
       users: result.results ?? [],
       viewerRole: actor.isOwner ? "owner" : "admin",
       pagination: { page: safePage, pageSize, total, totalPages },
+      summary: {
+        owners: Number(summaryRow?.owners ?? 0),
+        admins: Number(summaryRow?.admins ?? 0),
+        sellers: Number(summaryRow?.sellers ?? 0),
+        active: Number(summaryRow?.active ?? 0),
+      },
     });
   } catch (error) {
     return routeError(error);

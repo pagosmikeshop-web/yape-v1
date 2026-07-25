@@ -137,6 +137,20 @@ export const accountHistoryState = sqliteTable("account_history_state", {
   clearedAt: text("cleared_at").notNull(),
 });
 
+export const accountFeatureEntitlements = sqliteTable("account_feature_entitlements", {
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["sms", "auto"] }).notNull(),
+  enabled: integer("enabled").notNull().default(1),
+  validatedAt: text("validated_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("account_feature_entitlements_user_kind_unique").on(table.userId, table.kind),
+  index("account_feature_entitlements_user_idx").on(table.userId, table.kind),
+  check("account_feature_entitlements_enabled_check", sql`${table.enabled} in (0, 1)`),
+]);
+
 export const creditLedger = sqliteTable("credit_ledger", {
   id: text("id").primaryKey(),
   sellerId: text("seller_id").notNull(),
@@ -247,6 +261,24 @@ export const telegramUpdates = sqliteTable("telegram_updates", {
   updateId: text("update_id").primaryKey(),
   receivedAt: text("received_at").notNull(),
 });
+
+export const telegramRegistrationChallenges = sqliteTable("telegram_registration_challenges", {
+  id: text("id").primaryKey(),
+  codeHash: text("code_hash").notNull().unique(),
+  telegramUserId: text("telegram_user_id").notNull(),
+  fingerprintHash: text("fingerprint_hash").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  verifiedAt: text("verified_at"),
+  consumedAt: text("consumed_at"),
+}, (table) => [
+  index("telegram_registration_challenges_lookup_idx").on(
+    table.telegramUserId,
+    table.fingerprintHash,
+    table.expiresAt,
+  ),
+  index("telegram_registration_challenges_expiry_idx").on(table.expiresAt),
+]);
 
 export const telegramGroupMembers = sqliteTable("telegram_group_members", {
   telegramUserId: text("telegram_user_id").primaryKey(),

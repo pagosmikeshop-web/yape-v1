@@ -1,57 +1,18 @@
 import type { NextConfig } from "next";
 
-const isDev = process.env.NODE_ENV === "development";
-
-const ENFORCED_CSP = [
-  "default-src 'self'",
-  // React DevTools / reconstrucción de callstacks en Turbopack usa eval() solo en desarrollo.
-  isDev
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-    : "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "media-src 'self' blob:",
-  "worker-src 'self' blob:",
-  "manifest-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-].join("; ");
-
-const STRICT_CSP_REPORT_ONLY = [
-  "default-src 'self'",
-  isDev
-    ? "script-src 'self' 'unsafe-eval'"
-    : "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "media-src 'self' blob:",
-  "worker-src 'self' blob:",
-  "manifest-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-].join("; ");
-
+// La CSP con nonce se genera por solicitud en proxy.ts. Los demás encabezados
+// pueden mantenerse estáticos y también protegen recursos y respuestas de API.
 const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "no-referrer" },
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "Content-Security-Policy", value: ENFORCED_CSP },
-  { key: "Content-Security-Policy-Report-Only", value: STRICT_CSP_REPORT_ONLY },
   {
     key: "Permissions-Policy",
     value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
-  { key: "Strict-Transport-Security", value: "max-age=15552000" },
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
 ];
 
 const nextConfig: NextConfig = {

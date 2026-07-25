@@ -1,5 +1,5 @@
 import { jsonError, jsonOk } from "@/app/lib/api-utils";
-import { requireSession, routeError } from "@/app/lib/auth-server";
+import { requireUnlockedSession, routeError } from "@/app/lib/auth-server";
 import {
   buildRegistrationOptions,
   userHasWebAuthn,
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request) {
   try {
-    const { user } = await requireSession(request);
+    const { user } = await requireUnlockedSession(request);
     if (user.mustChangePassword) {
       return jsonError("Cambia tu contraseña antes de activar biometría.", 428);
     }

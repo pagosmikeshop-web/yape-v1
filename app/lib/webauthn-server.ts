@@ -61,15 +61,17 @@ async function saveChallenge(userId: string, type: "registration" | "authenticat
 
 async function consumeChallenge(userId: string, type: "registration" | "authentication") {
   const row = await dbBinding().prepare(
-    `SELECT id, challenge, expires_at
-     FROM webauthn_challenges
-     WHERE user_id = ? AND type = ?
-     ORDER BY created_at DESC
-     LIMIT 1`,
-  ).bind(userId, type).first<{ id: string; challenge: string; expires_at: string }>();
+    `DELETE FROM webauthn_challenges
+     WHERE id = (
+       SELECT id FROM webauthn_challenges
+       WHERE user_id = ? AND type = ?
+       ORDER BY created_at DESC
+       LIMIT 1
+     )
+     RETURNING challenge, expires_at`,
+  ).bind(userId, type).first<{ challenge: string; expires_at: string }>();
 
   if (!row) return null;
-  await dbBinding().prepare(`DELETE FROM webauthn_challenges WHERE id = ?`).bind(row.id).run();
   if (Date.parse(row.expires_at) <= Date.now()) return null;
   return row.challenge;
 }

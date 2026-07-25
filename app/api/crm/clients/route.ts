@@ -49,6 +49,9 @@ export async function GET(request: Request) {
     const dateTo = url.searchParams.get("dateTo") ?? "";
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
     const pageSize = Math.min(100, Math.max(10, Number.parseInt(url.searchParams.get("pageSize") ?? "20", 10) || 20));
+    if (url.searchParams.get("export") === "1") {
+      await requirePermission(actor, "clients:export");
+    }
     const sortKey = url.searchParams.get("sort") as keyof typeof SORT_COLUMNS | null;
     const sortColumn = sortKey && SORT_COLUMNS[sortKey] ? SORT_COLUMNS[sortKey] : SORT_COLUMNS.date;
     const sortDirection = url.searchParams.get("order") === "asc" ? "ASC" : "DESC";
@@ -105,13 +108,41 @@ export async function GET(request: Request) {
     }
     const where = `WHERE ${conditions.join(" AND ")}`;
     const database = dbBinding();
-    const count = await database.prepare(
-      `SELECT COUNT(*) AS total
-       FROM users u
-       LEFT JOIN payment_directory d ON d.user_id = u.id
-       LEFT JOIN client_crm_profiles p ON p.user_id = u.id
-       ${where}`,
-    ).bind(...values).first<{ total: number }>();
+    const [count, summary] = await Promise.all([
+      database.prepare(
+        `SELECT COUNT(*) AS total
+         FROM users u
+         LEFT JOIN payment_directory d ON d.user_id = u.id
+         LEFT JOIN client_crm_profiles p ON p.user_id = u.id
+         ${where}`,
+      ).bind(...values).first<{ total: number }>(),
+      database.prepare(
+        `SELECT
+           COUNT(*) AS total_clients,
+           SUM(CASE WHEN ${CRM_STATUS_SQL} = 'new' THEN 1 ELSE 0 END) AS new_clients,
+           SUM(CASE WHEN ${CRM_STATUS_SQL} = 'vip' THEN 1 ELSE 0 END) AS vip_clients,
+           SUM(COALESCE((
+             SELECT SUM(a.amount_cents)
+             FROM client_crm_activities a
+             WHERE a.user_id = u.id AND a.activity_type = 'purchase'
+           ), 0)) AS total_sales_cents,
+           SUM(COALESCE((
+             SELECT SUM(a.amount_cents)
+             FROM client_crm_activities a
+             WHERE a.user_id = u.id AND a.activity_type = 'payment'
+           ), 0)) AS total_payments_cents
+         FROM users u
+         LEFT JOIN payment_directory d ON d.user_id = u.id
+         LEFT JOIN client_crm_profiles p ON p.user_id = u.id
+         ${where}`,
+      ).bind(...values).first<{
+        total_clients: number;
+        new_clients: number;
+        vip_clients: number;
+        total_sales_cents: number;
+        total_payments_cents: number;
+      }>(),
+    ]);
 
     const result = await database.prepare(
       `SELECT u.id, u.seller_code, u.username, u.display_name, u.email, u.status,
@@ -153,6 +184,13 @@ export async function GET(request: Request) {
     return jsonOk({
       clients,
       pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+      summary: {
+        totalClients: Number(summary?.total_clients ?? 0),
+        newClients: Number(summary?.new_clients ?? 0),
+        vipClients: Number(summary?.vip_clients ?? 0),
+        totalSalesCents: Number(summary?.total_sales_cents ?? 0),
+        totalPaymentsCents: Number(summary?.total_payments_cents ?? 0),
+      },
       viewerRole: actor.isOwner ? "owner" : actor.role,
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

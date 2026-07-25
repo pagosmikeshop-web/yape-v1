@@ -235,7 +235,9 @@ test("la prueba gratuita, los referidos y los tokens permanentes usan estados se
   assert.match(trialActivation, /TELEGRAM_TRIAL_SELLER_ID/u);
   assert.match(trialActivation, /crm_status = 'new'/u);
   assert.match(trialActivation, /NOT EXISTS \(SELECT 1 FROM activations WHERE user_id = \?\)/u);
-  assert.match(registerRoute, /activateClientTrial/u);
+  assert.match(registerRoute, /trialSellerId:\s*TELEGRAM_TRIAL_SELLER_ID/u);
+  assert.match(authServer, /input\.trialSellerId/u);
+  assert.match(authServer, /database\(\)\.batch\(statements\)/u);
   assert.match(registerRoute, /createSession\(request, id, \{ unlocked: true \}\)/u);
   assert.match(registerRoute, /3 días gratuitos/u);
   assert.doesNotMatch(registerRoute, /pendiente de aprobacion/iu);
@@ -376,11 +378,12 @@ test("HomeMainActions vive en HomeView y no se monta en el voucher histórico", 
 });
 
 test("bootstrap, permisos y tokens de cuenta fallan cerrados", async () => {
-  const [authServer, permissionsRoute, accountTokens, nextConfig] = await Promise.all([
+  const [authServer, permissionsRoute, accountTokens, nextProxy, rootLayout] = await Promise.all([
     source("app/lib/auth-server.ts"),
     source("app/api/admin/users/[id]/permissions/route.ts"),
     source("app/api/account/tokens/validate/route.ts"),
-    source("next.config.ts"),
+    source("proxy.ts"),
+    source("app/layout.tsx"),
   ]);
 
   assert.match(
@@ -394,6 +397,9 @@ test("bootstrap, permisos y tokens de cuenta fallan cerrados", async () => {
   );
   assert.match(accountTokens, /userBoundToken/u);
   assert.match(accountTokens, /HMAC/u);
-  assert.match(nextConfig, /Content-Security-Policy.*ENFORCED_CSP/u);
-  assert.match(nextConfig, /default-src 'self'/u);
+  assert.match(accountTokens, /account_feature_entitlements/u);
+  assert.match(nextProxy, /contentSecurityPolicy\(nonce/u);
+  assert.match(nextProxy, /script-src 'self' 'nonce-\$\{nonce\}' 'strict-dynamic'/u);
+  assert.doesNotMatch(nextProxy, /script-src[^"]*unsafe-inline/u);
+  assert.match(rootLayout, /await headers\(\)/u);
 });

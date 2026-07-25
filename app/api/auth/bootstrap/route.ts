@@ -9,7 +9,6 @@ import {
   enforceAuthRateLimits,
   ensureAuthSchema,
   findLoginUser,
-  hashSecret,
   requestIpRateLimitSubject,
   routeError,
   secureCompare,
@@ -18,28 +17,38 @@ import {
   validateSellerCode,
   validateUsername,
 } from "@/app/lib/auth-server";
+import { writeSecurityEvent } from "@/app/lib/security-log";
 
 export const dynamic = "force-dynamic";
+
+function strongOwnerPassword(value: string) {
+  return value.length >= 12
+    && value.length <= 128
+    && /[a-z]/u.test(value)
+    && /[A-Z]/u.test(value)
+    && /\d/u.test(value)
+    && /[^A-Za-z0-9]/u.test(value);
+}
 
 export async function POST(request: Request) {
   try {
     if (!bootstrapIsEnabled()) return jsonError("Ruta no disponible.", 404);
     await ensureAuthSchema();
-    await enforceAuthRateLimits([
-      {
-        bucket: "bootstrap-ip",
-        subject: await requestIpRateLimitSubject(request),
-        limit: 5,
-        windowSeconds: 60 * 60,
-      },
-    ]);
+    await enforceAuthRateLimits([{
+      bucket: "bootstrap-ip",
+      subject: await requestIpRateLimitSubject(request),
+      limit: 5,
+      windowSeconds: 60 * 60,
+    }]);
+
     const body = await readJson(request);
     const secret = asString(body.secret);
     const sellerCode = asString(body.sellerCode);
     const username = asString(body.username);
     const password = asString(body.password);
+    const pin = asString(body.pin).replace(/\D/gu, "");
     const requestedDisplayName = asString(body.displayName).trim();
-    const requestedEmail = asString(body.email).trim().toLowerCase();
+    const requestedEmail = asString(body.email).trim().toLocaleLowerCase("es-PE");
     const displayName = requestedDisplayName || "Administrador";
     const configuredSecret = authEnv().AUTH_BOOTSTRAP_SECRET;
     const ownerTelegramId = configuredOwnerTelegramId();
@@ -47,59 +56,44 @@ export async function POST(request: Request) {
     if (!configuredSecret || configuredSecret.length < 32) {
       return jsonError("La configuración segura del administrador está incompleta.", 503);
     }
-    if (!ownerTelegramId) return jsonError("La identidad del propietario no está configurada.", 503);
-    if (!(await secureCompare(secret, configuredSecret))) return jsonError("Clave de configuracion invalida.", 403);
+    if (!ownerTelegramId) {
+      return jsonError("La identidad del propietario no está configurada.", 503);
+    }
+    if (!(await secureCompare(secret, configuredSecret))) {
+      writeSecurityEvent(request, "auth.bootstrap", "denied", { reason: "invalid_secret" });
+      return jsonError("Clave de configuración inválida.", 403);
+    }
     if (sellerCode !== ownerTelegramId) {
-      return jsonError("El administrador principal debe usar el Telegram ID autorizado.");
+      return jsonError("El Owner debe usar el Telegram ID autorizado.");
     }
-    if (!/^\d{6}$/u.test(password)) {
-      return jsonError("El codigo de administrador debe tener exactamente 6 digitos.");
+    if (!strongOwnerPassword(password)) {
+      return jsonError(
+        "La contraseña debe tener al menos 12 caracteres, mayúscula, minúscula, número y símbolo.",
+      );
     }
+    if (!/^\d{6}$/u.test(pin)) return jsonError("El PIN debe tener exactamente 6 dígitos.");
+    if (password === pin) return jsonError("La contraseña y el PIN deben ser diferentes.");
     if (!validateSellerCode(sellerCode) || !validateUsername(username)) {
-      return jsonError("Datos de administrador invalidos.");
+      return jsonError("Datos de administrador inválidos.");
     }
     if (!validateDisplayName(displayName) || !validateOptionalEmail(requestedEmail)) {
-      return jsonError("Datos de administrador invalidos.");
+      return jsonError("Datos de administrador inválidos.");
     }
 
-    const existingAdmin = await dbBinding().prepare(
-      `SELECT id, display_name, email
-       FROM users
+    const existingOwner = await dbBinding().prepare(
+      `SELECT id FROM users
        WHERE role = 'admin' AND deleted_at IS NULL
          AND (is_owner = 1 OR telegram_user_id = ?)
-       ORDER BY is_owner DESC, created_at ASC LIMIT 1`,
-    ).bind(ownerTelegramId).first<{ id: string; display_name: string; email: string }>();
-    if (existingAdmin) {
-      const [hashedPassword, hashedPin] = await Promise.all([hashSecret(password), hashSecret(password)]);
-      const now = new Date().toISOString();
-      await dbBinding().batch([
-        dbBinding().prepare(
-          `UPDATE users SET
-             seller_code = ?, username = ?, display_name = ?, email = ?,
-             password_hash = ?, password_salt = ?, pin_hash = ?, pin_salt = ?,
-             telegram_user_id = ?, status = 'active', must_change_password = 0,
-             must_set_pin = 0, is_owner = 1, owner_id = NULL, deleted_at = NULL, updated_at = ?
-           WHERE id = ? AND role = 'admin'`,
-        ).bind(
-          sellerCode,
-          username.trim().toLowerCase(),
-          requestedDisplayName || existingAdmin.display_name,
-          requestedEmail || existingAdmin.email,
-          hashedPassword.hash,
-          hashedPassword.salt,
-          hashedPin.hash,
-          hashedPin.salt,
-          sellerCode,
-          now,
-          existingAdmin.id,
-        ),
-        dbBinding().prepare("DELETE FROM sessions WHERE user_id = ?").bind(existingAdmin.id),
-      ]);
-      const cookie = await createSession(request, existingAdmin.id, { unlocked: true });
-      const user = await findLoginUser(sellerCode, username);
-      return jsonOk(
-        { user: user ? { id: user.id, role: user.role, isOwner: true, username: user.username, displayName: user.display_name } : null },
-        { headers: { "cache-control": "no-store", "set-cookie": cookie } },
+       LIMIT 1`,
+    ).bind(ownerTelegramId).first<{ id: string }>();
+    if (existingOwner) {
+      writeSecurityEvent(request, "auth.bootstrap", "denied", {
+        reason: "owner_exists",
+        actorId: existingOwner.id,
+      });
+      return jsonError(
+        "La cuenta Owner ya existe. Usa el inicio de sesión o el flujo de recuperación.",
+        409,
       );
     }
 
@@ -107,19 +101,30 @@ export async function POST(request: Request) {
       sellerCode,
       username,
       displayName,
-      email: asString(body.email),
+      email: requestedEmail,
       password,
       role: "admin",
       isOwner: true,
       status: "active",
       credits: 0,
       telegramUserId: sellerCode,
-      pin: password,
+      pin,
     });
     const cookie = await createSession(request, id, { unlocked: true });
     const user = await findLoginUser(sellerCode, username);
+    writeSecurityEvent(request, "auth.bootstrap", "success", { actorId: id });
     return jsonOk(
-      { user: user ? { id: user.id, role: user.role, isOwner: true, username: user.username, displayName: user.display_name } : null },
+      {
+        user: user
+          ? {
+            id: user.id,
+            role: user.role,
+            isOwner: true,
+            username: user.username,
+            displayName: user.display_name,
+          }
+          : null,
+      },
       { headers: { "cache-control": "no-store", "set-cookie": cookie } },
     );
   } catch (error) {

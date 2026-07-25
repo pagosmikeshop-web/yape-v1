@@ -154,7 +154,7 @@ test("registro y webhook no exponen endpoints GET de diagnóstico", async () => 
   assert.match(webhookRoute, /maxBytes:\s*64 \* 1024/u);
   assert.match(statusRoute, /checkCurrentTelegramGroupMember/u);
   assert.match(registerRoute, /checkCurrentTelegramGroupMember/u);
-  assert.match(registerRoute, /activateClientTrial/u);
+  assert.match(registerRoute, /trialSellerId:\s*TELEGRAM_TRIAL_SELLER_ID/u);
   assert.doesNotMatch(statusRoute, /FROM telegram_group_members/u);
   assert.doesNotMatch(registerRoute, /FROM telegram_group_members/u);
   assert.match(setupRoute, /bootstrapIsEnabled\(\)/u);
@@ -308,4 +308,36 @@ test("Vercel usa Turso exclusivamente desde el servidor y conserva los controles
   assert.match(authServer, /x-yape-admin-proxy-signature/u);
   assert.match(environmentExample, /^ADMIN_PROXY_SECRET=$/mu);
   assert.equal(JSON.parse(vercelConfig).framework, "nextjs");
+});
+
+test("el registro demuestra la propiedad del Telegram ID con un reto de un solo uso", async () => {
+  const [registration, status, telegramManager, challenge] = await Promise.all([
+    source("app/api/auth/register/route.ts"),
+    source("app/api/auth/register/status/route.ts"),
+    source("app/lib/telegram-manager.ts"),
+    source("app/lib/telegram-registration.ts"),
+  ]);
+  assert.match(status, /createTelegramRegistrationChallenge/u);
+  assert.match(status, /telegramRegistrationChallengeIsVerified/u);
+  assert.match(registration, /consumeTelegramRegistrationChallenge/u);
+  assert.match(telegramManager, /command !== "\/redeem" && command !== "\/verify"/u);
+  assert.match(telegramManager, /validación de registro es silenciosa/iu);
+  assert.match(challenge, /consumed_at IS NULL/u);
+  assert.match(challenge, /expires_at > \?/u);
+});
+
+test("las transferencias internas son atómicas, tienen límite diario y conservan el historial", async () => {
+  const [transfer, movements, authServer, deleteUser] = await Promise.all([
+    source("app/api/payments/transfer/route.ts"),
+    source("app/api/account/movements/route.ts"),
+    source("app/lib/auth-server.ts"),
+    source("app/api/admin/users/[id]/route.ts"),
+  ]);
+  assert.match(transfer, /await database\.batch\(\[/u);
+  assert.match(transfer, /balance_cents = account_balances\.balance_cents \+ excluded\.balance_cents/u);
+  assert.match(transfer, /no podemos confirmar un pago a una cuenta externa/iu);
+  assert.match(authServer, /account_movements_daily_limit/u);
+  assert.match(authServer, /DAILY_LIMIT_EXCEEDED/u);
+  assert.doesNotMatch(movements, /DELETE FROM account_movements/u);
+  assert.doesNotMatch(deleteUser, /DELETE FROM account_movements WHERE user_id/u);
 });

@@ -8,8 +8,6 @@ type AuthEnv = {
   TURSO_DATABASE_URL?: string;
   TURSO_AUTH_TOKEN?: string;
   APP_ENV?: string;
-  /** En production=true permite PUT /api/account/balance (saldo cosmético/demo). */
-  ALLOW_CLIENT_BALANCE_EDIT?: string;
   ADMIN_WEB_URL?: string;
   ADMIN_PROXY_SECRET?: string;
   PUBLIC_APP_URL?: string;
@@ -292,7 +290,7 @@ async function verifiedAdminProxyIp(request: Request) {
     "yape-admin-proxy-v1",
     timestamp,
     request.method.toUpperCase(),
-    new URL(request.url).pathname,
+    `${new URL(request.url).pathname}${new URL(request.url).search}`,
     clientIp,
   ].join("\n");
   const expected = await hmacSha256(secret, payload);
@@ -425,6 +423,7 @@ export async function ensureAuthSchema() {
   if (schemaReady) return schemaReady;
   const db = database();
   schemaReady = (async () => {
+    await db.exec("PRAGMA foreign_keys = ON");
     const statements = [
       `CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -520,6 +519,16 @@ export async function ensureAuthSchema() {
         cleared_at TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )`,
+      `CREATE TABLE IF NOT EXISTS account_feature_entitlements (
+        user_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('sms','auto')),
+        enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+        validated_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, kind),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE INDEX IF NOT EXISTS account_feature_entitlements_user_idx ON account_feature_entitlements(user_id, kind)",
       `CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -629,6 +638,18 @@ export async function ensureAuthSchema() {
         update_id TEXT PRIMARY KEY,
         received_at TEXT NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS telegram_registration_challenges (
+        id TEXT PRIMARY KEY,
+        code_hash TEXT NOT NULL UNIQUE,
+        telegram_user_id TEXT NOT NULL,
+        fingerprint_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        verified_at TEXT,
+        consumed_at TEXT
+      )`,
+      "CREATE INDEX IF NOT EXISTS telegram_registration_challenges_lookup_idx ON telegram_registration_challenges(telegram_user_id, fingerprint_hash, expires_at)",
+      "CREATE INDEX IF NOT EXISTS telegram_registration_challenges_expiry_idx ON telegram_registration_challenges(expires_at)",
       `CREATE TABLE IF NOT EXISTS telegram_group_members (
         telegram_user_id TEXT PRIMARY KEY,
         chat_id TEXT NOT NULL,
@@ -726,6 +747,21 @@ export async function ensureAuthSchema() {
       "CREATE INDEX IF NOT EXISTS webauthn_challenges_expiry_idx ON webauthn_challenges(expires_at)",
     ];
     await db.batch(statements.map((sql) => db.prepare(sql)));
+
+    const systemNow = new Date().toISOString();
+    await db.prepare(
+      `INSERT OR IGNORE INTO users (
+        id, seller_code, username, display_name, email, role, is_owner, owner_id,
+        status, password_hash, password_salt, pin_hash, pin_salt, credits,
+        device_id, device_public_key, fingerprint_id_hash, telegram_user_id,
+        referral_code, referred_by_user_id, access_expires_at,
+        must_change_password, must_set_pin, created_at, updated_at, activated_at, deleted_at
+      ) VALUES (
+        'system-telegram-trial', 'SYSTEM', 'telegram-trial', 'Sistema Telegram', '',
+        'seller', 0, NULL, 'disabled', ?, ?, NULL, NULL, 0,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, ?, ?, NULL, ?
+      )`,
+    ).bind("disabled", "disabled", systemNow, systemNow, systemNow).run();
     await db.prepare(
       `UPDATE client_crm_profiles
        SET crm_status = CASE
@@ -788,6 +824,20 @@ export async function ensureAuthSchema() {
          SELECT CASE WHEN changes() = 0 THEN RAISE(ABORT, 'INSUFFICIENT_BALANCE') END;
        END`,
     ).run();
+    await db.prepare(
+      `CREATE TRIGGER IF NOT EXISTS account_movements_daily_limit
+       BEFORE INSERT ON account_movements
+       FOR EACH ROW
+       WHEN (
+         SELECT COALESCE(SUM(amount_cents), 0)
+         FROM account_movements
+         WHERE user_id = NEW.user_id
+           AND date(created_at, '-5 hours') = date(NEW.created_at, '-5 hours')
+       ) + NEW.amount_cents > 200000
+       BEGIN
+         SELECT RAISE(ABORT, 'DAILY_LIMIT_EXCEEDED');
+       END`,
+    ).run();
 
     const sessionColumns = await db.prepare("PRAGMA table_info(sessions)").all<{ name: string }>();
     const knownSessionColumns = new Set((sessionColumns.results ?? []).map((column) => column.name));
@@ -820,8 +870,9 @@ export async function ensureAuthSchema() {
         if (!/duplicate column name/iu.test(error instanceof Error ? error.message : "")) throw error;
       }
     }
+    await db.prepare("DROP INDEX IF EXISTS users_fingerprint_unique").run();
     const postMigrationStatements = [
-      db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS users_fingerprint_unique ON users(fingerprint_id_hash) WHERE fingerprint_id_hash IS NOT NULL"),
+      db.prepare("CREATE INDEX IF NOT EXISTS users_fingerprint_idx ON users(fingerprint_id_hash) WHERE fingerprint_id_hash IS NOT NULL"),
       db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS users_telegram_user_unique ON users(telegram_user_id) WHERE telegram_user_id IS NOT NULL"),
       db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_unique ON users(referral_code) WHERE referral_code IS NOT NULL"),
       db.prepare("CREATE INDEX IF NOT EXISTS users_owner_role_idx ON users(owner_id, role, deleted_at)"),
@@ -1172,6 +1223,7 @@ export async function createUser(input: {
   referredByUserId?: string | null;
   accessExpiresAt?: string | null;
   mustChangePassword?: boolean;
+  trialSellerId?: string;
 }) {
   await ensureAuthSchema();
   const phoneE164 = input.phone ? normalizePeruvianMobile(input.phone) : "";
@@ -1182,6 +1234,11 @@ export async function createUser(input: {
   const pin = input.pin ? await hashSecret(input.pin) : null;
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  const trialSellerId = input.trialSellerId?.trim() ?? "";
+  const effectiveStatus = trialSellerId ? "active" : input.status ?? "pending";
+  const effectiveAccessExpiresAt = trialSellerId
+    ? input.accessExpiresAt ?? trialExpiresAt()
+    : input.accessExpiresAt ?? null;
   const statements = [database().prepare(
     `INSERT INTO users (
       id, seller_code, username, display_name, email, role, is_owner, owner_id, status,
@@ -1200,7 +1257,7 @@ export async function createUser(input: {
     input.role,
     input.isOwner ? 1 : 0,
     input.ownerId ?? null,
-    input.status ?? "pending",
+    effectiveStatus,
     password.hash,
     password.salt,
     pin?.hash ?? null,
@@ -1212,12 +1269,12 @@ export async function createUser(input: {
     input.telegramUserId ?? null,
     referralCode,
     input.referredByUserId ?? null,
-    input.accessExpiresAt ?? null,
+    effectiveAccessExpiresAt,
     input.mustChangePassword ? 1 : 0,
     pin ? 0 : 1,
     now,
     now,
-    (input.status ?? "pending") === "active" ? now : null,
+    effectiveStatus === "active" ? now : null,
     null,
   )];
   if (phoneE164) {
@@ -1226,6 +1283,20 @@ export async function createUser(input: {
         id, user_id, phone_e164, discoverable, verified_at, created_at, updated_at
       ) VALUES (?, ?, ?, 1, ?, ?, ?)`,
     ).bind(crypto.randomUUID(), id, phoneE164, now, now, now));
+  }
+  if (trialSellerId) {
+    statements.push(
+      database().prepare(
+        `INSERT INTO activations (id, user_id, seller_id, credits_charged, created_at)
+         VALUES (?, ?, ?, 0, ?)`,
+      ).bind(crypto.randomUUID(), id, trialSellerId, now),
+      database().prepare(
+        `INSERT INTO client_crm_profiles (
+          user_id, crm_status, client_type, category, tags_json, notes,
+          last_activity_at, updated_by, updated_at
+        ) VALUES (?, 'new', 'individual', 'general', '[]', '', ?, ?, ?)`,
+      ).bind(id, now, id, now),
+    );
   }
   await database().batch(statements);
   return id;

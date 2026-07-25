@@ -65,71 +65,7 @@ type QrCodeReader = {
   decodeFromImageUrl: (url: string) => Promise<QrDecodeResult>;
 };
 
-export const movements: Movement[] = [
-  {
-    id: 1,
-    name: "Roberto Hua*",
-    detail: "*** *** 967",
-    date: "19 jul. 2026 - 10:08 p. m.",
-    amount: -1,
-    initials: "RH",
-    color: "violet",
-  },
-  {
-    id: 2,
-    name: "Mariela Qui*",
-    detail: "*** *** 735",
-    date: "19 jul. 2026 - 09:23 p. m.",
-    amount: -1,
-    initials: "MQ",
-    color: "amber",
-  },
-  {
-    id: 3,
-    name: "Mariela Qui*",
-    detail: "*** *** 735",
-    date: "19 jul. 2026 - 09:17 p. m.",
-    amount: -1,
-    initials: "MQ",
-    color: "blue",
-  },
-  {
-    id: 4,
-    name: "Juan Per*",
-    detail: "*** *** 321",
-    date: "19 jul. 2026 - 09:17 p. m.",
-    amount: -1,
-    initials: "JP",
-    color: "green",
-  },
-  {
-    id: 5,
-    name: "",
-    detail: "*** *** 430",
-    date: "19 jul. 2026 - 09:16 p. m.",
-    amount: -11,
-    initials: "--",
-    color: "violet",
-  },
-  {
-    id: 6,
-    name: "Mariela Qui*",
-    detail: "*** *** 735",
-    date: "19 jul. 2026 - 04:01 a. m.",
-    amount: -1,
-    initials: "MQ",
-    color: "blue",
-  },
-  {
-    id: 7,
-    name: "Mariela Qui*",
-    detail: "*** *** 735",
-    date: "19 jul. 2026 - 04:01 a. m.",
-    amount: -1,
-    initials: "MQ",
-    color: "amber",
-  },
-];
+export const movements: Movement[] = [];
 
 export const MOVEMENT_HISTORY_CLEARED_KEY = "yape-movement-history-cleared";
 export const HISTORY_CLEARED_EVENT = "yape-history-cleared";
@@ -660,9 +596,7 @@ function MovementsView() {
   }
 
   const storedGroups = groupStoredMovements(storedMovements);
-  const visibleGroups = historyCleared
-    ? storedGroups
-    : mergeMovementGroups(storedGroups, movementHistoryGroups);
+  const visibleGroups = storedGroups;
 
   return (
     <div className="reference-movements-view">
@@ -1453,6 +1387,7 @@ function ProfileMenuItem({
   href,
   badge,
   onClick,
+  disabled = false,
 }: {
   icon?: string;
   animatedIcon?: string;
@@ -1460,6 +1395,7 @@ function ProfileMenuItem({
   href?: string;
   badge?: string;
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   const content = (
     <>
@@ -1484,7 +1420,7 @@ function ProfileMenuItem({
       {content}
     </Link>
   ) : (
-    <button className="profile-menu-row" type="button" onClick={onClick}>
+    <button className="profile-menu-row" type="button" onClick={onClick} disabled={disabled}>
       {content}
     </button>
   );
@@ -1540,7 +1476,7 @@ function ProfileView() {
         <ProfileMenuItem
           icon="ic_broken_heart_outline_yape_primary"
           label="Eliminar mi cuenta"
-          onClick={() => {}}
+          disabled
         />
       </section>
 
@@ -2647,6 +2583,26 @@ function AccountDetailsView() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/account/tokens/validate", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || !data?.ok || cancelled) return;
+        const entitlements = Array.isArray(data.entitlements) ? data.entitlements : [];
+        const sms = entitlements.find((entry: { kind?: string }) => entry.kind === "sms");
+        const auto = entitlements.find((entry: { kind?: string }) => entry.kind === "auto");
+        setSmsValidated(Boolean(sms));
+        setSmsActive(Boolean(sms?.enabled));
+        setAutocomplete(Boolean(auto?.enabled));
+        setAutoValidated(Boolean(auto));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function registerData(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setNotice("Tus datos fueron revisados correctamente.");
@@ -2671,7 +2627,7 @@ function AccountDetailsView() {
       window.localStorage.setItem(MOVEMENT_HISTORY_CLEARED_KEY, "1");
       window.dispatchEvent(new Event(HISTORY_CLEARED_EVENT));
       setClearConfirmation(false);
-      setNotice("Todos los yapeos guardados fueron eliminados.");
+      setNotice("El historial anterior fue ocultado. El registro de seguridad se conserva.");
       window.setTimeout(() => setNotice(""), 3200);
     } catch (error) {
       setNotice(
@@ -3423,12 +3379,25 @@ function PurchaseApprovalView() {
 
 function HelpView() {
   const [notice, setNotice] = useState("");
+  const [helpMovements, setHelpMovements] = useState<Movement[]>([]);
   const popular = [
     ["Reportar extorsión", "ic_warning_outline_yape_primary"],
     ["No veo un movimiento", "ic_send_outline_yape_primary"],
     ["Mi saldo no coincide", "ic_money_bag_soles_outline_yape_primary"],
     ["No me deja yapear", "ic_send_outline_yape_primary"],
   ] as const;
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchStoredMovements()
+      .then((result) => {
+        if (!cancelled) setHelpMovements(result.movements.slice(0, 2));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="reference-help-view">
@@ -3438,7 +3407,11 @@ function HelpView() {
           <h2>Ayuda con un movimiento</h2>
           <Link href="/movimientos">Ver todo</Link>
         </div>
-        <SimpleMovementList items={movements.slice(0, 2)} />
+        {helpMovements.length > 0 ? (
+          <SimpleMovementList items={helpMovements} />
+        ) : (
+          <p className="empty-inline-state">Aún no tienes movimientos.</p>
+        )}
         <h2>Contáctanos</h2>
         <a
           className="help-menu-row"
@@ -4019,7 +3992,7 @@ function TransportRechargeView() {
         <button
           type="button"
           className="transport-example-link"
-          onClick={() => {}}
+          disabled
         >
           ¿No ubicas tu Número de Tarjeta? Ver ejemplo
         </button>

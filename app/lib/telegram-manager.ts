@@ -5,6 +5,7 @@ import {
   REFERRAL_EXTENSION_DAYS,
   REFERRAL_MONTHLY_LIMIT,
 } from "@/app/lib/auth-server";
+import { verifyTelegramRegistrationChallenge } from "@/app/lib/telegram-registration";
 
 type TelegramMessage = {
   message_id: number;
@@ -297,7 +298,7 @@ export async function processTelegramUpdate(update: TelegramUpdate) {
   ) return;
 
   const { command, args } = commandParts(message.text);
-  if (command !== "/redeem") return;
+  if (command !== "/redeem" && command !== "/verify") return;
 
   await ensureAuthSchema();
   const updateId = String(update.update_id);
@@ -307,6 +308,14 @@ export async function processTelegramUpdate(update: TelegramUpdate) {
   if (Number(inserted.meta.changes ?? 0) !== 1) return;
 
   const telegramId = String(message.from.id);
+  if (command === "/verify") {
+    const verified = await verifyTelegramRegistrationChallenge(telegramId, args.trim());
+    await audit(telegramId, command, verified ? "registration verification ok" : "registration verification denied");
+    // La validación de registro es silenciosa. El usuario confirma el estado
+    // desde la aplicación y el bot no publica códigos ni datos personales.
+    return;
+  }
+
   try {
     const reply = await redeemReferralCode(telegramId, args);
     await audit(telegramId, command, "redeem ok");

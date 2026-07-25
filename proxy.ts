@@ -102,8 +102,30 @@ function hasSessionCookie(request: NextRequest) {
   );
 }
 
+function contentSecurityPolicy(nonce: string) {
+  const development = process.env.NODE_ENV === "development";
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "media-src 'self' blob:",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
+
 export function proxy(request: NextRequest) {
   const requestId = crypto.randomUUID();
+  const nonce = btoa(requestId);
+  const csp = contentSecurityPolicy(nonce);
   if (BLOCKED_METHODS.has(request.method.toUpperCase())) {
     return jsonError("Método no permitido.", 405, requestId);
   }
@@ -148,13 +170,17 @@ export function proxy(request: NextRequest) {
     const response = NextResponse.redirect(loginUrl, 307);
     response.headers.set("x-request-id", requestId);
     response.headers.set("cache-control", "no-store");
+    response.headers.set("content-security-policy", csp);
     return response;
   }
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("content-security-policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("x-request-id", requestId);
+  response.headers.set("content-security-policy", csp);
   return response;
 }
 

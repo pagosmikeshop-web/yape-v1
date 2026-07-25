@@ -62,16 +62,18 @@ class TursoPreparedStatement implements D1PreparedStatement {
   constructor(
     readonly client: Client,
     readonly statement: TursoStatement,
+    readonly ready: Promise<void>,
   ) {}
 
   bind(...values: unknown[]) {
     return new TursoPreparedStatement(this.client, {
       sql: this.statement.sql,
       args: values.map(boundValue),
-    });
+    }, this.ready);
   }
 
   async first<T = Record<string, unknown>>(column?: string): Promise<T | null> {
+    await this.ready;
     const result = await this.client.execute(this.statement);
     const row = rowsAsObjects<Record<string, InValue>>(
       result.columns,
@@ -82,14 +84,17 @@ class TursoPreparedStatement implements D1PreparedStatement {
   }
 
   async run<T = Record<string, unknown>>() {
+    await this.ready;
     return d1Result<T>(await this.client.execute(this.statement));
   }
 
   async all<T = Record<string, unknown>>() {
+    await this.ready;
     return d1Result<T>(await this.client.execute(this.statement));
   }
 
   async raw<T = unknown[]>(options?: { columnNames?: boolean }): Promise<T[]> {
+    await this.ready;
     const result = await this.client.execute(this.statement);
     const rows = result.rows.map((row) => result.columns.map((_, index) => row[index]));
     if (options?.columnNames) rows.unshift(result.columns);
@@ -98,13 +103,18 @@ class TursoPreparedStatement implements D1PreparedStatement {
 }
 
 class TursoD1Database implements D1Database {
-  constructor(private readonly client: Client) {}
+  private readonly ready: Promise<void>;
+
+  constructor(private readonly client: Client) {
+    this.ready = client.execute("PRAGMA foreign_keys = ON").then(() => undefined);
+  }
 
   prepare(query: string) {
-    return new TursoPreparedStatement(this.client, { sql: query, args: [] });
+    return new TursoPreparedStatement(this.client, { sql: query, args: [] }, this.ready);
   }
 
   async batch<T = Record<string, unknown>>(statements: D1PreparedStatement[]) {
+    await this.ready;
     const input = statements.map((statement) => {
       if (!(statement instanceof TursoPreparedStatement)) {
         throw new TypeError("La consulta por lotes no pertenece a esta conexión.");
@@ -116,6 +126,7 @@ class TursoD1Database implements D1Database {
   }
 
   async exec(query: string) {
+    await this.ready;
     const startedAt = performance.now();
     await this.client.executeMultiple(query);
     return {

@@ -232,6 +232,12 @@ export async function POST(request: Request) {
       preferredRecipientName,
     );
     if (!recipient) return jsonError("No se pudo verificar el destinatario.", 400);
+    if (!recipient.recipientUserId) {
+      return jsonError(
+        "Guardamos el número, pero no podemos confirmar un pago a una cuenta externa. El saldo no fue modificado.",
+        422,
+      );
+    }
 
     const existing = await findIdempotentMovement(user.id, idempotencyKey);
     if (existing) {
@@ -261,27 +267,37 @@ export async function POST(request: Request) {
     for (let attempt = 0; attempt < 4 && !inserted; attempt += 1) {
       const operationNumber = String(crypto.getRandomValues(new Uint32Array(1))[0] % 100_000_000).padStart(8, "0");
       try {
-        await database.prepare(
-          `INSERT INTO account_movements (
-            id, user_id, recipient_name, recipient_reference, recipient_user_id,
-            saved_recipient_id, destination, amount_cents, message, security_code,
-            operation_number, idempotency_key, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ).bind(
-          id,
-          user.id,
-          recipient.name,
-          recipient.reference,
-          recipient.recipientUserId,
-          recipient.savedRecipientId,
-          destination,
-          amountCents,
-          message,
-          securityCode,
-          operationNumber,
-          idempotencyKey,
-          createdAt,
-        ).run();
+        await database.batch([
+          database.prepare(
+            `INSERT INTO account_movements (
+              id, user_id, recipient_name, recipient_reference, recipient_user_id,
+              saved_recipient_id, destination, amount_cents, message, security_code,
+              operation_number, idempotency_key, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ).bind(
+            id,
+            user.id,
+            recipient.name,
+            recipient.reference,
+            recipient.recipientUserId,
+            recipient.savedRecipientId,
+            destination,
+            amountCents,
+            message,
+            securityCode,
+            operationNumber,
+            idempotencyKey,
+            createdAt,
+          ),
+          database.prepare(
+            `INSERT INTO account_balances (user_id, balance_cents, is_configured, updated_at)
+             VALUES (?, ?, 1, ?)
+             ON CONFLICT(user_id) DO UPDATE SET
+               balance_cents = account_balances.balance_cents + excluded.balance_cents,
+               is_configured = 1,
+               updated_at = excluded.updated_at`,
+          ).bind(recipient.recipientUserId, amountCents, createdAt),
+        ]);
         inserted = {
           id,
           recipient_name: recipient.name,
@@ -321,6 +337,13 @@ export async function POST(request: Request) {
             reason: "insufficient_balance",
           });
           return jsonError("Saldo insuficiente", 409);
+        }
+        if (/DAILY_LIMIT_EXCEEDED/iu.test(messageText)) {
+          writeSecurityEvent(request, "payment.transfer", "denied", {
+            actorId: user.id,
+            reason: "daily_limit",
+          });
+          return jsonError("Alcanzaste el límite diario de S/ 2,000.", 409);
         }
         if (/operation_number|account_movements\.operation_number/iu.test(messageText)) continue;
         throw error;

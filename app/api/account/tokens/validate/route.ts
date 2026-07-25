@@ -2,7 +2,9 @@ import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   authEnv,
   clearAuthRateLimit,
+  dbBinding,
   enforceAuthRateLimits,
+  requireSession,
   requireUnlockedSession,
   routeError,
 } from "@/app/lib/auth-server";
@@ -22,7 +24,6 @@ async function tokensMatch(received: string, expected: string) {
   return difference === 0;
 }
 
-/** Token por usuario: HMAC-SHA256(master, `${userId}:${kind}`) en hex truncado. */
 async function userBoundToken(masterSecret: string, userId: string, kind: string) {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -32,14 +33,35 @@ async function userBoundToken(masterSecret: string, userId: string, kind: string
     false,
     ["sign"],
   );
-  const mac = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    encoder.encode(`${userId}:${kind}`),
-  );
-  return Array.from(new Uint8Array(mac), (byte) =>
-    byte.toString(16).padStart(2, "0"),
+  const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(`${userId}:${kind}`));
+  return Array.from(
+    new Uint8Array(mac),
+    (byte) => byte.toString(16).padStart(2, "0"),
   ).join("").slice(0, 32);
+}
+
+export async function GET(request: Request) {
+  try {
+    const { user } = await requireSession(request);
+    const result = await dbBinding().prepare(
+      `SELECT kind, enabled, validated_at
+       FROM account_feature_entitlements
+       WHERE user_id = ?`,
+    ).bind(user.id).all<{
+      kind: "sms" | "auto";
+      enabled: number;
+      validated_at: string;
+    }>();
+    return jsonOk({
+      entitlements: (result.results ?? []).map((row) => ({
+        kind: row.kind,
+        enabled: Boolean(row.enabled),
+        validatedAt: row.validated_at,
+      })),
+    }, { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    return routeError(error);
+  }
 }
 
 export async function POST(request: Request) {
@@ -55,19 +77,37 @@ export async function POST(request: Request) {
     const master = (kind === "sms"
       ? authEnv().ACCOUNT_SMS_VALIDATION_TOKEN
       : authEnv().ACCOUNT_AUTO_VALIDATION_TOKEN)?.trim() ?? "";
-
     if (master.length < 32) {
       return jsonError("La validación de esta opción no está configurada.", 503);
     }
 
     const rateLimitSubject = `${user.id}:${kind}`;
-    await enforceAuthRateLimits([{ bucket: "account-token", subject: rateLimitSubject, limit: 8, windowSeconds: 10 * 60 }]);
+    await enforceAuthRateLimits([{
+      bucket: "account-token",
+      subject: rateLimitSubject,
+      limit: 8,
+      windowSeconds: 10 * 60,
+    }]);
 
     const expected = await userBoundToken(master, user.id, kind);
     if (!(await tokensMatch(token, expected))) return jsonError("El token no es válido.", 401);
 
     await clearAuthRateLimit("account-token", rateLimitSubject);
-    return jsonOk({ kind, validated: true }, { headers: { "cache-control": "no-store" } });
+    const now = new Date().toISOString();
+    await dbBinding().prepare(
+      `INSERT INTO account_feature_entitlements (
+        user_id, kind, enabled, validated_at, updated_at
+      ) VALUES (?, ?, 1, ?, ?)
+      ON CONFLICT(user_id, kind) DO UPDATE SET
+        enabled = 1,
+        validated_at = excluded.validated_at,
+        updated_at = excluded.updated_at`,
+    ).bind(user.id, kind, now, now).run();
+
+    return jsonOk(
+      { kind, validated: true, enabled: true, validatedAt: now },
+      { headers: { "cache-control": "no-store" } },
+    );
   } catch (error) {
     return routeError(error);
   }

@@ -233,9 +233,13 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       database.prepare("DELETE FROM payment_directory WHERE user_id = ?").bind(id),
       database.prepare("DELETE FROM saved_payment_recipients WHERE user_id = ?").bind(id),
       database.prepare("DELETE FROM recipient_lookup_attempts WHERE requester_user_id = ?").bind(id),
-      database.prepare("DELETE FROM account_balances WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM account_movements WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM account_history_state WHERE user_id = ?").bind(id),
+      database.prepare(
+        `UPDATE account_movements
+         SET recipient_name = 'Usuario eliminado',
+             recipient_reference = 'Cuenta eliminada',
+             recipient_user_id = NULL
+         WHERE recipient_user_id = ?`,
+      ).bind(id),
       database.prepare("DELETE FROM qr_contacts WHERE user_id = ?").bind(id),
       database.prepare("UPDATE qr_contacts SET recipient_user_id = NULL WHERE recipient_user_id = ?").bind(id),
       database.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").bind(id),

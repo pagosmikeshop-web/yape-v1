@@ -21,6 +21,7 @@ export function BootstrapAdmin() {
         displayName: data.get("displayName"),
         email: data.get("email"),
         password: data.get("password"),
+        pin: data.get("pin"),
       }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -36,14 +37,34 @@ export function BootstrapAdmin() {
     <main className="management-stage">
       <section className="management-card">
         <h1>Configurar administrador</h1>
-        <p>Este paso se usa una sola vez. Tu Telegram ID sera el ID administrador y el ID vendedor principal.</p>
+        <p>Este paso se usa una sola vez para crear la cuenta Owner inicial.</p>
         <form onSubmit={submit} className="management-form">
           <input name="secret" placeholder="Clave de configuracion" type="password" required />
           <input name="sellerCode" placeholder="Telegram ID administrador" autoComplete="off" inputMode="numeric" pattern="[0-9]{4,20}" required />
           <input name="username" placeholder="Usuario" defaultValue="admin" required />
           <input name="displayName" placeholder="Nombre visible" defaultValue="Administrador" required />
           <input name="email" placeholder="Correo" type="email" />
-          <input name="password" placeholder="Codigo de 6 digitos" type="password" inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} required />
+          <input
+            name="password"
+            placeholder="Contraseña segura"
+            type="password"
+            autoComplete="new-password"
+            minLength={12}
+            pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,128}"
+            title="Usa 12 caracteres o más, con mayúscula, minúscula, número y símbolo."
+            required
+          />
+          <input
+            name="pin"
+            placeholder="PIN de 6 dígitos"
+            type="password"
+            autoComplete="new-password"
+            inputMode="numeric"
+            pattern="[0-9]{6}"
+            minLength={6}
+            maxLength={6}
+            required
+          />
           <button type="submit">Crear administrador</button>
         </form>
         {message ? <p className="management-alert">{message}</p> : null}

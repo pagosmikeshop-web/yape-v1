@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { AppInstallGate } from "./components/AppInstallGate";
 import { MobileViewportSync } from "./components/MobileViewportSync";
 import "./globals.css";
@@ -49,11 +50,14 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // El nonce de la CSP se genera por solicitud. Leer los encabezados obliga a
+  // Next.js a renderizar dinámicamente y a propagar ese nonce a sus scripts.
+  await headers();
   return (
     <html lang="es">
       <body suppressHydrationWarning>

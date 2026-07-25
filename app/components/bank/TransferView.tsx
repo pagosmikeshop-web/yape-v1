@@ -204,12 +204,12 @@ export function TransferView() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const cachedContacts = window.localStorage.getItem(contactsCacheKey);
+        const cachedContacts = window.sessionStorage.getItem(contactsCacheKey);
         if (!cachedContacts) return;
         const parsedContacts = JSON.parse(cachedContacts) as PhoneContact[];
         if (Array.isArray(parsedContacts)) setPhoneContacts(parsedContacts);
       } catch {
-        window.localStorage.removeItem(contactsCacheKey);
+        window.sessionStorage.removeItem(contactsCacheKey);
       }
     }, 0);
     return () => window.clearTimeout(timer);
@@ -292,7 +292,7 @@ export function TransferView() {
 
       if (authorizedContacts.length === 0) return;
       setPhoneContacts(authorizedContacts);
-      window.localStorage.setItem(
+      window.sessionStorage.setItem(
         contactsCacheKey,
         JSON.stringify(authorizedContacts),
       );
@@ -361,7 +361,7 @@ export function TransferView() {
             },
             ...current,
           ].slice(0, 60);
-          window.localStorage.setItem(
+          window.sessionStorage.setItem(
             contactsCacheKey,
             JSON.stringify(nextContacts),
           );
@@ -486,7 +486,7 @@ export function TransferView() {
               initials: contactInitials(resolvedRecipientName),
             });
           }
-          window.localStorage.setItem(contactsCacheKey, JSON.stringify(next));
+          window.sessionStorage.setItem(contactsCacheKey, JSON.stringify(next));
           return next;
         });
       }

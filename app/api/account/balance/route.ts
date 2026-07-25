@@ -13,17 +13,14 @@ export const dynamic = "force-dynamic";
 
 const MAX_BALANCE_CENTS = 99_999_999_999;
 
-/**
- * El saldo de cuenta es cosmético/demo (no ledger de autoridad externa).
- * En APP_ENV=production el PUT requiere ALLOW_CLIENT_BALANCE_EDIT=true.
- * En non-prod el PUT se permite por defecto (demo local/staging).
- */
-function clientBalanceEditAllowed() {
-  const env = authEnv();
-  const appEnv = env.APP_ENV?.trim().toLowerCase() ?? "";
-  const flag = env.ALLOW_CLIENT_BALANCE_EDIT?.trim().toLowerCase() === "true";
-  if (appEnv === "production") return flag;
-  return true;
+/** La edición manual solo existe en desarrollo local; producción usa el ledger. */
+function clientBalanceEditAllowed(request: Request) {
+  const appEnv = authEnv().APP_ENV?.trim().toLowerCase() ?? "";
+  const url = new URL(request.url);
+  const localHost = url.hostname === "localhost"
+    || url.hostname === "127.0.0.1"
+    || url.hostname === "[::1]";
+  return appEnv === "development" && localHost;
 }
 
 async function readBalance(userId: string) {
@@ -52,13 +49,13 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     const { user } = await requireUnlockedSession(request);
-    if (!clientBalanceEditAllowed()) {
+    if (!clientBalanceEditAllowed(request)) {
       writeSecurityEvent(request, "account.balance_edit", "denied", {
         actorId: user.id,
-        reason: "production_flag_required",
+        reason: "server_managed_balance",
       });
       return jsonError(
-        "La edición de saldo está deshabilitada en producción. Activa ALLOW_CLIENT_BALANCE_EDIT=true solo si el saldo demo es intencional.",
+        "El saldo se actualiza únicamente mediante movimientos confirmados.",
         403,
       );
     }
