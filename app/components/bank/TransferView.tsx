@@ -44,7 +44,6 @@ function normalizeMobileNumber(value: string) {
 
 const externalEntities = ["Banco Falabella", "Cmac Arequipa", "Dale", "Plin"];
 
-const REJECTED_ENTITY = "Banco Falabella";
 const DAILY_YAPE_LIMIT = 500;
 
 export function maskPhone(phone: string) {
@@ -315,7 +314,7 @@ export function TransferView() {
     event.preventDefault();
     if (newNumber.length < 9) return;
     setRecipientLookupLoading(true);
-    setNotice("Buscando destinatario...");
+    setNotice("");
     try {
       const response = await fetch("/api/payments/recipient-lookup", {
         method: "POST",
@@ -597,7 +596,7 @@ export function TransferView() {
     }
     if (stage === "entity-loading") {
       const timer = window.setTimeout(() => {
-        setStage(destination === REJECTED_ENTITY ? "reject" : "confirm");
+        setStage("confirm");
       }, TRANSFER_LOADING_MS);
       return () => window.clearTimeout(timer);
     }
@@ -608,7 +607,6 @@ export function TransferView() {
     stage === "entities" ||
     stage === "entity-loading" ||
     stage === "confirm" ||
-    stage === "reject" ||
     stage === "confirm-processing";
   const formattedDate = voucher ? formatVoucherDate(voucher.completedAt) : "";
   const formattedTime = voucher ? formatVoucherTime(voucher.completedAt) : "";
@@ -707,12 +705,6 @@ export function TransferView() {
                   <small>{contact.phone}</small>
                 </button>
               ))}
-              {phoneContacts.length > 0 &&
-              filteredPhoneContacts.length === 0 ? (
-                <p className="phone-contacts-empty">
-                  No encontramos ese contacto.
-                </p>
-              ) : null}
             </div>
           </div>
         </>
@@ -779,7 +771,7 @@ export function TransferView() {
               form="new-number-form"
               disabled={newNumber.length < 9 || recipientLookupLoading}
             >
-              {recipientLookupLoading ? "Buscando..." : "Continuar"}
+              Continuar
             </button>
           </div>
         </>
@@ -967,11 +959,6 @@ export function TransferView() {
                 </span>
                 <p>Vas a yapear a:</p>
                 <h2>{voucherRecipientName}</h2>
-                <p className="transfer-confirm-warning">
-                  <AssetIcon name="ic_info_outline_yape_primary" />
-                  Este tipo de yapeo puede necesitar más tiempo para llegar a la
-                  entidad destino.
-                </p>
                 <div className="transfer-confirm-summary">
                   <div>
                     <span>Monto</span>
@@ -997,31 +984,6 @@ export function TransferView() {
                 >
                   Cancelar
                 </button>
-              </div>
-            </div>
-          ) : null}
-
-          {stage === "reject" ? (
-            <div
-              className="transfer-confirm-overlay"
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="transfer-confirm-modal transfer-reject-modal">
-                <span className="reject-modal-icon" aria-hidden="true">
-                  <AssetIcon name="ic_warning_outline_yape_primary" />
-                </span>
-                <h2>No se realizó el cobro</h2>
-                <p className="transfer-reject-message">
-                  Por el momento, este número no puede recibir yapeos. Indícale
-                  que se comunique con el canal de ayuda de la aplicación.
-                </p>
-                <Link
-                  href="/inicio"
-                  className="transfer-confirm-button transfer-reject-button"
-                >
-                  IR A INICIO
-                </Link>
               </div>
             </div>
           ) : null}

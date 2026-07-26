@@ -14,10 +14,7 @@ import {
   hasOptimisticUnlock,
   setOptimisticUnlock,
 } from "../lib/session-cache";
-import {
-  clearBalanceCache,
-  fetchAccountBalance,
-} from "../lib/balance-cache";
+import { clearBalanceCache, fetchAccountBalance } from "../lib/balance-cache";
 import {
   APK_ASSET_ROOT,
   AssetIcon,
@@ -1420,7 +1417,12 @@ function ProfileMenuItem({
       {content}
     </Link>
   ) : (
-    <button className="profile-menu-row" type="button" onClick={onClick} disabled={disabled}>
+    <button
+      className="profile-menu-row"
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+    >
       {content}
     </button>
   );
@@ -2217,9 +2219,7 @@ function ConfiguredVoucherReceipt({
                 <strong>{voucher.operation}</strong>
               </div>
             </div>
-            <span className="voucher-validity-label">
-              NO ES COMPROBANTE DE PAGO
-            </span>
+            <span className="voucher-validity-label"></span>
           </div>
         </div>
 
@@ -2589,9 +2589,15 @@ function AccountDetailsView() {
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok || !data?.ok || cancelled) return;
-        const entitlements = Array.isArray(data.entitlements) ? data.entitlements : [];
-        const sms = entitlements.find((entry: { kind?: string }) => entry.kind === "sms");
-        const auto = entitlements.find((entry: { kind?: string }) => entry.kind === "auto");
+        const entitlements = Array.isArray(data.entitlements)
+          ? data.entitlements
+          : [];
+        const sms = entitlements.find(
+          (entry: { kind?: string }) => entry.kind === "sms",
+        );
+        const auto = entitlements.find(
+          (entry: { kind?: string }) => entry.kind === "auto",
+        );
         setSmsValidated(Boolean(sms));
         setSmsActive(Boolean(sms?.enabled));
         setAutocomplete(Boolean(auto?.enabled));
@@ -2627,7 +2633,9 @@ function AccountDetailsView() {
       window.localStorage.setItem(MOVEMENT_HISTORY_CLEARED_KEY, "1");
       window.dispatchEvent(new Event(HISTORY_CLEARED_EVENT));
       setClearConfirmation(false);
-      setNotice("El historial anterior fue ocultado. El registro de seguridad se conserva.");
+      setNotice(
+        "El historial anterior fue ocultado. El registro de seguridad se conserva.",
+      );
       window.setTimeout(() => setNotice(""), 3200);
     } catch (error) {
       setNotice(
@@ -3544,7 +3552,10 @@ function BiometricView() {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ text: string; tone: "info" | "error" } | null>(null);
+  const [notice, setNotice] = useState<{
+    text: string;
+    tone: "info" | "error";
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -3569,10 +3580,8 @@ function BiometricView() {
     setBusy(true);
     setNotice(null);
     try {
-      const {
-        disablePlatformBiometric,
-        registerPlatformBiometric,
-      } = await import("../lib/webauthn-client");
+      const { disablePlatformBiometric, registerPlatformBiometric } =
+        await import("../lib/webauthn-client");
       if (enabled) {
         await disablePlatformBiometric();
         setEnabled(false);
@@ -3589,9 +3598,10 @@ function BiometricView() {
         });
       }
     } catch (error) {
-      const message = error instanceof Error
-        ? error.message
-        : "No se pudo actualizar la biometría.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar la biometría.";
       setNotice({ text: message, tone: "error" });
     } finally {
       setBusy(false);
@@ -3625,7 +3635,11 @@ function BiometricView() {
       </section>
       <div className="biometric-actions">
         <Link href="/inicio">Ir al inicio</Link>
-        <button type="button" disabled={busy || loading} onClick={() => void toggleBiometric()}>
+        <button
+          type="button"
+          disabled={busy || loading}
+          onClick={() => void toggleBiometric()}
+        >
           {busy
             ? "Espera…"
             : enabled
@@ -3989,11 +4003,7 @@ function TransportRechargeView() {
             </ul>
           </div>
         </div>
-        <button
-          type="button"
-          className="transport-example-link"
-          disabled
-        >
+        <button type="button" className="transport-example-link" disabled>
           ¿No ubicas tu Número de Tarjeta? Ver ejemplo
         </button>
         <button

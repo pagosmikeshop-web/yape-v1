@@ -330,16 +330,22 @@ test("el registro demuestra la propiedad del Telegram ID con un reto de un solo 
   assert.match(challenge, /expires_at > \?/u);
 });
 
-test("las transferencias internas son atómicas, tienen límite diario y conservan el historial", async () => {
-  const [transfer, movements, authServer, deleteUser] = await Promise.all([
+test("las transferencias son atómicas, admiten números guardados y conservan el historial", async () => {
+  const [transfer, movements, authServer, deleteUser, accountBalance] = await Promise.all([
     source("app/api/payments/transfer/route.ts"),
     source("app/api/account/movements/route.ts"),
     source("app/lib/auth-server.ts"),
     source("app/api/admin/users/[id]/route.ts"),
+    source("app/api/account/balance/route.ts"),
   ]);
-  assert.match(transfer, /await database\.batch\(\[/u);
+  assert.match(transfer, /await database\.batch\(statements\)/u);
   assert.match(transfer, /balance_cents = account_balances\.balance_cents \+ excluded\.balance_cents/u);
-  assert.match(transfer, /no podemos confirmar un pago a una cuenta externa/iu);
+  assert.match(transfer, /if \(recipient\.recipientUserId\)/u);
+  assert.doesNotMatch(transfer, /no podemos confirmar un pago a una cuenta externa/iu);
+  assert.doesNotMatch(transfer, /Por el momento, este número no puede recibir yapeos/iu);
+  assert.doesNotMatch(transfer, /REJECTED_ENTITY/u);
+  assert.doesNotMatch(accountBalance, /clientBalanceEditAllowed|server_managed_balance/u);
+  assert.match(accountBalance, /requireUnlockedSession\(request\)/u);
   assert.match(authServer, /account_movements_daily_limit/u);
   assert.match(authServer, /DAILY_LIMIT_EXCEEDED/u);
   assert.doesNotMatch(movements, /DELETE FROM account_movements/u);

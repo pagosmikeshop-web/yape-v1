@@ -324,11 +324,12 @@ test("la compilación incluye las rutas nuevas de pagos y clientes", async () =>
 });
 
 test("la PWA ofrece instalación directa y una altura adaptable con zonas seguras", async () => {
-  const [manifestText, installGate, layout, mobileViewport] = await Promise.all([
+  const [manifestText, installGate, layout, mobileViewport, viewportSync] = await Promise.all([
     source("public/manifest.webmanifest"),
     source("app/components/AppInstallGate.tsx"),
     source("app/layout.tsx"),
     source("app/mobile-viewport.css"),
+    source("app/components/MobileViewportSync.tsx"),
   ]);
   const manifest = JSON.parse(manifestText);
 
@@ -344,9 +345,14 @@ test("la PWA ofrece instalación directa y una altura adaptable con zonas segura
   assert.match(installGate, /installed && isMobileDevice/u);
   assert.doesNotMatch(installGate, /BROWSER_ROUTES/u);
   assert.match(layout, /\.\/mobile-viewport\.css/u);
+  assert.match(layout, /<MobileViewportSync\s*\/>/u);
+  assert.doesNotMatch(installGate, /--app-viewport-height/u);
+  assert.match(viewportSync, /viewport\?\.height\s*\?\?/u);
+  assert.doesNotMatch(viewportSync, /Math\.max\([\s\S]*visualHeight/u);
   assert.match(mobileViewport, /--app-viewport-height:\s*100dvh/u);
   assert.match(mobileViewport, /safe-area-inset-top/u);
   assert.match(mobileViewport, /safe-area-inset-bottom/u);
+  assert.match(mobileViewport, /body:has\(\.returning-login\)[\s\S]*overflow:\s*hidden/u);
   assert.match(mobileViewport, /\.returning-keypad-card[\s\S]*overflow-y:\s*auto/u);
 
   await Promise.all([

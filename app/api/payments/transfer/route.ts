@@ -232,12 +232,6 @@ export async function POST(request: Request) {
       preferredRecipientName,
     );
     if (!recipient) return jsonError("No se pudo verificar el destinatario.", 400);
-    if (!recipient.recipientUserId) {
-      return jsonError(
-        "Guardamos el número, pero no podemos confirmar un pago a una cuenta externa. El saldo no fue modificado.",
-        422,
-      );
-    }
 
     const existing = await findIdempotentMovement(user.id, idempotencyKey);
     if (existing) {
@@ -267,7 +261,7 @@ export async function POST(request: Request) {
     for (let attempt = 0; attempt < 4 && !inserted; attempt += 1) {
       const operationNumber = String(crypto.getRandomValues(new Uint32Array(1))[0] % 100_000_000).padStart(8, "0");
       try {
-        await database.batch([
+        const statements = [
           database.prepare(
             `INSERT INTO account_movements (
               id, user_id, recipient_name, recipient_reference, recipient_user_id,
@@ -289,15 +283,18 @@ export async function POST(request: Request) {
             idempotencyKey,
             createdAt,
           ),
-          database.prepare(
+        ];
+        if (recipient.recipientUserId) {
+          statements.push(database.prepare(
             `INSERT INTO account_balances (user_id, balance_cents, is_configured, updated_at)
              VALUES (?, ?, 1, ?)
              ON CONFLICT(user_id) DO UPDATE SET
                balance_cents = account_balances.balance_cents + excluded.balance_cents,
                is_configured = 1,
                updated_at = excluded.updated_at`,
-          ).bind(recipient.recipientUserId, amountCents, createdAt),
-        ]);
+          ).bind(recipient.recipientUserId, amountCents, createdAt));
+        }
+        await database.batch(statements);
         inserted = {
           id,
           recipient_name: recipient.name,

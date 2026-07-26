@@ -20,7 +20,9 @@ export function splitMovementVoucherDate(date: string): [string, string] {
   return [fallback[0] || date, fallback.slice(1).join(" ") || ""];
 }
 
-export async function createVoucherImage(voucherContent: HTMLDivElement | null) {
+export async function createVoucherImage(
+  voucherContent: HTMLDivElement | null,
+) {
   if (!voucherContent || typeof window === "undefined") {
     throw new Error("El comprobante todavÃ­a no estÃ¡ listo.");
   }
@@ -77,7 +79,6 @@ export async function shareVoucherImage(
       } catch (error) {
         // Cerrar voluntariamente el selector no debe iniciar una descarga inesperada.
         if (error instanceof DOMException && error.name === "AbortError") {
-          return "Compartir cancelado.";
         }
 
         // Algunos WebView anuncian soporte para archivos, pero bloquean navigator.share.

@@ -1,6 +1,5 @@
 import { jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
-  authEnv,
   dbBinding,
   enforceAuthRateLimits,
   requireSession,
@@ -12,16 +11,6 @@ import { writeSecurityEvent } from "@/app/lib/security-log";
 export const dynamic = "force-dynamic";
 
 const MAX_BALANCE_CENTS = 99_999_999_999;
-
-/** La edición manual solo existe en desarrollo local; producción usa el ledger. */
-function clientBalanceEditAllowed(request: Request) {
-  const appEnv = authEnv().APP_ENV?.trim().toLowerCase() ?? "";
-  const url = new URL(request.url);
-  const localHost = url.hostname === "localhost"
-    || url.hostname === "127.0.0.1"
-    || url.hostname === "[::1]";
-  return appEnv === "development" && localHost;
-}
 
 async function readBalance(userId: string) {
   return dbBinding().prepare(
@@ -49,16 +38,6 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     const { user } = await requireUnlockedSession(request);
-    if (!clientBalanceEditAllowed(request)) {
-      writeSecurityEvent(request, "account.balance_edit", "denied", {
-        actorId: user.id,
-        reason: "server_managed_balance",
-      });
-      return jsonError(
-        "El saldo se actualiza únicamente mediante movimientos confirmados.",
-        403,
-      );
-    }
 
     await enforceAuthRateLimits([
       {

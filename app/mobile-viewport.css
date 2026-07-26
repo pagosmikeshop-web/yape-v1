@@ -70,6 +70,20 @@ body {
     overflow-x: hidden;
     background: var(--app-auth-bg);
   }
+
+  /*
+   * La pantalla de PIN no desplaza el documento: su tarjeta blanca administra
+   * el contenido interno. Esto evita el rebote inicial de Safari sin bloquear
+   * el scroll de las demás vistas.
+   */
+  html:has(.returning-login),
+  body:has(.returning-login) {
+    height: var(--app-viewport-height, 100dvh);
+    min-height: var(--app-viewport-height, 100dvh);
+    max-height: var(--app-viewport-height, 100dvh);
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
 }
 
 img,
@@ -114,7 +128,7 @@ canvas {
   .banking-stage,
   .install-gate {
     height: var(--app-viewport-height, 100dvh);
-    min-height: 100dvh;
+    min-height: var(--app-viewport-height, 100dvh);
     max-height: var(--app-viewport-height, 100dvh);
     overflow: hidden;
   }
