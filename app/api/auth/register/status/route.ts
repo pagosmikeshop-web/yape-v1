@@ -3,15 +3,10 @@ import {
   dbBinding,
   enforceAuthRateLimits,
   ensureAuthSchema,
-  publicSha256,
   requestIpRateLimitSubject,
   routeError,
 } from "@/app/lib/auth-server";
 import { checkCurrentTelegramGroupMember } from "@/app/lib/telegram-manager";
-import {
-  createTelegramRegistrationChallenge,
-  telegramRegistrationChallengeIsVerified,
-} from "@/app/lib/telegram-registration";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +23,6 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const telegramUserId = cleanTelegramId(asString(body.telegramUserId));
     const fingerprintId = asString(body.fingerprintId).trim();
-    const challengeToken = asString(body.challengeToken).trim();
 
     await enforceAuthRateLimits([
       {
@@ -50,7 +44,6 @@ export async function POST(request: Request) {
       return jsonError("No se pudo validar este dispositivo.", 403);
     }
 
-    const fingerprintHash = await publicSha256(`fingerprintjs-v3\n${fingerprintId}`);
     const [telegramCheck, linkedTelegram] = await Promise.all([
       checkCurrentTelegramGroupMember(telegramUserId),
       dbBinding().prepare(
@@ -67,34 +60,11 @@ export async function POST(request: Request) {
       });
     }
 
-    if (challengeToken) {
-      const allowed = await telegramRegistrationChallengeIsVerified({
-        telegramUserId,
-        fingerprintHash,
-        code: challengeToken,
-      });
-      return jsonOk({
-        allowed,
-        pending: !allowed,
-        groupInviteUrl: "/api/telegram/group",
-        error: allowed
-          ? ""
-          : "Aún falta confirmar el código desde tu cuenta de Telegram en el grupo.",
-      });
-    }
-
-    const challenge = await createTelegramRegistrationChallenge(
-      telegramUserId,
-      fingerprintHash,
-    );
     return jsonOk({
-      allowed: false,
-      pending: true,
-      challengeToken: challenge.code,
-      command: challenge.command,
-      expiresAt: challenge.expiresAt,
+      allowed: true,
+      pending: false,
       groupInviteUrl: "/api/telegram/group",
-      error: "Publica el comando mostrado en el grupo y luego pulsa Comprobar validación.",
+      message: "Telegram confirmado. Ya puedes crear tu cuenta.",
     });
   } catch (error) {
     return routeError(error);

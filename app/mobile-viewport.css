@@ -9,6 +9,8 @@
 :root {
   /* Fallback estable; MobileViewportSync lo reemplaza con visualViewport en runtime. */
   --app-viewport-height: 100svh;
+  --app-visible-height: 100svh;
+  --app-keyboard-height: 0px;
   --app-safe-top: env(safe-area-inset-top, 0px);
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -108,7 +110,10 @@ canvas {
   background: var(--app-auth-bg);
 }
 
-.bank-app,
+.bank-app {
+  background: linear-gradient(155deg, #5e186c 0%, #920bc1 58%, #790699 100%);
+}
+
 .mobile-bank-shell {
   height: 100%;
   min-height: 0;
@@ -218,6 +223,21 @@ canvas {
     padding-bottom: max(25px, calc(var(--app-safe-bottom) + 18px));
     padding-left: max(28px, calc(var(--app-safe-left) + 20px));
     background: var(--app-surface-bg);
+  }
+
+  /*
+   * El teclado de iOS reduce visualViewport. El shell conserva la altura de
+   * la aplicación y la tarjeta blanca gana espacio de desplazamiento, evitando
+   * que el formulario colapse o deje una franja morada sobre el teclado.
+   */
+  html[data-keyboard-open="true"] .screen-login .login-card,
+  html[data-keyboard-open="true"] .screen-register .login-card,
+  html[data-keyboard-open="true"] .screen-change-password .login-card,
+  html[data-keyboard-open="true"] .screen-change-number .login-card,
+  html[data-keyboard-open="true"] .screen-recover .login-card {
+    padding-bottom: calc(var(--app-keyboard-height) + var(--app-safe-bottom) + 24px);
+    scroll-padding-top: 18px;
+    scroll-padding-bottom: calc(var(--app-keyboard-height) + 24px);
   }
 
   .site-stage .login-shell,

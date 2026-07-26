@@ -314,20 +314,21 @@ test("Vercel usa Turso exclusivamente desde el servidor y conserva los controles
   assert.equal(JSON.parse(vercelConfig).framework, "nextjs");
 });
 
-test("el registro demuestra la propiedad del Telegram ID con un reto de un solo uso", async () => {
-  const [registration, status, telegramManager, challenge] = await Promise.all([
+test("el registro valida membresía directamente con Telegram sin publicar códigos", async () => {
+  const [registration, status, telegramManager, authScreen] = await Promise.all([
     source("app/api/auth/register/route.ts"),
     source("app/api/auth/register/status/route.ts"),
     source("app/lib/telegram-manager.ts"),
-    source("app/lib/telegram-registration.ts"),
+    source("app/components/AuthScreen.tsx"),
   ]);
-  assert.match(status, /createTelegramRegistrationChallenge/u);
-  assert.match(status, /telegramRegistrationChallengeIsVerified/u);
-  assert.match(registration, /consumeTelegramRegistrationChallenge/u);
-  assert.match(telegramManager, /command !== "\/redeem" && command !== "\/verify"/u);
-  assert.match(telegramManager, /validación de registro es silenciosa/iu);
-  assert.match(challenge, /consumed_at IS NULL/u);
-  assert.match(challenge, /expires_at > \?/u);
+  assert.match(status, /checkCurrentTelegramGroupMember/u);
+  assert.match(status, /allowed:\s*true/u);
+  assert.match(registration, /checkCurrentTelegramGroupMember/u);
+  assert.doesNotMatch(status, /createTelegramRegistrationChallenge|challengeToken|\/verify/u);
+  assert.doesNotMatch(registration, /telegramRegistrationChallenge|challengeToken|\/verify/u);
+  assert.match(telegramManager, /command !== "\/redeem"/u);
+  assert.doesNotMatch(telegramManager, /command !== "\/redeem" && command !== "\/verify"|\/verify/u);
+  assert.doesNotMatch(authScreen, /registrationChallenge|registrationCommand|GENERAR CÓDIGO/u);
 });
 
 test("las transferencias son atómicas, admiten números guardados y conservan el historial", async () => {

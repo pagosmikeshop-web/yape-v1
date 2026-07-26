@@ -361,9 +361,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   const [fingerprintId, setFingerprintId] = useState("");
   const [registerAllowed, setRegisterAllowed] = useState(false);
   const [registerChecking, setRegisterChecking] = useState(screen === "register");
-  const [groupInviteUrl, setGroupInviteUrl] = useState("");
-  const [registrationChallenge, setRegistrationChallenge] = useState("");
-  const [registrationCommand, setRegistrationCommand] = useState("");
+  const [groupInviteUrl, setGroupInviteUrl] = useState("/api/telegram/group");
   const [accessLookup, setAccessLookup] = useState<AccessLookup | null>(null);
 
   useEffect(() => {
@@ -417,8 +415,6 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     formRef.current?.reset();
     setNotice(null);
     setRegisterAllowed(false);
-    setRegistrationChallenge("");
-    setRegistrationCommand("");
     if (screen === "recover") {
       setRecoveryMode("request");
       setRecoveryCode("");
@@ -496,7 +492,6 @@ export function AuthScreen({ screen }: { screen: Screen }) {
           password,
           pin,
           fingerprintId,
-          challengeToken: registrationChallenge,
         });
         await saveLocalRegistrationAnchor(fingerprintId);
         formRef.current?.reset();
@@ -612,27 +607,10 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         body: JSON.stringify({
           telegramUserId: telegramId,
           fingerprintId,
-          challengeToken: registrationChallenge,
         }),
       });
       const data = await response.json();
       setGroupInviteUrl(String(data.groupInviteUrl ?? ""));
-      if (
-        response.ok
-        && data.ok
-        && data.pending
-        && typeof data.challengeToken === "string"
-        && typeof data.command === "string"
-      ) {
-        setRegistrationChallenge(data.challengeToken);
-        setRegistrationCommand(data.command);
-        await navigator.clipboard?.writeText(data.command).catch(() => undefined);
-        setNotice({
-          text: "El comando fue copiado. Publícalo en el grupo desde tu Telegram y luego pulsa Comprobar validación.",
-          tone: "info",
-        });
-        return;
-      }
       if (!response.ok || !data.ok || !data.allowed) {
         throw new Error(String(data.error ?? "Aun no puedes registrarte."));
       }
@@ -700,21 +678,14 @@ export function AuthScreen({ screen }: { screen: Screen }) {
                 <>
                   <div className="registration-gate">
                     <AuthAssetIcon name="ic_shield_check_r_yape" />
-                    <p>Entra al grupo, escribe tu Telegram ID y confirma que la cuenta realmente te pertenece.</p>
+                    <p>Entra al grupo e ingresa tu Telegram ID. El bot comprobará automáticamente tu membresía.</p>
                     {groupInviteUrl ? <a href={groupInviteUrl} target="_blank" rel="noreferrer">Abrir grupo de Telegram</a> : null}
-                    {registrationCommand ? (
-                      <p className="telegram-command">
-                        <strong>Publica en el grupo:</strong> <code>{registrationCommand}</code>
-                      </p>
-                    ) : null}
                   </div>
                   <Field id="telegram-id" label="Telegram ID" inputMode="numeric" pattern="[0-9]{4,24}" maxLength={24} />
                   <button className="telegram-check-button" type="button" disabled={busy || registerChecking || !fingerprintId} onClick={() => void verifyTelegramForRegister()}>
                     {registerChecking
                       ? "VALIDANDO DISPOSITIVO"
-                      : registrationChallenge
-                        ? "COMPROBAR VALIDACIÓN"
-                        : "GENERAR CÓDIGO DE VALIDACIÓN"}
+                      : "VALIDAR TELEGRAM"}
                   </button>
                   <Field id="username" label="Usuario" autoComplete="username" minLength={3} maxLength={40} />
                   <Field id="display-name" label="Nombre completo" autoComplete="name" minLength={2} maxLength={80} />

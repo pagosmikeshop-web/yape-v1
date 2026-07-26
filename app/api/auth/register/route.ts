@@ -22,10 +22,6 @@ import {
   checkCurrentTelegramGroupMember,
   telegramMembershipError,
 } from "@/app/lib/telegram-manager";
-import {
-  consumeTelegramRegistrationChallenge,
-  telegramRegistrationChallengeIsVerified,
-} from "@/app/lib/telegram-registration";
 import { TELEGRAM_TRIAL_SELLER_ID } from "@/app/lib/trial-activation";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +40,6 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const telegramUserId = cleanTelegramId(asString(body.telegramUserId));
     const fingerprintId = asString(body.fingerprintId).trim();
-    const challengeToken = asString(body.challengeToken).trim();
     const username = asString(body.username);
     const displayName = asString(body.displayName).trim();
     const email = asString(body.email).trim();
@@ -101,18 +96,6 @@ export async function POST(request: Request) {
     }
     if (existingUser) return jsonError("Ese nombre de usuario ya está en uso. Elige otro.", 409);
 
-    const challengeInput = {
-      telegramUserId,
-      fingerprintHash,
-      code: challengeToken,
-    };
-    if (!(await telegramRegistrationChallengeIsVerified(challengeInput))) {
-      return jsonError(
-        "Confirma primero el código de registro desde tu cuenta de Telegram en el grupo.",
-        403,
-      );
-    }
-
     const referrer = referralCode
       ? await database.prepare(
         "SELECT id FROM users WHERE referral_code = ? AND deleted_at IS NULL LIMIT 1",
@@ -120,12 +103,6 @@ export async function POST(request: Request) {
       : null;
     const newReferralCode = await createUniqueReferralCode();
     const accessExpiresAt = trialExpiresAt();
-
-    // El consumo condicional impide reutilizar el mismo reto en solicitudes
-    // simultáneas. Si vence o ya fue usado, no se crea ninguna cuenta.
-    if (!(await consumeTelegramRegistrationChallenge(challengeInput))) {
-      return jsonError("La validación de Telegram ya fue usada o venció. Genera una nueva.", 409);
-    }
 
     const id = await createUser({
       sellerCode: SELF_REGISTRATION_SELLER_CODE,
