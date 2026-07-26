@@ -14,6 +14,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   "/activar-cuenta",
   "/favicon.ico",
   "/manifest.webmanifest",
+  "/offline.html",
   "/sw.js",
 ]);
 
@@ -183,6 +184,7 @@ export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
   requestHeaders.set("content-security-policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("x-request-id", requestId);

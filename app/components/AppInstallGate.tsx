@@ -1,154 +1,171 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- install screen uses the local Yape SVG */
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { getInstallEnvironment, isInstalledApp } from "../lib/pwa-client";
+import type { InstallEnvironment } from "../lib/pwa-client";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+  userChoice: Promise<{
+    outcome: "accepted" | "dismissed";
+    platform: string;
+  }>;
 };
 
-function isStandaloneDisplay() {
-  if (typeof window === "undefined") return true;
-  return window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+const EMPTY_ENVIRONMENT: InstallEnvironment = {
+  isAndroid: false,
+  isIos: false,
+  isMobile: false,
+  isNativeShell: false,
+  isSafari: false,
+};
+
+function isLocalEditMode() {
+  if (
+    process.env.NODE_ENV === "production"
+    || process.env.NEXT_PUBLIC_LOCAL_EDIT_MODE !== "true"
+    || typeof window === "undefined"
+  ) {
+    return false;
+  }
+
+  return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(
+    window.location.hostname,
+  );
 }
 
 export function AppInstallGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [installed, setInstalled] = useState(true);
-  const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+  const [environment, setEnvironment] =
+    useState<InstallEnvironment>(EMPTY_ENVIRONMENT);
+  const [promptEvent, setPromptEvent] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [installHelpVisible, setInstallHelpVisible] = useState(false);
-  const isAndroid = useMemo(() => {
-    if (typeof navigator === "undefined") return false;
-    return /android/iu.test(navigator.userAgent);
-  }, []);
-  const isIos = useMemo(() => {
-    if (typeof navigator === "undefined") return false;
-    return /iphone|ipad|ipod/iu.test(navigator.userAgent);
-  }, []);
-  const isIpadOs = useMemo(() => {
-    if (typeof navigator === "undefined") return false;
-    return /macintosh/iu.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
-  }, []);
-  const isMobileDevice = isAndroid || isIos || isIpadOs;
+  const [installAccepted, setInstallAccepted] = useState(false);
 
   useEffect(() => {
-    let animationFrame = 0;
-    const settleTimers: number[] = [];
-    const viewport = window.visualViewport;
-    const syncViewportHeight = () => {
-      window.cancelAnimationFrame(animationFrame);
-      animationFrame = window.requestAnimationFrame(() => {
-        const layoutHeight = Math.max(
-          window.innerHeight,
-          document.documentElement.clientHeight,
-        );
-        const visualHeight = viewport?.height ?? layoutHeight;
-        const keyboardIsOpen = visualHeight < layoutHeight * 0.72;
-        const effectiveHeight = keyboardIsOpen ? visualHeight : layoutHeight;
-        if (!Number.isFinite(effectiveHeight) || effectiveHeight < 320) return;
-        document.documentElement.style.setProperty(
-          "--app-viewport-height",
-          `${Math.round(effectiveHeight)}px`,
-        );
-      });
-    };
-    const syncVisiblePage = () => {
-      if (document.visibilityState === "visible") syncViewportHeight();
-    };
+    const standaloneQuery = window.matchMedia("(display-mode: standalone)");
+    const fullscreenQuery = window.matchMedia("(display-mode: fullscreen)");
 
-    syncViewportHeight();
-    for (const delay of [120, 420, 900]) {
-      settleTimers.push(window.setTimeout(syncViewportHeight, delay));
-    }
-    window.addEventListener("resize", syncViewportHeight);
-    window.addEventListener("orientationchange", syncViewportHeight);
-    window.addEventListener("pageshow", syncViewportHeight);
-    window.addEventListener("focus", syncViewportHeight);
-    document.addEventListener("visibilitychange", syncVisiblePage);
-    viewport?.addEventListener("resize", syncViewportHeight);
-    viewport?.addEventListener("scroll", syncViewportHeight);
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      settleTimers.forEach((timer) => window.clearTimeout(timer));
-      window.removeEventListener("resize", syncViewportHeight);
-      window.removeEventListener("orientationchange", syncViewportHeight);
-      window.removeEventListener("pageshow", syncViewportHeight);
-      window.removeEventListener("focus", syncViewportHeight);
-      document.removeEventListener("visibilitychange", syncVisiblePage);
-      viewport?.removeEventListener("resize", syncViewportHeight);
-      viewport?.removeEventListener("scroll", syncViewportHeight);
-      document.documentElement.style.removeProperty("--app-viewport-height");
-    };
-  }, []);
-
-  useEffect(() => {
     const updateInstalled = () => {
-      const standalone = isStandaloneDisplay();
-      setInstalled(standalone);
+      setEnvironment(getInstallEnvironment());
+      setInstalled(isInstalledApp());
       setReady(true);
     };
-    updateInstalled();
-    window.matchMedia("(display-mode: standalone)").addEventListener("change", updateInstalled);
+
     const installPrompt = (event: Event) => {
       event.preventDefault();
       setPromptEvent(event as BeforeInstallPromptEvent);
       setInstallHelpVisible(false);
+      setInstallAccepted(false);
     };
+
     const installedApp = () => {
       setInstalled(true);
       setPromptEvent(null);
       setInstallHelpVisible(false);
+      setInstallAccepted(false);
     };
+
+    updateInstalled();
+    standaloneQuery.addEventListener("change", updateInstalled);
+    fullscreenQuery.addEventListener("change", updateInstalled);
     window.addEventListener("beforeinstallprompt", installPrompt);
     window.addEventListener("appinstalled", installedApp);
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
-    }
+
     return () => {
-      window.matchMedia("(display-mode: standalone)").removeEventListener("change", updateInstalled);
+      standaloneQuery.removeEventListener("change", updateInstalled);
+      fullscreenQuery.removeEventListener("change", updateInstalled);
       window.removeEventListener("beforeinstallprompt", installPrompt);
       window.removeEventListener("appinstalled", installedApp);
     };
   }, []);
 
   async function installApp() {
-    if (!isMobileDevice) {
-      setInstallHelpVisible(true);
-      return;
-    }
     if (!promptEvent) {
-      setInstallHelpVisible(true);
+      setInstallHelpVisible((visible) => !visible);
       return;
     }
+
     await promptEvent.prompt();
     const choice = await promptEvent.userChoice;
     setPromptEvent(null);
-    if (choice.outcome === "accepted") setInstalled(true);
-    else setInstallHelpVisible(true);
+    setInstallAccepted(choice.outcome === "accepted");
+    setInstallHelpVisible(choice.outcome !== "accepted");
   }
 
   if (!ready) return null;
-  if (installed && isMobileDevice) return <>{children}</>;
+  if (isLocalEditMode()) return <>{children}</>;
+  if (
+    environment.isNativeShell
+    || (installed && environment.isMobile)
+  ) {
+    return <>{children}</>;
+  }
+
+  const buttonLabel = promptEvent ? "Instalar app" : "Ver cómo instalar";
+  const showIosSafariSteps =
+    environment.isIos && environment.isSafari && installHelpVisible;
+  const showIosBrowserHelp =
+    environment.isIos && !environment.isSafari && installHelpVisible;
+  const showAndroidHelp =
+    environment.isAndroid && !promptEvent && installHelpVisible;
+  const showDesktopHelp = !environment.isMobile && installHelpVisible;
 
   return (
-    <main className="install-gate" aria-label="Instalar aplicacion">
+    <main className="install-gate" aria-label="Instalar aplicación">
       <section className="install-card">
-        <img src="/assets/apk/icons/ic_logo_static.svg" alt="" aria-hidden="true" />
+        <img
+          src="/assets/apk/icons/ic_logo_static.svg"
+          alt=""
+          aria-hidden="true"
+        />
         <h1>Descarga la app para continuar</h1>
-        <p>El acceso de clientes funciona solo desde la aplicacion instalada en el celular.</p>
-        <button type="button" onClick={installApp}>Instalar app</button>
-        {isIos ? (
-          <ol>
+        <p>
+          El acceso de clientes funciona desde la aplicación instalada en el
+          celular.
+        </p>
+        {installAccepted ? (
+          <p className="install-help" role="status">
+            Instalación aceptada. Cuando termine, abre Yape desde el icono de tu
+            pantalla de inicio.
+          </p>
+        ) : (
+          <button type="button" onClick={installApp}>
+            {buttonLabel}
+          </button>
+        )}
+
+        {showIosSafariSteps ? (
+          <ol className="install-help" aria-label="Pasos para instalar en iPhone">
             <li>Toca Compartir en Safari.</li>
             <li>Elige Agregar a pantalla de inicio.</li>
-            <li>Abre la app desde el icono instalado.</li>
+            <li>Confirma y abre Yape desde el nuevo icono.</li>
           </ol>
-        ) : !isMobileDevice && installHelpVisible ? (
-          <p className="install-help" role="status">Abre esta pagina desde tu celular para instalar la app.</p>
-        ) : !promptEvent ? (
-          <p className="install-help">Abre el menu del navegador y selecciona Instalar aplicacion o Agregar a pantalla de inicio.</p>
+        ) : null}
+
+        {showIosBrowserHelp ? (
+          <p className="install-help" role="status">
+            En iPhone o iPad, abre esta página directamente en Safari para
+            agregarla correctamente a la pantalla de inicio.
+          </p>
+        ) : null}
+
+        {showAndroidHelp ? (
+          <p className="install-help" role="status">
+            Abre el menú del navegador y selecciona Instalar aplicación. Si esa
+            opción no aparece, actualiza Chrome y vuelve a intentarlo.
+          </p>
+        ) : null}
+
+        {showDesktopHelp ? (
+          <p className="install-help" role="status">
+            Abre esta página desde tu celular para instalar y usar la
+            aplicación.
+          </p>
         ) : null}
       </section>
     </main>

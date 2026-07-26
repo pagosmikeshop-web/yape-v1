@@ -544,7 +544,6 @@ export function HomeView() {
           </div>
         </div>
       </section>
-      <HomeMainActions />
       {showAllServices ? (
         <AllServicesSheet
           closing={closingAllServices}
@@ -555,7 +554,7 @@ export function HomeView() {
   );
 }
 
-function HomeMainActions() {
+export function HomeMainActions() {
   return (
     <div className="home-main-actions" role="navigation" aria-label="Acciones principales">
       <Link href="/escanear-qr" className="outline-teal-action">

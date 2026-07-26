@@ -33,7 +33,7 @@ import {
   shareVoucherImage,
   VoucherSinglePromo,
 } from "./bank/MovementVoucher";
-import { HomeView } from "./bank/HomeView";
+import { HomeMainActions, HomeView } from "./bank/HomeView";
 import { contactInitials, maskPhone, TransferView } from "./bank/TransferView";
 import type {
   BankView,
@@ -4110,6 +4110,7 @@ export function BankApp({ view }: { view: BankView }) {
           {view === "scanner" ? <ScannerView /> : null}
           {view === "transport-recharge" ? <TransportRechargeView /> : null}
         </div>
+        {view === "home" ? <HomeMainActions /> : null}
       </section>
     </main>
   );

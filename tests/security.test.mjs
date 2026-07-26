@@ -136,6 +136,14 @@ test("el service worker sólo almacena recursos públicos explícitos", async ()
   assert.match(serviceWorker, /PUBLIC_ASSET_PREFIXES/u);
   assert.match(serviceWorker, /no-store/u);
   assert.match(serviceWorker, /private/u);
+  assert.match(serviceWorker, /OFFLINE_PAGE/u);
+  assert.match(serviceWorker, /event\.data\?\.type === "SKIP_WAITING"/u);
+  assert.match(serviceWorker, /key\.startsWith\(CACHE_PREFIX\)/u);
+  const installSection = serviceWorker.slice(
+    serviceWorker.indexOf('self.addEventListener("install"'),
+    serviceWorker.indexOf('self.addEventListener("activate"'),
+  );
+  assert.doesNotMatch(installSection, /skipWaiting/u);
 });
 
 test("registro y webhook no exponen endpoints GET de diagnóstico", async () => {

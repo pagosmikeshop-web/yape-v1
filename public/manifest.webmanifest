@@ -5,13 +5,13 @@
   "description": "Aplicación móvil de acceso seguro.",
   "lang": "es-PE",
   "dir": "ltr",
-  "start_url": "/?source=pwa",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone"],
   "orientation": "portrait",
-  "background_color": "#7a2185",
-  "theme_color": "#7a2185",
+  "background_color": "#742284",
+  "theme_color": "#742284",
   "prefer_related_applications": false,
   "icons": [
     {
@@ -31,12 +31,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "/assets/apk/icons/ic_yape_logo_r_yape_primary_700.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }

@@ -7,10 +7,14 @@
  */
 
 :root {
-  /* Fallback estable; MobileViewportSync lo reemplaza con visualViewport en runtime. */
-  --app-viewport-height: 100svh;
-  --app-visible-height: 100svh;
-  --app-keyboard-height: 0px;
+  /* MobileViewportSync reemplaza estos fallbacks con visualViewport en runtime. */
+  --app-height: 100svh;
+  --app-viewport-height: var(--app-height);
+  --app-viewport-width: 100vw;
+  --app-viewport-offset-top: 0px;
+  --app-viewport-offset-left: 0px;
+  --visual-offset-top: 0px;
+  --keyboard-height: 0px;
   --app-safe-top: env(safe-area-inset-top, 0px);
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -20,18 +24,19 @@
   --app-shell-bg: #7a2185;
   --app-surface-bg: #ffffff;
   --app-auth-bg: #7a2185;
+  --app-route-bg: var(--app-auth-bg);
 }
 
 /* Preferir dvh cuando exista; svh solo como fallback previo al @supports dvh. */
 @supports (height: 100svh) {
   :root {
-    --app-viewport-height: 100svh;
+    --app-height: 100svh;
   }
 }
 
 @supports (height: 100dvh) {
   :root {
-    --app-viewport-height: 100dvh;
+    --app-height: 100dvh;
   }
 }
 
@@ -39,7 +44,7 @@ html {
   width: 100%;
   min-width: 320px;
   min-height: 100%;
-  background: var(--app-surface-bg);
+  background: var(--app-route-bg);
   overflow-x: hidden;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
@@ -52,7 +57,7 @@ body {
   margin: 0;
   overflow-x: hidden;
   overscroll-behavior-x: none;
-  background: var(--app-surface-bg);
+  background: var(--app-route-bg);
 }
 
 @media (max-width: 599px) {
@@ -70,7 +75,7 @@ body {
     min-height: 100%;
     min-height: 100dvh;
     overflow-x: hidden;
-    background: var(--app-auth-bg);
+    background: var(--app-route-bg);
   }
 
   /*
@@ -86,6 +91,21 @@ body {
     overflow: hidden;
     overscroll-behavior: none;
   }
+}
+
+/*
+ * Auth usa un único scroller interno. El documento no participa en el
+ * desplazamiento cuando aparece un teclado, pero el formulario conserva su
+ * scroll normal dentro de .login-card.
+ */
+html:has(.site-stage),
+body:has(.site-stage) {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 img,
@@ -107,6 +127,10 @@ canvas {
 
 /* Login conserva el morado; la banca usa blanco para no filtrar franjas. */
 .site-stage {
+  position: fixed;
+  top: var(--app-viewport-offset-top, 0px);
+  left: var(--app-viewport-offset-left, 0px);
+  width: var(--app-viewport-width, 100vw);
   background: var(--app-auth-bg);
 }
 
@@ -147,7 +171,7 @@ canvas {
   }
 
   .site-stage {
-    background: var(--app-auth-bg);
+    background: var(--app-route-bg);
   }
 
   .bank-app,
@@ -222,22 +246,8 @@ canvas {
     padding-right: max(28px, calc(var(--app-safe-right) + 20px));
     padding-bottom: max(25px, calc(var(--app-safe-bottom) + 18px));
     padding-left: max(28px, calc(var(--app-safe-left) + 20px));
+    scroll-padding-block: 18px;
     background: var(--app-surface-bg);
-  }
-
-  /*
-   * El teclado de iOS reduce visualViewport. El shell conserva la altura de
-   * la aplicación y la tarjeta blanca gana espacio de desplazamiento, evitando
-   * que el formulario colapse o deje una franja morada sobre el teclado.
-   */
-  html[data-keyboard-open="true"] .screen-login .login-card,
-  html[data-keyboard-open="true"] .screen-register .login-card,
-  html[data-keyboard-open="true"] .screen-change-password .login-card,
-  html[data-keyboard-open="true"] .screen-change-number .login-card,
-  html[data-keyboard-open="true"] .screen-recover .login-card {
-    padding-bottom: calc(var(--app-keyboard-height) + var(--app-safe-bottom) + 24px);
-    scroll-padding-top: 18px;
-    scroll-padding-bottom: calc(var(--app-keyboard-height) + 24px);
   }
 
   .site-stage .login-shell,
@@ -253,12 +263,13 @@ canvas {
     height: clamp(52px, 7.2dvh, 62px);
   }
 
-  .bank-scroll-area,
-  .login-card,
-  .returning-keypad-card {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-  }
+.bank-scroll-area,
+.login-card,
+.returning-keypad-card {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 18px max(24px, var(--app-safe-bottom));
+}
 
   .bank-scroll-area {
     min-height: 0;
@@ -379,8 +390,7 @@ canvas {
 
   .mobile-bank-shell .yape-voucher,
   .mobile-bank-shell .yape-success-voucher,
-  .mobile-bank-shell .yape-success-voucher .voucher-content,
-  .mobile-bank-shell .voucher-share-capture {
+  .mobile-bank-shell .yape-success-voucher .voucher-content {
     width: 100% !important;
     min-height: 100% !important;
     background: #660185 !important;
@@ -390,10 +400,26 @@ canvas {
 
   .mobile-bank-shell .yape-success-voucher .voucher-content {
     box-sizing: border-box !important;
+    height: auto !important;
     padding-top: max(8px, var(--app-safe-top)) !important;
     padding-right: var(--app-safe-right) !important;
     padding-bottom: max(12px, var(--app-safe-bottom)) !important;
     padding-left: var(--app-safe-left) !important;
+  }
+
+  /*
+   * El bloque capturable contiene solo el banner y el comprobante. No debe
+   * heredar la altura completa del viewport: al hacerlo empujaba los botones
+   * y la promoción una pantalla hacia abajo y dejaba una franja morada vacía.
+   */
+  .mobile-bank-shell
+    .yape-success-voucher
+    .voucher-share-capture {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    background: transparent !important;
   }
 
   .mobile-bank-shell
@@ -518,7 +544,11 @@ canvas {
     box-shadow: none !important;
   }
 
-  /* Safe-area una sola vez, en el contenedor de botones. */
+  /*
+   * Este bloque es hermano del área desplazable, no forma parte de ella.
+   * Así las acciones permanecen estables aunque cambien el saldo, los
+   * movimientos o el desplazamiento del contenido de inicio.
+   */
   .mobile-bank-shell.view-home .home-main-actions {
     position: relative !important;
     inset: auto !important;
