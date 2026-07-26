@@ -7,10 +7,10 @@
   },
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "next build",
+    "build": "next build && node scripts/verify-public-build.mjs .next/static",
     "start": "next start --port 3000",
     "dev:cloudflare": "vinext dev",
-    "build:cloudflare": "vinext build",
+    "build:cloudflare": "vinext build && node scripts/verify-public-build.mjs dist/client",
     "test": "npm run build:cloudflare && node --test tests/reconstruction.test.mjs tests/security.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "biome check app db scripts tests proxy.ts next.config.ts --diagnostic-level=error",

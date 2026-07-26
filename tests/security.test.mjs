@@ -299,9 +299,13 @@ test("Vercel usa Turso exclusivamente desde el servidor y conserva los controles
   assert.match(environmentExample, /^TURSO_DATABASE_URL=$/mu);
   assert.match(environmentExample, /^TURSO_AUTH_TOKEN=$/mu);
   assert.doesNotMatch(environmentExample, /^NEXT_PUBLIC_TURSO_/mu);
-  assert.equal(JSON.parse(packageJson).scripts.build, "next build");
+  assert.equal(
+    JSON.parse(packageJson).scripts.build,
+    "next build && node scripts/verify-public-build.mjs .next/static",
+  );
   assert.equal(JSON.parse(packageJson).dependencies["@tursodatabase/serverless"], "1.3.1");
   assert.match(nextConfig, /poweredByHeader:\s*false/u);
+  assert.match(nextConfig, /productionBrowserSourceMaps:\s*false/u);
   assert.match(nextProxy, /hostedConfigurationErrors/u);
   assert.match(nextProxy, /TURSO_AUTH_TOKEN/u);
   assert.match(authServer, /verifiedAdminProxyIp/u);

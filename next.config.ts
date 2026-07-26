@@ -6,6 +6,13 @@ const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "no-referrer" },
   { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+  { key: "X-DNS-Prefetch-Control", value: "off" },
+  { key: "Origin-Agent-Cluster", value: "?1" },
+  {
+    key: "X-Robots-Tag",
+    value: "noindex, nofollow, noarchive, nosnippet, noimageindex",
+  },
   {
     key: "Permissions-Policy",
     value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
@@ -18,6 +25,8 @@ const SECURITY_HEADERS = [
 const nextConfig: NextConfig = {
   devIndicators: false,
   poweredByHeader: false,
+  productionBrowserSourceMaps: false,
+  compress: true,
   experimental: {
     optimizePackageImports: ["lottie-web", "qrcode", "@zxing/browser"],
   },

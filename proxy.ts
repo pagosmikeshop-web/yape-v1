@@ -107,6 +107,7 @@ function contentSecurityPolicy(nonce: string) {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ""}`,
+    "script-src-attr 'none'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
@@ -115,7 +116,8 @@ function contentSecurityPolicy(nonce: string) {
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",
-    "base-uri 'self'",
+    "base-uri 'none'",
+    "frame-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
     "upgrade-insecure-requests",
@@ -171,6 +173,10 @@ export function proxy(request: NextRequest) {
     response.headers.set("x-request-id", requestId);
     response.headers.set("cache-control", "no-store");
     response.headers.set("content-security-policy", csp);
+    response.headers.set(
+      "x-robots-tag",
+      "noindex, nofollow, noarchive, nosnippet, noimageindex",
+    );
     return response;
   }
 
@@ -181,6 +187,13 @@ export function proxy(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("x-request-id", requestId);
   response.headers.set("content-security-policy", csp);
+  response.headers.set(
+    "x-robots-tag",
+    "noindex, nofollow, noarchive, nosnippet, noimageindex",
+  );
+  if (wantsHtmlDocument(request)) {
+    response.headers.set("cache-control", "private, no-store, max-age=0");
+  }
   return response;
 }
 

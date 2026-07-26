@@ -58,6 +58,9 @@ jobs:
       - name: Build and security tests
         run: npm test
 
+      - name: Build Next.js production target
+        run: npm run build
+
       - name: Generate CycloneDX SBOM
         run: npm sbom --package-lock-only --omit=optional --sbom-format cyclonedx > sbom.cdx.json
 
