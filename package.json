@@ -20,6 +20,7 @@
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
     "@tursodatabase/serverless": "1.4.0",
+    "@vercel/speed-insights": "^2.0.0",
     "@zxing/browser": "^0.2.1",
     "drizzle-orm": "0.45.2",
     "html-to-image": "1.11.13",
