@@ -37,7 +37,7 @@ function findScrollContainer(element: HTMLElement) {
   }
 
   return element.closest<HTMLElement>(
-    "[data-mobile-scroll], [role='dialog'], .login-card, .bank-scroll-area, .install-gate",
+    "[data-mobile-scroll], [role='dialog'], .login-card, .bank-scroll-area",
   );
 }
 

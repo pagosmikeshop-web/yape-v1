@@ -1,8 +1,8 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- install screen uses the local Yape SVG */
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { getInstallEnvironment, isInstalledApp } from "../lib/pwa-client";
 import type { InstallEnvironment } from "../lib/pwa-client";
 
@@ -18,7 +18,6 @@ const EMPTY_ENVIRONMENT: InstallEnvironment = {
   isAndroid: false,
   isIos: false,
   isMobile: false,
-  isNativeShell: false,
   isSafari: false,
 };
 
@@ -37,6 +36,7 @@ function isLocalEditMode() {
 }
 
 export function AppInstallGate({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [environment, setEnvironment] =
@@ -97,77 +97,51 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
     setInstallHelpVisible(choice.outcome !== "accepted");
   }
 
-  if (!ready) return null;
-  if (isLocalEditMode()) return <>{children}</>;
   if (
-    environment.isNativeShell
-    || (installed && environment.isMobile)
+    !ready
+    || isLocalEditMode()
+    || installed
+    || installAccepted
+    || !environment.isMobile
+    || pathname !== "/"
   ) {
     return <>{children}</>;
   }
 
-  const buttonLabel = promptEvent ? "Instalar app" : "Ver cómo instalar";
+  const buttonLabel = promptEvent ? "Instalar app" : "Cómo instalar";
   const showIosSafariSteps =
     environment.isIos && environment.isSafari && installHelpVisible;
   const showIosBrowserHelp =
     environment.isIos && !environment.isSafari && installHelpVisible;
   const showAndroidHelp =
     environment.isAndroid && !promptEvent && installHelpVisible;
-  const showDesktopHelp = !environment.isMobile && installHelpVisible;
 
   return (
-    <main className="install-gate" aria-label="Instalar aplicación">
-      <section className="install-card">
-        <img
-          src="/assets/apk/icons/ic_logo_static.svg"
-          alt=""
-          aria-hidden="true"
-        />
-        <h1>Descarga la app para continuar</h1>
-        <p>
-          El acceso de clientes funciona desde la aplicación instalada en el
-          celular.
-        </p>
-        {installAccepted ? (
-          <p className="install-help" role="status">
-            Instalación aceptada. Cuando termine, abre Yape desde el icono de tu
-            pantalla de inicio.
-          </p>
-        ) : (
-          <button type="button" onClick={installApp}>
-            {buttonLabel}
-          </button>
-        )}
+    <>
+      {children}
+      <aside className="entry-install-cta" aria-label="Instalar aplicación">
+        <button type="button" onClick={installApp}>
+          {buttonLabel}
+        </button>
 
         {showIosSafariSteps ? (
-          <ol className="install-help" aria-label="Pasos para instalar en iPhone">
-            <li>Toca Compartir en Safari.</li>
-            <li>Elige Agregar a pantalla de inicio.</li>
-            <li>Confirma y abre Yape desde el nuevo icono.</li>
-          </ol>
+          <p role="status">
+            En Safari toca Compartir y luego Agregar a pantalla de inicio.
+          </p>
         ) : null}
 
         {showIosBrowserHelp ? (
-          <p className="install-help" role="status">
-            En iPhone o iPad, abre esta página directamente en Safari para
-            agregarla correctamente a la pantalla de inicio.
+          <p role="status">
+            En iPhone o iPad abre esta página en Safari para instalarla.
           </p>
         ) : null}
 
         {showAndroidHelp ? (
-          <p className="install-help" role="status">
-            Abre el menú del navegador y selecciona Instalar aplicación. Si esa
-            opción no aparece, actualiza Chrome y vuelve a intentarlo.
+          <p role="status">
+            Abre el menú de Chrome y selecciona Instalar aplicación.
           </p>
         ) : null}
-
-        {showDesktopHelp ? (
-          <p className="install-help" role="status">
-            Abre esta página desde tu celular para instalar y usar la
-            aplicación.
-          </p>
-        ) : null}
-      </section>
-    </main>
+      </aside>
+    </>
   );
 }

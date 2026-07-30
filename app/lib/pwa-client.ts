@@ -2,7 +2,6 @@ export type InstallEnvironment = {
   isAndroid: boolean;
   isIos: boolean;
   isMobile: boolean;
-  isNativeShell: boolean;
   isSafari: boolean;
 };
 
@@ -16,7 +15,6 @@ export function getInstallEnvironment(): InstallEnvironment {
       isAndroid: false,
       isIos: false,
       isMobile: false,
-      isNativeShell: false,
       isSafari: false,
     };
   }
@@ -28,13 +26,10 @@ export function getInstallEnvironment(): InstallEnvironment {
   const isSafari =
     /safari/iu.test(userAgent)
     && !/crios|fxios|edgios|opios|duckduckgo/iu.test(userAgent);
-  const isNativeShell = ["capacitor:", "ionic:"].includes(window.location.protocol);
-
   return {
     isAndroid,
     isIos,
     isMobile: isAndroid || isIos,
-    isNativeShell,
     isSafari,
   };
 }
@@ -47,7 +42,5 @@ export function isInstalledApp() {
   const standalone = window.matchMedia("(display-mode: standalone)").matches;
   const fullscreen = window.matchMedia("(display-mode: fullscreen)").matches;
   const iosStandalone = (navigator as NavigatorWithStandalone).standalone === true;
-  const nativeShell = ["capacitor:", "ionic:"].includes(window.location.protocol);
-
-  return standalone || fullscreen || iosStandalone || nativeShell;
+  return standalone || fullscreen || iosStandalone;
 }

@@ -116,8 +116,7 @@ canvas {
 }
 
 .site-stage,
-.banking-stage,
-.install-gate {
+.banking-stage {
   width: 100%;
   height: var(--app-viewport-height);
   min-height: var(--app-viewport-height);
@@ -154,8 +153,7 @@ canvas {
 
 @media (max-width: 599px) {
   .site-stage,
-  .banking-stage,
-  .install-gate {
+  .banking-stage {
     height: var(--app-viewport-height, 100dvh);
     min-height: var(--app-viewport-height, 100dvh);
     max-height: var(--app-viewport-height, 100dvh);
@@ -601,14 +599,6 @@ canvas {
   body:has(.yape-success-voucher),
   .banking-stage:has(.yape-success-voucher) {
     background: #660185 !important;
-  }
-
-  .install-gate {
-    padding-top: max(24px, calc(var(--app-safe-top) + 16px));
-    padding-right: max(18px, calc(var(--app-safe-right) + 16px));
-    padding-bottom: max(24px, calc(var(--app-safe-bottom) + 16px));
-    padding-left: max(18px, calc(var(--app-safe-left) + 16px));
-    overflow-y: auto;
   }
 
   .mobile-bank-shell input:not([type="checkbox"]):not([type="radio"]),

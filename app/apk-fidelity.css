@@ -70,8 +70,12 @@
   background: #020203;
 }
 
-.mobile-bank-shell .scanner-live-frame ~ .scanner-frame:not(.scanner-live-frame),
-.mobile-bank-shell .scanner-live-actions ~ .scanner-actions:not(.scanner-live-actions) {
+.mobile-bank-shell
+  .scanner-live-frame
+  ~ .scanner-frame:not(.scanner-live-frame),
+.mobile-bank-shell
+  .scanner-live-actions
+  ~ .scanner-actions:not(.scanner-live-actions) {
   display: none;
 }
 
@@ -122,14 +126,23 @@
   gap: 2vw !important;
 }
 
-.mobile-bank-shell.view-home .movements-disclosure .simple-movement-item > span:first-child {
+.mobile-bank-shell.view-home
+  .movements-disclosure
+  .simple-movement-item
+  > span:first-child {
   width: auto !important;
   min-width: 0 !important;
   flex: 1 1 auto !important;
 }
 
-.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list .money-in,
-.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list .money-out {
+.mobile-bank-shell.view-home
+  .movements-disclosure
+  .simple-movement-list
+  .money-in,
+.mobile-bank-shell.view-home
+  .movements-disclosure
+  .simple-movement-list
+  .money-out {
   width: auto !important;
   min-width: max-content !important;
   flex: 0 0 auto !important;
@@ -171,13 +184,21 @@
 }
 
 @keyframes all-services-slide-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 @keyframes all-services-slide-down {
-  from { transform: translateY(0); }
-  to { transform: translateY(100%); }
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
 }
 
 .mobile-bank-shell.view-home .all-services-drag-handle {
@@ -445,7 +466,11 @@
   height: auto !important;
   padding: calc(4vw + env(safe-area-inset-top, 0px)) 4vw 4vw !important;
   color: rgb(255, 255, 255) !important;
-  background: linear-gradient(rgb(117, 35, 134), 70%, rgb(75, 26, 112)) !important;
+  background: linear-gradient(
+    rgb(117, 35, 134),
+    70%,
+    rgb(75, 26, 112)
+  ) !important;
 }
 
 .mobile-bank-shell.view-movements .reference-movements-back,
@@ -738,7 +763,10 @@
   background-color: transparent !important;
 }
 
-.mobile-bank-shell.view-home .account-disclosure > button .apk-icon:first-child {
+.mobile-bank-shell.view-home
+  .account-disclosure
+  > button
+  .apk-icon:first-child {
   width: 6vw !important;
   height: 6vw !important;
   margin-right: 3vw !important;
@@ -987,7 +1015,11 @@
 .mobile-bank-shell .home-purple-zone {
   padding: max(10px, env(safe-area-inset-top)) 0 12px;
   background:
-    radial-gradient(circle at 88% 15%, rgba(236, 126, 255, 0.19), transparent 34%),
+    radial-gradient(
+      circle at 88% 15%,
+      rgba(236, 126, 255, 0.19),
+      transparent 34%
+    ),
     linear-gradient(180deg, var(--primary-500) 0%, var(--primary-700) 100%);
 }
 
@@ -996,7 +1028,11 @@
   gap: 6px;
   min-height: 52px;
   padding: 6px 14px;
-  background: linear-gradient(180deg, rgba(146, 11, 193, 0.98), rgba(121, 6, 153, 0.86));
+  background: linear-gradient(
+    180deg,
+    rgba(146, 11, 193, 0.98),
+    rgba(121, 6, 153, 0.86)
+  );
 }
 
 .mobile-bank-shell .round-header-action {
@@ -1628,7 +1664,8 @@
 }
 
 .mobile-bank-shell .reference-account-data {
-  padding: max(14px, env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom));
+  padding: max(14px, env(safe-area-inset-top)) 20px
+    calc(30px + env(safe-area-inset-bottom));
 }
 
 .mobile-bank-shell.profile-entry-animate .reference-profile {
@@ -1640,13 +1677,25 @@
 }
 
 @keyframes yape-screen-from-left {
-  from { opacity: 0.7; transform: translateX(-18%); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0.7;
+    transform: translateX(-18%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes yape-screen-from-right {
-  from { opacity: 0.7; transform: translateX(18%); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0.7;
+    transform: translateX(18%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .mobile-bank-shell .reference-account-data > header {
@@ -1816,7 +1865,8 @@
 
 .mobile-bank-shell .reference-dollars-view {
   min-height: 100%;
-  padding: max(16px, env(safe-area-inset-top)) 20px calc(34px + env(safe-area-inset-bottom));
+  padding: max(16px, env(safe-area-inset-top)) 20px
+    calc(34px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, #8b00ed 0%, #7200dc 100%);
 }
 
@@ -2212,7 +2262,8 @@
 
 .mobile-bank-shell .reference-scanner-view {
   min-height: 100%;
-  padding: max(14px, env(safe-area-inset-top)) 20px calc(22px + env(safe-area-inset-bottom));
+  padding: max(14px, env(safe-area-inset-top)) 20px
+    calc(22px + env(safe-area-inset-bottom));
   background: #000;
 }
 
@@ -2521,7 +2572,10 @@
   letter-spacing: normal;
 }
 
-.mobile-bank-shell .yape-success-voucher .voucher-details > .voucher-section-label {
+.mobile-bank-shell
+  .yape-success-voucher
+  .voucher-details
+  > .voucher-section-label {
   margin: 0;
   padding: 4vw 0 3vw;
 }
@@ -2543,7 +2597,11 @@
   letter-spacing: normal;
 }
 
-.mobile-bank-shell .yape-success-voucher .voucher-details > div > span:first-child {
+.mobile-bank-shell
+  .yape-success-voucher
+  .voucher-details
+  > div
+  > span:first-child {
   color: #231b3a;
   font-weight: 400;
 }
@@ -2674,7 +2732,8 @@
   min-height: 100%;
 }
 
-.mobile-bank-shell.view-transfer .bank-scroll-area:has(.transfer-amount-screen) {
+.mobile-bank-shell.view-transfer
+  .bank-scroll-area:has(.transfer-amount-screen) {
   overflow: hidden;
   background: #ffffff;
 }
@@ -2709,7 +2768,10 @@
   background: #fff;
 }
 
-.mobile-bank-shell .transfer-amount-screen .transfer-flow-header > span:not(.transfer-header-spacer) {
+.mobile-bank-shell
+  .transfer-amount-screen
+  .transfer-flow-header
+  > span:not(.transfer-header-spacer) {
   color: #212e41;
   font-size: min(5vw, 20.5px);
   font-weight: 600;
@@ -3069,7 +3131,6 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
-
 }
 
 /* Overrides finales: tipografía de botones; layout/safe-area viven en mobile-viewport.css. */
@@ -3127,8 +3188,12 @@
   background: #020203;
 }
 
-.mobile-bank-shell .scanner-live-frame ~ .scanner-frame:not(.scanner-live-frame),
-.mobile-bank-shell .scanner-live-actions ~ .scanner-actions:not(.scanner-live-actions) {
+.mobile-bank-shell
+  .scanner-live-frame
+  ~ .scanner-frame:not(.scanner-live-frame),
+.mobile-bank-shell
+  .scanner-live-actions
+  ~ .scanner-actions:not(.scanner-live-actions) {
   display: none;
 }
 
@@ -3179,14 +3244,23 @@
   gap: 2vw !important;
 }
 
-.mobile-bank-shell.view-home .movements-disclosure .simple-movement-item > span:first-child {
+.mobile-bank-shell.view-home
+  .movements-disclosure
+  .simple-movement-item
+  > span:first-child {
   width: auto !important;
   min-width: 0 !important;
   flex: 1 1 auto !important;
 }
 
-.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list .money-in,
-.mobile-bank-shell.view-home .movements-disclosure .simple-movement-list .money-out {
+.mobile-bank-shell.view-home
+  .movements-disclosure
+  .simple-movement-list
+  .money-in,
+.mobile-bank-shell.view-home
+  .movements-disclosure
+  .simple-movement-list
+  .money-out {
   width: auto !important;
   min-width: max-content !important;
   flex: 0 0 auto !important;

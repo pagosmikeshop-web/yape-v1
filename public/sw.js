@@ -85,9 +85,7 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.match(request).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(request).then((response) => {
+      const networkResponse = fetch(request).then((response) => {
         if (responseMayBeCached(response)) {
           const copy = response.clone();
           event.waitUntil(
@@ -96,6 +94,13 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       });
+
+      if (cached) {
+        event.waitUntil(networkResponse.then(() => undefined).catch(() => undefined));
+        return cached;
+      }
+
+      return networkResponse;
     }),
   );
 });

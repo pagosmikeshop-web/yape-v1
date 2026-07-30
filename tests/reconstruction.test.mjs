@@ -356,19 +356,26 @@ test("la PWA ofrece instalación directa y una altura adaptable con zonas segura
   assert.ok(manifest.icons.some((icon) => icon.purpose === "maskable"));
   assert.match(installGate, /beforeinstallprompt/u);
   assert.match(installGate, /appinstalled/u);
-  assert.match(installGate, /Ver cómo instalar/u);
-  assert.match(installGate, /environment\.isNativeShell/u);
+  assert.match(installGate, /Cómo instalar/u);
+  assert.match(installGate, /\{children\}/u);
+  assert.match(installGate, /pathname !== "\/"/u);
+  assert.doesNotMatch(installGate, /Descarga la app para continuar/u);
+  assert.doesNotMatch(installGate, /isNativeShell/u);
   assert.match(installGate, /environment\.isSafari/u);
   assert.doesNotMatch(installGate, /serviceWorker\.register/u);
   assert.match(pwaClient, /display-mode: standalone/u);
   assert.match(pwaClient, /display-mode: fullscreen/u);
   assert.doesNotMatch(pwaClient, /minimal-ui/u);
+  assert.doesNotMatch(pwaClient, /capacitor:|ionic:/u);
   assert.match(pwaRuntime, /serviceWorker[\s\S]*register\("\/sw\.js"/u);
   assert.match(
     pwaRuntime,
     /waitingWorker\.postMessage\(\{ type: "SKIP_WAITING" \}\)/u,
   );
   assert.match(pwaRuntime, /Nueva versión disponible/u);
+  assert.match(pwaRuntime, /window\.addEventListener\("offline"/u);
+  assert.match(pwaRuntime, /window\.addEventListener\("online"/u);
+  assert.match(pwaRuntime, /Conexión restablecida/u);
   assert.match(pwaRuntime, /visibilitychange/u);
   assert.doesNotMatch(installGate, /BROWSER_ROUTES/u);
   assert.match(layout, /\.\/mobile-viewport\.css/u);
@@ -400,7 +407,29 @@ test("la PWA ofrece instalación directa y una altura adaptable con zonas segura
     assertFile("public/icons/yape-512.png"),
     assertFile("public/icons/yape-maskable-512.png"),
     assertFile("public/offline.html"),
+    assertFile("app/hooks/useModalLayer.ts"),
   ]);
+});
+
+test("los overlays móviles contienen el foco y respetan Escape y el botón Atrás", async () => {
+  const [modalHook, homeView, transferView, bankApp] = await Promise.all([
+    source("app/hooks/useModalLayer.ts"),
+    source("app/components/bank/HomeView.tsx"),
+    source("app/components/bank/TransferView.tsx"),
+    source("app/components/BankApp.tsx"),
+  ]);
+
+  assert.match(modalHook, /FOCUSABLE_SELECTOR/u);
+  assert.match(modalHook, /window\.history\.pushState/u);
+  assert.match(modalHook, /window\.addEventListener\("popstate"/u);
+  assert.match(modalHook, /event\.key === "Escape"/u);
+  assert.match(modalHook, /event\.key !== "Tab"/u);
+  assert.match(modalHook, /previouslyFocused\?\.focus/u);
+  assert.match(homeView, /useModalLayer<HTMLElement>/u);
+  assert.match(transferView, /confirmDialogRef/u);
+  assert.match(transferView, /insufficientDialogRef/u);
+  assert.match(bankApp, /savedQrDialogRef/u);
+  assert.match(bankApp, /clearHistoryDialogRef/u);
 });
 
 test("HomeMainActions queda fuera del scroll y no se monta en el voucher histórico", async () => {

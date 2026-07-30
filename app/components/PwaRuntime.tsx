@@ -11,6 +11,9 @@ function findThemeMeta() {
 export function PwaRuntime() {
   const pathname = usePathname();
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [connectivity, setConnectivity] = useState<
+    "online" | "offline" | "restored"
+  >("online");
   const reloadAfterActivation = useRef(false);
 
   useEffect(() => {
@@ -27,6 +30,24 @@ export function PwaRuntime() {
 
     return () => {
       document.documentElement.classList.remove("app-ready");
+    };
+  }, []);
+
+  useEffect(() => {
+    const markOffline = () => setConnectivity("offline");
+    const markOnline = () => {
+      setConnectivity((current) =>
+        current === "offline" ? "restored" : "online",
+      );
+    };
+
+    setConnectivity(navigator.onLine ? "online" : "offline");
+    window.addEventListener("offline", markOffline);
+    window.addEventListener("online", markOnline);
+
+    return () => {
+      window.removeEventListener("offline", markOffline);
+      window.removeEventListener("online", markOnline);
     };
   }, []);
 
@@ -109,25 +130,50 @@ export function PwaRuntime() {
     waitingWorker.postMessage({ type: "SKIP_WAITING" });
   }
 
-  if (!waitingWorker) return null;
-
   return (
-    <aside className="pwa-update-banner" role="status" aria-live="polite">
-      <div>
-        <strong>Nueva versión disponible</strong>
-        <span>Actualiza cuando estés listo. No perderás tu sesión.</span>
-      </div>
-      <button type="button" onClick={applyUpdate}>
-        Actualizar
-      </button>
-      <button
-        type="button"
-        className="pwa-update-later"
-        aria-label="Cerrar aviso de actualización"
-        onClick={() => setWaitingWorker(null)}
-      >
-        Ahora no
-      </button>
-    </aside>
+    <>
+      {connectivity !== "online" ? (
+        <aside
+          className={`pwa-network-banner is-${connectivity}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span>
+            {connectivity === "offline"
+              ? "Sin conexión. Algunas acciones estarán disponibles al reconectarte."
+              : "Conexión restablecida."}
+          </span>
+          {connectivity === "restored" ? (
+            <button
+              type="button"
+              aria-label="Cerrar aviso de conexión restablecida"
+              onClick={() => setConnectivity("online")}
+            >
+              Cerrar
+            </button>
+          ) : null}
+        </aside>
+      ) : null}
+
+      {waitingWorker ? (
+        <aside className="pwa-update-banner" role="status" aria-live="polite">
+          <div>
+            <strong>Nueva versión disponible</strong>
+            <span>Actualiza cuando estés listo. No perderás tu sesión.</span>
+          </div>
+          <button type="button" onClick={applyUpdate}>
+            Actualizar
+          </button>
+          <button
+            type="button"
+            className="pwa-update-later"
+            aria-label="Cerrar aviso de actualización"
+            onClick={() => setWaitingWorker(null)}
+          >
+            Ahora no
+          </button>
+        </aside>
+      ) : null}
+    </>
   );
 }

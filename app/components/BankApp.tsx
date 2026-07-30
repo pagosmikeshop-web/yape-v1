@@ -15,6 +15,7 @@ import {
   setOptimisticUnlock,
 } from "../lib/session-cache";
 import { clearBalanceCache, fetchAccountBalance } from "../lib/balance-cache";
+import { useModalLayer } from "../hooks/useModalLayer";
 import {
   APK_ASSET_ROOT,
   AssetIcon,
@@ -802,6 +803,10 @@ function QrView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controlsRef = useRef<QrScannerControls | null>(null);
   const scanLockedRef = useRef(false);
+  const savedQrDialogRef = useModalLayer<HTMLDivElement>(
+    Boolean(modalMessage),
+    () => setModalMessage(""),
+  );
 
   const loadContacts = useCallback(async () => {
     setLoadingContacts(true);
@@ -1223,10 +1228,12 @@ function QrView() {
 
       {modalMessage ? (
         <div
+          ref={savedQrDialogRef}
           className="qrc-overlay"
           role="dialog"
           aria-modal="true"
           aria-label="QR guardado"
+          tabIndex={-1}
         >
           <div className="qrc-modal">
             <span className="qrc-modal-icon">
@@ -2556,6 +2563,10 @@ function AccountDetailsView() {
   const [clearConfirmation, setClearConfirmation] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
   const [notice, setNotice] = useState("");
+  const clearHistoryDialogRef = useModalLayer<HTMLElement>(
+    clearConfirmation,
+    () => setClearConfirmation(false),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -3154,10 +3165,12 @@ function AccountDetailsView() {
           onClick={() => setClearConfirmation(false)}
         >
           <section
+            ref={clearHistoryDialogRef}
             className="account-clear-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="clear-history-title"
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <span>

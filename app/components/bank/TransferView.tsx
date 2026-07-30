@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useModalLayer } from "../../hooks/useModalLayer";
 import { fetchAccountBalance, clearBalanceCache } from "../../lib/balance-cache";
 import { fetchSession } from "../../lib/session-cache";
 import { APK_ASSET_ROOT, AssetIcon, LottiePlayer } from "./primitives";
@@ -118,6 +119,14 @@ export function TransferView() {
     key: string;
     payload: string;
   } | null>(null);
+  const confirmDialogRef = useModalLayer<HTMLDivElement>(
+    stage === "confirm",
+    () => setStage("entities"),
+  );
+  const insufficientDialogRef = useModalLayer<HTMLDivElement>(
+    insufficientBalance,
+    () => setInsufficientBalance(false),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -949,16 +958,19 @@ export function TransferView() {
 
           {stage === "confirm" ? (
             <div
+              ref={confirmDialogRef}
               className="transfer-confirm-overlay"
               role="dialog"
               aria-modal="true"
+              aria-labelledby="transfer-confirm-title"
+              tabIndex={-1}
             >
               <div className="transfer-confirm-modal">
                 <span className="entity-icon confirm-modal-icon">
                   <AssetIcon name="ic_duotone_money_arrows_around" />
                 </span>
                 <p>Vas a yapear a:</p>
-                <h2>{voucherRecipientName}</h2>
+                <h2 id="transfer-confirm-title">{voucherRecipientName}</h2>
                 <div className="transfer-confirm-summary">
                   <div>
                     <span>Monto</span>
@@ -1139,10 +1151,12 @@ export function TransferView() {
       ) : null}
       {insufficientBalance ? (
         <div
+          ref={insufficientDialogRef}
           className="transfer-confirm-overlay insufficient-balance-overlay"
           role="dialog"
           aria-modal="true"
           aria-labelledby="insufficient-balance-title"
+          tabIndex={-1}
         >
           <div className="transfer-confirm-modal insufficient-balance-dialog">
             <span className="insufficient-balance-icon" aria-hidden="true">
