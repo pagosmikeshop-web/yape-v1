@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import type { CSSProperties } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AppInstallGate } from "./components/AppInstallGate";
 import { MobileViewportSync } from "./components/MobileViewportSync";
 import { PwaRuntime } from "./components/PwaRuntime";
@@ -87,6 +88,7 @@ export default async function RootLayout({
         <MobileViewportSync />
         <PwaRuntime />
         <AppInstallGate>{children}</AppInstallGate>
+        <SpeedInsights />
       </body>
     </html>
   );
