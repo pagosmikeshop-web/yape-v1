@@ -29,6 +29,7 @@ const nextConfig: NextConfig = {
   compress: true,
   experimental: {
     optimizePackageImports: ["lottie-web", "qrcode", "@zxing/browser"],
+    useTypeScriptCli: true,
   },
   async headers() {
     return [

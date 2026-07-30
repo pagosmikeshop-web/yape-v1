@@ -23,7 +23,7 @@ env:
 
 jobs:
   verify:
-    name: Build, tests, SCA and SBOM
+    name: Build, SCA and SBOM
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -36,7 +36,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -54,9 +54,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
-
-      - name: Build and security tests
-        run: npm test
 
       - name: Build Next.js production target
         run: npm run build

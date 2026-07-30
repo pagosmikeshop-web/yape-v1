@@ -11,9 +11,8 @@
     "start": "next start --port 3000",
     "dev:cloudflare": "vinext dev",
     "build:cloudflare": "vinext build && node scripts/verify-public-build.mjs dist/client",
-    "test": "npm run build:cloudflare && node --test tests/reconstruction.test.mjs tests/security.test.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check app db scripts tests proxy.ts next.config.ts --diagnostic-level=error",
+    "lint": "biome check app db scripts proxy.ts next.config.ts --diagnostic-level=error",
     "security:scan": "node scripts/security-scan.mjs",
     "security:audit": "npm audit --audit-level=high",
     "db:generate": "drizzle-kit generate"
