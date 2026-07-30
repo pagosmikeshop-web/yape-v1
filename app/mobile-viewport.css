@@ -669,7 +669,7 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .reference-home {
-    flex: 1 0 auto !important;
+    flex: 0 0 auto !important;
     width: 100% !important;
     height: auto !important;
     min-height: 100% !important;
@@ -686,10 +686,11 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .home-account-sheet {
-    flex: 1 0 auto !important;
+    flex: 1 1 auto !important;
     display: flex !important;
     flex-direction: column !important;
-    min-height: 0 !important;
+    min-height: max-content !important;
+    overflow: visible !important;
     margin: 0 !important;
     padding: 14px 0 12px !important;
     border-radius: 5vw 5vw 0 0 !important;

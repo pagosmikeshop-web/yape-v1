@@ -325,8 +325,8 @@ export function HomeView() {
             )}
           </div>
         </div>
+        <HomeMainActions />
       </section>
-      <HomeMainActions />
     </div>
   );
 }
