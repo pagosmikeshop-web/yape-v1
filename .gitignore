@@ -45,6 +45,11 @@ yarn-error.log*
 !.env.example
 .dev.vars
 
+# local-only workspace and tool metadata
+/.cursor/
+/.openai/
+/tests/
+
 # vercel
 .vercel
 
