@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- extracted APK assets must keep their exact native proportions */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   fetchStoredMovements,
   HISTORY_CLEARED_EVENT,
@@ -11,6 +11,7 @@ import {
   SimpleMovementList,
 } from "../BankApp";
 import { fetchAccountBalance } from "../../lib/balance-cache";
+import { settleIOSViewport } from "../../lib/ios-viewport";
 import { HomeBannerCarousel } from "./HomeBannerCarousel";
 import { AssetIcon, LottiePlayer } from "./primitives";
 import { MovementVoucher } from "./MovementVoucher";
@@ -146,6 +147,7 @@ function ServiceTile({
 }
 
 export function HomeView() {
+  const homeRootRef = useRef<HTMLDivElement>(null);
   const [showBalance, setShowBalance] = useState(false);
   const [showMovements, setShowMovements] = useState(false);
   const [accountBalance, setAccountBalance] = useState<number | null>(null);
@@ -160,6 +162,14 @@ export function HomeView() {
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(
     null,
   );
+
+  useLayoutEffect(() => {
+    const scrollContainer =
+      homeRootRef.current?.closest<HTMLElement>(".bank-scroll-area") ?? null;
+
+    return settleIOSViewport(scrollContainer);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void fetchAccountBalance().then((result) => {
@@ -208,7 +218,7 @@ export function HomeView() {
   ].slice(0, 5);
 
   return (
-    <div className="reference-home">
+    <div className="reference-home" ref={homeRootRef}>
       <section className="home-purple-zone">
         <header className="reference-home-header">
           <Link

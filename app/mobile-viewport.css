@@ -654,14 +654,13 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .bank-scroll-area {
+    display: flex !important;
+    flex-direction: column !important;
     flex: 1 1 auto !important;
-    height: auto !important;
+    height: 100% !important;
     min-height: 0 !important;
-    max-height: none !important;
-    padding: 0 0
-      calc(
-        var(--bottom-nav-height) + var(--app-safe-bottom) + 12px
-      ) !important;
+    max-height: 100% !important;
+    padding: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
@@ -670,6 +669,9 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .reference-home {
+    flex: 1 0 auto !important;
+    width: 100% !important;
+    height: auto !important;
     min-height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
@@ -684,10 +686,10 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .home-account-sheet {
-    flex: 1 1 auto !important;
+    flex: 1 0 auto !important;
     display: flex !important;
     flex-direction: column !important;
-    min-height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 14px 0 12px !important;
     border-radius: 5vw 5vw 0 0 !important;
@@ -696,28 +698,26 @@ canvas {
   }
 
   /*
-   * Este bloque es hermano del área desplazable, no forma parte de ella.
-   * Así las acciones permanecen estables aunque cambien el saldo, los
-   * movimientos o el desplazamiento del contenido de inicio.
+   * Las acciones participan del flujo de Inicio. Así la hoja blanca reserva su
+   * propio espacio desde el primer render y no depende de una capa fixed que
+   * iOS solo repinta después del primer gesto.
    */
   .mobile-bank-shell.view-home .home-main-actions {
-    position: fixed !important;
-    top: auto !important;
-    right: auto !important;
-    bottom: 0 !important;
-    left: 50% !important;
-    z-index: 40 !important;
+    position: relative !important;
+    inset: auto !important;
+    z-index: 10 !important;
+    flex: 0 0 auto !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
     gap: 12px !important;
     width: 100% !important;
-    max-width: 430px !important;
+    max-width: none !important;
     height: calc(var(--bottom-nav-height) + var(--app-safe-bottom)) !important;
     min-height: calc(
       var(--bottom-nav-height) + var(--app-safe-bottom)
     ) !important;
-    margin: 0 !important;
+    margin: auto 0 0 !important;
     padding-top: 12px !important;
     padding-right: max(
       var(--app-inline-gutter),
@@ -732,7 +732,7 @@ canvas {
     background: #ffffff !important;
     border: 0 !important;
     box-shadow: none !important;
-    transform: translateX(-50%) !important;
+    transform: none !important;
   }
 
   .mobile-bank-shell.view-home .home-main-actions::before,
@@ -861,7 +861,7 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .bank-scroll-area {
-    padding-bottom: calc(60px + var(--app-safe-bottom) + 12px) !important;
+    padding-bottom: 0 !important;
   }
 
   .mobile-bank-shell.view-transfer
