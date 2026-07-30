@@ -1257,18 +1257,18 @@ input:focus-visible {
 
 .voucher-logo-badge {
   position: absolute;
-  top: 36%;
-  left: 10%;
-  width: 60px;
-  height: 60px;
+  top: 34%;
+  left: 9%;
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
   overflow: hidden;
 }
 
 .voucher-logo-lottie {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
 }
 
 .voucher-logo-lottie svg { width: 100%; height: 100%; }

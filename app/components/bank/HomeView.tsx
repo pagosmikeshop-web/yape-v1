@@ -540,6 +540,7 @@ export function HomeView() {
           </div>
         </div>
       </section>
+      <HomeMainActions />
       {showAllServices ? (
         <AllServicesSheet
           closing={closingAllServices}

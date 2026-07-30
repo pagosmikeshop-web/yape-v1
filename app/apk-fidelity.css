@@ -356,10 +356,10 @@
 
 /* El comprobante histórico ofrece el mismo contenido, sin confeti y con el logo estático del MHTML. */
 .mobile-bank-shell .movement-voucher.yape-success-voucher .voucher-logo-badge {
-  top: 79px;
-  left: 34px;
-  width: 58px;
-  height: 56px;
+  top: clamp(72px, 19vw, 79px);
+  left: clamp(31px, 8vw, 34px);
+  width: clamp(52px, 13.8vw, 58px);
+  height: clamp(50px, 13.4vw, 56px);
   max-width: none;
   aspect-ratio: auto;
   overflow: visible;
@@ -2381,10 +2381,10 @@
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-logo-badge {
-  top: 79px;
-  left: 34px;
-  width: 58px;
-  height: 56px;
+  top: clamp(72px, 19vw, 79px);
+  left: clamp(31px, 8vw, 34px);
+  width: clamp(52px, 13.8vw, 58px);
+  height: clamp(50px, 13.4vw, 56px);
   max-width: none;
   aspect-ratio: auto;
 }
