@@ -14,7 +14,7 @@ const textExtensions = new Set([
   ".cjs", ".css", ".env", ".html", ".js", ".json", ".jsx", ".md", ".mjs",
   ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt", ".yaml", ".yml",
 ]);
-const skippedPrefixes = ["node_modules/", "dist/", ".next/", ".vinext/", ".wrangler/"];
+const skippedPrefixes = ["node_modules/", "dist/", ".next/"];
 const forbiddenNames = [
   /(^|\/)\.env(?:\..+)?$/u,
   /\.(?:bak|backup|old|orig|p12|pfx|jks|keystore|pem|key|zip)$/iu,

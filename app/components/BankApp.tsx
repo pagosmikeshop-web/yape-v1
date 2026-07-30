@@ -68,244 +68,6 @@ export const movements: Movement[] = [];
 export const MOVEMENT_HISTORY_CLEARED_KEY = "yape-movement-history-cleared";
 export const HISTORY_CLEARED_EVENT = "yape-history-cleared";
 
-const movementHistoryGroups: MovementHistoryGroup[] = [
-  {
-    month: "Julio 2026",
-    items: [
-      {
-        id: 101,
-        name: "Mariela Qui*",
-        detail: "*** *** 735",
-        date: "19 jul. 2026 - 09:23 p. m.",
-        displayDate: "19 jul. · 09:23 p. m.",
-        amount: -1,
-        amountLabel: "- S/ 1.00",
-        initials: "MQ",
-        color: "violet",
-      },
-      {
-        id: 102,
-        name: "Mariela Qui*",
-        detail: "*** *** 735",
-        date: "19 jul. 2026 - 09:17 p. m.",
-        displayDate: "19 jul. · 09:17 p. m.",
-        amount: -1,
-        amountLabel: "- S/ 1.00",
-        initials: "MQ",
-        color: "amber",
-      },
-      {
-        id: 103,
-        name: "Juan Per*",
-        detail: "*** *** 321",
-        date: "19 jul. 2026 - 09:17 p. m.",
-        displayDate: "19 jul. · 09:17 p. m.",
-        amount: -1,
-        amountLabel: "- S/ 1.00",
-        initials: "JP",
-        color: "blue",
-      },
-      {
-        id: 104,
-        name: "",
-        detail: "*** *** 430",
-        date: "19 jul. 2026 - 09:16 p. m.",
-        displayDate: "19 jul. · 09:16 p. m.",
-        amount: -11,
-        amountLabel: "- S/ 11.00",
-        initials: "--",
-        color: "green",
-      },
-      {
-        id: 105,
-        name: "Mariela Qui*",
-        detail: "*** *** 735",
-        date: "19 jul. 2026 - 04:01 a. m.",
-        displayDate: "19 jul. · 04:01 a. m.",
-        amount: -1,
-        amountLabel: "- S/ 1.00",
-        initials: "MQ",
-        color: "violet",
-      },
-      {
-        id: 106,
-        name: "Mariela Qui*",
-        detail: "*** *** 735",
-        date: "19 jul. 2026 - 04:01 a. m.",
-        displayDate: "19 jul. · 04:01 a. m.",
-        amount: -1,
-        amountLabel: "- S/ 1.00",
-        initials: "MQ",
-        color: "blue",
-      },
-      {
-        id: 107,
-        name: "mike salvador",
-        detail: "*** *** 574",
-        date: "19 jul. 2026 - 04:00 a. m.",
-        displayDate: "19 jul. · 04:00 a. m.",
-        amount: -1,
-        amountLabel: "- S/ 1.00",
-        initials: "MS",
-        color: "amber",
-      },
-      {
-        id: 108,
-        name: "Mariela Qui*",
-        detail: "*** *** 735",
-        date: "16 jul. 2026 - 11:17 a. m.",
-        displayDate: "16 jul. · 11:17 a. m.",
-        amount: 350,
-        amountLabel: "S/ 350.00",
-        initials: "MQ",
-        color: "green",
-      },
-      {
-        id: 109,
-        name: "Luis Alb*",
-        detail: "*** *** 967",
-        date: "16 jul. 2026 - 11:16 a. m.",
-        displayDate: "16 jul. · 11:16 a. m.",
-        amount: -10,
-        amountLabel: "- S/ 10.00",
-        initials: "LA",
-        color: "violet",
-      },
-      {
-        id: 110,
-        name: "Roberto Hua*",
-        detail: "*** *** 967",
-        date: "16 jul. 2026 - 11:16 a. m.",
-        displayDate: "16 jul. · 11:16 a. m.",
-        amount: -200,
-        amountLabel: "- S/ 200.00",
-        initials: "RH",
-        color: "blue",
-      },
-      {
-        id: 111,
-        name: "Diego Mam*",
-        detail: "*** *** 321",
-        date: "16 jul. 2026 - 11:16 a. m.",
-        displayDate: "16 jul. · 11:16 a. m.",
-        amount: -20,
-        amountLabel: "- S/ 20.00",
-        initials: "DM",
-        color: "amber",
-      },
-      {
-        id: 112,
-        name: "Adam Lop*",
-        detail: "*** *** 430",
-        date: "16 jul. 2026 - 11:13 a. m.",
-        displayDate: "16 jul. · 11:13 a. m.",
-        amount: -500,
-        amountLabel: "- S/ 500.00",
-        initials: "AL",
-        color: "green",
-      },
-      {
-        id: 113,
-        name: "Vanessa Qui*",
-        detail: "*** *** 735",
-        date: "16 jul. 2026 - 11:05 a. m.",
-        displayDate: "16 jul. · 11:05 a. m.",
-        amount: -100,
-        amountLabel: "- S/ 100.00",
-        initials: "VQ",
-        color: "violet",
-      },
-      {
-        id: 114,
-        name: "Vanessa Quispe",
-        detail: "*** *** 736",
-        date: "16 jul. 2026 - 11:04 a. m.",
-        displayDate: "16 jul. · 11:04 a. m.",
-        amount: -100,
-        amountLabel: "- S/ 100.00",
-        initials: "VQ",
-        color: "blue",
-      },
-      {
-        id: 115,
-        name: "Mariela Qui*",
-        detail: "*** *** 735",
-        date: "13 jul. 2026 - 09:50 p. m.",
-        displayDate: "13 jul. · 09:50 p. m.",
-        amount: -200,
-        amountLabel: "- S/ 200.00",
-        initials: "MQ",
-        color: "amber",
-      },
-      {
-        id: 116,
-        name: "Leydy San*",
-        detail: "*** *** 574",
-        date: "05 jul. 2026 - 10:26 p. m.",
-        displayDate: "05 jul. · 10:26 p. m.",
-        amount: -28,
-        amountLabel: "- S/ 28.00",
-        initials: "LS",
-        color: "green",
-      },
-      {
-        id: 117,
-        name: "Lemon - Caterine Ca*",
-        detail: "*** *** 693",
-        date: "05 jul. 2026 - 10:12 p. m.",
-        displayDate: "05 jul. · 10:12 p. m.",
-        amount: -20,
-        amountLabel: "- S/ 20.00",
-        initials: "LC",
-        color: "violet",
-      },
-    ],
-  },
-  {
-    month: "Junio 2026",
-    items: [
-      {
-        id: 118,
-        name: "Anderson Mor*",
-        detail: "*** *** 430",
-        date: "26 jun. 2026 - 12:46 p. m.",
-        displayDate: "26 jun. · 12:46 p. m.",
-        amount: -150,
-        amountLabel: "- S/ 150.00",
-        initials: "AM",
-        color: "blue",
-      },
-      {
-        id: 119,
-        name: "Leydy San*",
-        detail: "*** *** 574",
-        date: "08 jun. 2026 - 09:38 p. m.",
-        displayDate: "08 jun. · 09:38 p. m.",
-        amount: -18,
-        amountLabel: "- S/ 18.00",
-        initials: "LS",
-        color: "amber",
-      },
-    ],
-  },
-  {
-    month: "Mayo 2026",
-    items: [
-      {
-        id: 120,
-        name: "Leydy San*",
-        detail: "*** *** 574",
-        date: "30 may. 2026 - 07:38 p. m.",
-        displayDate: "30 may. · 07:38 p. m.",
-        amount: -10,
-        amountLabel: "- S/ 10.00",
-        initials: "LS",
-        color: "green",
-      },
-    ],
-  },
-];
-
 const movementColors: Movement["color"][] = [
   "violet",
   "amber",
@@ -364,20 +126,6 @@ function groupStoredMovements(items: MovementHistoryItem[]) {
   }));
 }
 
-function mergeMovementGroups(
-  primary: MovementHistoryGroup[],
-  legacy: MovementHistoryGroup[],
-) {
-  const groups = new Map<string, MovementHistoryItem[]>();
-  for (const group of [...primary, ...legacy]) {
-    groups.set(group.month, [
-      ...(groups.get(group.month) ?? []),
-      ...group.items,
-    ]);
-  }
-  return Array.from(groups, ([month, items]) => ({ month, items }));
-}
-
 export async function fetchStoredMovements() {
   const response = await fetch("/api/account/movements", { cache: "no-store" });
   const data = (await response.json()) as {
@@ -398,8 +146,6 @@ export async function fetchStoredMovements() {
 const viewTitles: Partial<Record<BankView, string>> = {
   movements: "Movimientos",
   transfer: "Yapear",
-  services: "Yapear Servicios",
-  recharge: "Recargar celular",
   qr: "Guardar QR",
   "personal-qr": "Mi QR personal",
   profile: "Mi perfil",
@@ -410,16 +156,11 @@ const viewTitles: Partial<Record<BankView, string>> = {
   "high-amount": "Confirmación de yapeo alto",
   limits: "Límites transaccionales",
   "transfer-alerts": "Notificaciones por yapeo",
-  "purchase-approval": "Aprobar compras",
   help: "Centro de ayuda",
-  dollars: "Dólares",
-  insurance: "SOAT",
   biometric: "Biometría digital",
-  credits: "Créditos",
   addresses: "Mis direcciones",
   "online-purchases": "Compras por internet",
   scanner: "Escanear QR",
-  "transport-recharge": "Recargar Transportes",
 };
 
 async function shareContent(
@@ -552,11 +293,6 @@ function MovementsView() {
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(
     null,
   );
-  const [historyCleared, setHistoryCleared] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.localStorage.getItem(MOVEMENT_HISTORY_CLEARED_KEY) === "1",
-  );
   const [storedMovements, setStoredMovements] = useState<MovementHistoryItem[]>(
     [],
   );
@@ -567,7 +303,6 @@ function MovementsView() {
       void fetchStoredMovements()
         .then((result) => {
           if (cancelled) return;
-          setHistoryCleared(result.historyCleared);
           setStoredMovements(result.movements);
           window.localStorage.setItem(
             MOVEMENT_HISTORY_CLEARED_KEY,
@@ -624,118 +359,6 @@ function MovementsView() {
           onSelect={setSelectedMovement}
         />
       )}
-    </div>
-  );
-}
-
-function ServicesView() {
-  const recommended = [
-    ["Claro", "ic_claro_circle"],
-    ["Bitel", "ic_bitel_circle"],
-    ["Movistar", "ic_movistar_circle"],
-    ["Cálidda", "ic_duotone_gas"],
-  ] as const;
-
-  return (
-    <div className="reference-services-view">
-      <section className="services-purple-hero">
-        <InnerHeader title="Yapear Servicios" compact />
-        <label className="services-search">
-          <AssetIcon name="ic_search_companies_on_primary" />
-          <input
-            aria-label="Buscar una empresa"
-            placeholder="Busca una empresa"
-          />
-        </label>
-        <div className="services-chips" aria-label="Categorías">
-          {["Luz", "Agua", "Transportes", "Telefonía e Internet"].map(
-            (label) => (
-              <button type="button" key={label}>
-                {label}
-              </button>
-            ),
-          )}
-        </div>
-      </section>
-      <section className="services-reference-sheet">
-        <article className="services-promo-note">
-          <small>Nuevo</small>
-          <p>
-            ¡Gana hasta S/10,000! Yapea 1 servicio extra y aumenta tus chances.
-          </p>
-        </article>
-        <h2>Te recomendamos yapear</h2>
-        <div className="recommended-services">
-          {recommended.map(([label, icon]) => (
-            <button type="button" key={label}>
-              <span className="service-icon">
-                <AssetIcon name={icon} />
-              </span>
-              <strong>{label}</strong>
-            </button>
-          ))}
-        </div>
-        <h2>
-          Tus servicios recientes <AssetIcon name="ic_info_solid_yape" />
-        </h2>
-        <div className="recent-services-list">
-          <button type="button">
-            <span className="recent-service-logo">
-              <AssetIcon name="ic_entel_circle" />
-            </span>
-            <span>
-              <strong>Entel</strong>
-              <small>Servicio: Pago con número</small>
-              <small>Teléfono: *** *** 000</small>
-            </span>
-            <AssetIcon name="ic_arrow_right_r_yape" />
-          </button>
-          <button type="button">
-            <span className="recent-service-logo">
-              <AssetIcon name="ic_document_outline_yape" />
-            </span>
-            <span>
-              <strong>Servicio registrado</strong>
-              <small>Servicio: Cuenta genérica</small>
-              <small>Documento: ********</small>
-            </span>
-            <AssetIcon name="ic_arrow_right_r_yape" />
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function RechargeView() {
-  return (
-    <div className="reference-recharge-view">
-      <section className="recharge-purple-hero">
-        <InnerHeader title="Recargar celular" compact />
-        <p>
-          Recarga saldo a cualquier línea de celular para estar siempre
-          conectados.
-        </p>
-        <div className="recharge-person-cards">
-          <button type="button">
-            <AssetIcon name="ic_smartphone_outline_yape" />
-            <strong>Mi número</strong>
-            <small>*** *** 000</small>
-          </button>
-          <button type="button">
-            <AssetIcon name="ic_person_outline_yape" />
-            <strong>Otra persona</strong>
-            <small>Contacto nuevo</small>
-          </button>
-        </div>
-      </section>
-      <section className="recharge-reference-sheet">
-        <h2>Últimos contactos recargados</h2>
-        <div className="recharge-empty-state">
-          <AssetIllustration name="sp_contact_list" />
-          <p>Aquí verás tus contactos recargados en los últimos 30 días.</p>
-        </div>
-      </section>
     </div>
   );
 }
@@ -1237,7 +860,7 @@ function QrView() {
         >
           <div className="qrc-modal">
             <span className="qrc-modal-icon">
-              <AssetIcon name="ic_qrcode_r_yape_on_primary" />
+              <AssetIcon name="ic_qrcode_r_yape_primary" />
             </span>
             <p className="qrc-modal-msg">{modalMessage}</p>
             <button
@@ -3372,32 +2995,6 @@ function LimitsView() {
   );
 }
 
-function PurchaseApprovalView() {
-  return (
-    <div className="purchase-approval-page">
-      <section className="approval-purple-hero">
-        <InnerHeader title="Aprobar compras" compact />
-        <div>
-          <p>Haz tus compras por internet de forma más clara y segura.</p>
-          <AssetIcon name="ic_shopping_cart_outline_yape_on_primary" />
-        </div>
-      </section>
-      <section className="approval-sheet">
-        <h2>Solicitudes por aprobar</h2>
-        <p>Ingresa a la solicitud pendiente para aprobarla.</p>
-        <div className="empty-approval">
-          <AssetIcon name="ic_info_outline_yape_primary" />
-          No tienes solicitudes en este momento
-        </div>
-        <div className="fraud-warning">
-          <AssetIcon name="ic_shield_check_r_yape" />
-          <strong>Nunca compartas claves ni códigos reales.</strong>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function HelpView() {
   const [notice, setNotice] = useState("");
   const [helpMovements, setHelpMovements] = useState<Movement[]>([]);
@@ -3476,87 +3073,6 @@ function HelpView() {
           </p>
         ) : null}
       </section>
-    </div>
-  );
-}
-
-function DollarsView() {
-  return (
-    <div className="reference-dollars-view">
-      <Link className="full-purple-close" href="/inicio" aria-label="Cerrar">
-        <AssetIcon name="ic_close_yape_on_primary" />
-      </Link>
-      <AssetIllustration
-        name="ic_exchange_dollars_onboarding"
-        className="dollars-illustration"
-      />
-      <h1>Cambiar dólares con Yape es muy fácil</h1>
-      <section className="dollar-benefits">
-        <article>
-          <AssetIcon name="ic_world_r_yape_on_primary" />
-          <span>
-            <strong>Dólares al toque</strong>
-            <small>Cambia tus soles a dólares al instante y 100% seguro.</small>
-          </span>
-        </article>
-        <article>
-          <AssetIcon name="ic_shield_outline_yape_on_primary" />
-          <span>
-            <strong>100% confiable</strong>
-            <small>
-              Como una casa de cambio superconfiable que atiende 24/7.
-            </small>
-          </span>
-        </article>
-      </section>
-      <div className="dollar-actions">
-        <button type="button">Continuar</button>
-        <Link href="/ayuda">Conoce más sobre cambiar dólares</Link>
-      </div>
-    </div>
-  );
-}
-
-function InsuranceView() {
-  const [quoted, setQuoted] = useState(false);
-
-  function quote(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setQuoted(true);
-  }
-
-  return (
-    <div className="reference-insurance-view">
-      <section className="insurance-purple-hero">
-        <InnerHeader title="" compact />
-        <AssetIcon
-          name="ic_headphone_outline_yape_on_primary"
-          className="insurance-help-icon"
-        />
-        <h1>
-          ¡Ten tu SOAT hoy mismo!
-          <br />
-          desde S/ 47.00
-        </h1>
-        <p>Precios incluyen IGV</p>
-        <form onSubmit={quote} className="insurance-quote-card">
-          <h2>Cotízalo sin compromiso</h2>
-          <label>
-            <span>Nro. de placa</span>
-            <input aria-label="Número de placa" required />
-          </label>
-          <button type="submit">Cotizar</button>
-          <small>
-            Con el respaldo de <AssetIcon name="ic_logo_pacifico" />
-          </small>
-        </form>
-      </section>
-      {quoted ? (
-        <p className="insurance-result" role="status">
-          <AssetIcon name="ic_shield_check_r_yape" />
-          Cotización lista.
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -3660,49 +3176,6 @@ function BiometricView() {
               : "Activar biometría digital"}
         </button>
       </div>
-    </div>
-  );
-}
-
-function CreditsView() {
-  const [notice, setNotice] = useState("");
-
-  return (
-    <div className="reference-credits-view">
-      <section className="credits-purple-hero">
-        <InnerHeader title="Créditos Yape" compact />
-        <h1>Impulsa tu Historial Crediticio</h1>
-        <p>
-          Miles de yaperos ya construyen su futuro financiero con Yape. ¡Empieza
-          hoy!
-        </p>
-      </section>
-      <section className="credits-reference-sheet">
-        <h2>
-          Tenemos esto para ti <small>Por tiempo limitado</small>
-        </h2>
-        <h2>Resuelve tus dudas</h2>
-        {[
-          "¿Qué es un crédito?",
-          "¿Qué necesito para solicitar un crédito?",
-          "¿Cómo pago mi crédito Yape?",
-        ].map((question) => (
-          <button
-            className="credit-question"
-            type="button"
-            key={question}
-            onClick={() => setNotice(question)}
-          >
-            <span>{question}</span>
-            <AssetIcon name="ic_arrow_right_r_yape" />
-          </button>
-        ))}
-        {notice ? (
-          <p className="inline-notice" role="status">
-            {notice}
-          </p>
-        ) : null}
-      </section>
     </div>
   );
 }
@@ -3968,69 +3441,6 @@ function ScannerView() {
   );
 }
 
-function TransportRechargeView() {
-  const [cardNumber, setCardNumber] = useState("");
-
-  return (
-    <div className="reference-transport-view">
-      <InnerHeader title="Buscar recibos de" />
-      <div className="inner-content">
-        <div className="transport-provider-heading">
-          <span className="transport-provider-logo">
-            <AssetIcon name="ic_duotone_bus" />
-          </span>
-          <strong>Metropolitano y Corredores</strong>
-          <small>Recarga de Tarjetas</small>
-        </div>
-        <label className="transport-card-number-field">
-          <span>Ingresar Número de Tarjeta</span>
-          <input
-            inputMode="numeric"
-            value={cardNumber}
-            onChange={(event) =>
-              setCardNumber(event.target.value.replace(/\D/g, "").slice(0, 16))
-            }
-            placeholder="0000 0000 0000 0000"
-          />
-        </label>
-        <div className="transport-info-card">
-          <AssetIcon name="ic_info_solid_yape" />
-          <div>
-            <p>
-              El número se encuentra en la parte inferior de la tarjeta.
-              <br />
-              Puedes recargar de 00:00 a 20:45 (mínimo S/1).
-              <br />
-              ¡Recuerda! Debes esperar 15 min. y activar tu recarga para usar tu
-              saldo:
-            </p>
-            <ul>
-              <li>
-                <strong>Metropolitano:</strong> Activa tu saldo acercando tu
-                tarjeta al tótem.
-              </li>
-              <li>
-                <strong>Corredores:</strong> Acerca tu tarjeta al validador y
-                espera que figure tu nuevo saldo.
-              </li>
-            </ul>
-          </div>
-        </div>
-        <button type="button" className="transport-example-link" disabled>
-          ¿No ubicas tu Número de Tarjeta? Ver ejemplo
-        </button>
-        <button
-          className="transfer-primary-button transfer-full-width-button"
-          type="button"
-          disabled={cardNumber.length < 6}
-        >
-          Continuar
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function isLocalEditMode() {
   if (
     process.env.NODE_ENV === "production" ||
@@ -4100,8 +3510,6 @@ export function BankApp({ view }: { view: BankView }) {
           {view === "home" ? <HomeView /> : null}
           {view === "movements" ? <MovementsView /> : null}
           {view === "transfer" ? <TransferView /> : null}
-          {view === "services" ? <ServicesView /> : null}
-          {view === "recharge" ? <RechargeView /> : null}
           {view === "qr" ? <QrView /> : null}
           {view === "personal-qr" ? <PersonalQrView /> : null}
           {view === "profile" ? <ProfileView /> : null}
@@ -4112,16 +3520,11 @@ export function BankApp({ view }: { view: BankView }) {
           {view === "high-amount" ? <HighAmountView /> : null}
           {view === "limits" ? <LimitsView /> : null}
           {view === "transfer-alerts" ? <TransferAlertsView /> : null}
-          {view === "purchase-approval" ? <PurchaseApprovalView /> : null}
           {view === "help" ? <HelpView /> : null}
-          {view === "dollars" ? <DollarsView /> : null}
-          {view === "insurance" ? <InsuranceView /> : null}
           {view === "biometric" ? <BiometricView /> : null}
-          {view === "credits" ? <CreditsView /> : null}
           {view === "addresses" ? <AddressesView /> : null}
           {view === "online-purchases" ? <OnlinePurchasesView /> : null}
           {view === "scanner" ? <ScannerView /> : null}
-          {view === "transport-recharge" ? <TransportRechargeView /> : null}
         </div>
       </section>
     </main>

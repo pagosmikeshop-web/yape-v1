@@ -2,14 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- extracted APK assets must keep their exact native proportions */
 
 import Link from "next/link";
-import {
-  CSSProperties,
-  PointerEvent as ReactPointerEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 import {
   fetchStoredMovements,
   HISTORY_CLEARED_EVENT,
@@ -17,16 +10,11 @@ import {
   movements,
   SimpleMovementList,
 } from "../BankApp";
-import { useModalLayer } from "../../hooks/useModalLayer";
 import { fetchAccountBalance } from "../../lib/balance-cache";
 import { HomeBannerCarousel } from "./HomeBannerCarousel";
 import { AssetIcon, LottiePlayer } from "./primitives";
 import { MovementVoucher } from "./MovementVoucher";
-import type {
-  Movement,
-  MovementHistoryItem,
-  ServiceItem,
-} from "./types";
+import type { Movement, MovementHistoryItem, ServiceItem } from "./types";
 
 const VIAJAR_BUS_ICON = "/assets/captured/all-services/viajar-bus.jpg";
 
@@ -81,86 +69,6 @@ const serviceItems: ServiceItem[] = [
     iconSrc: "/assets/icons/ver-todo.svg",
     fullTile: true,
     frameless: true,
-  },
-];
-
-const allServicesSections: Array<{ title: string; items: ServiceItem[] }> = [
-  {
-    title: "Yapeos",
-    items: [
-      {
-        label: "Recargar celular",
-        iconSrc: "/assets/icons/recargar-celular.svg",
-        href: "/recargar",
-      },
-      {
-        label: "Yapear servicios",
-        iconSrc: "/assets/icons/yapear-servicios.svg",
-        href: "/servicios",
-      },
-      {
-        label: "Código de aprobación",
-        iconSrc: "/assets/icons/aprobar-compras.svg",
-        href: "/aprobar-compras",
-      },
-      {
-        label: "Giro/retiro de efectivo",
-        iconSrc: "/assets/captured/all-services/giro-retiro.jpg",
-      },
-      {
-        label: "Dólares",
-        iconSrc: "/assets/icons/dolares.svg",
-      },
-    ],
-  },
-  {
-    title: "Finanzas",
-    items: [
-      {
-        label: "Créditos",
-        iconSrc: "/assets/captured/all-services/credito.svg",
-        href: "/creditos",
-      },
-      {
-        label: "Seguros",
-        iconSrc: "/assets/captured/all-services/seguros.svg",
-      },
-      {
-        label: "SOAT",
-        iconSrc: "/assets/icons/soat.svg",
-        href: "/seguro-vehicular",
-      },
-      { label: "Remesas", iconSrc: "/assets/icons/remesas.svg" },
-      {
-        label: "Aprende con Yape",
-        iconSrc: "/assets/captured/all-services/aprende-yape.svg",
-      },
-    ],
-  },
-  {
-    title: "Compras",
-    items: [
-      {
-        label: "Viajar en bus",
-        iconSrc: VIAJAR_BUS_ICON,
-        href: "/recargar-transportes",
-      },
-      { label: "Tienda", iconSrc: "/assets/icons/tienda.svg" },
-      {
-        label: "Entradas",
-        iconSrc: "/assets/captured/all-services/entradas.jpg",
-      },
-      { label: "Gaming", iconSrc: "/assets/captured/all-services/gaming.jpg" },
-      { label: "Promos", iconSrc: "/assets/icons/promos.svg" },
-      {
-        label: "Delivery",
-        iconSrc: "/assets/captured/all-services/delivery.jpg",
-      },
-      {
-        label: "Pedir gas",
-        iconSrc: "/assets/captured/all-services/pedir-gas.jpg",
-      },
-    ],
   },
 ];
 
@@ -237,103 +145,6 @@ function ServiceTile({
   );
 }
 
-function AllServicesSheet({
-  closing,
-  onClose,
-}: {
-  closing: boolean;
-  onClose: () => void;
-}) {
-  const dragStartY = useRef<number | null>(null);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const dialogRef = useModalLayer<HTMLElement>(true, onClose);
-
-  function finishDrag(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (event.currentTarget.hasPointerCapture(event.pointerId))
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    const shouldClose = dragOffset > 70;
-    dragStartY.current = null;
-    setDragging(false);
-    setDragOffset(0);
-    if (shouldClose) onClose();
-  }
-
-  function itemContent(item: ServiceItem) {
-    return (
-      <>
-        <span className="all-services-item-icon" aria-hidden="true">
-          {item.iconLottie ? (
-            <LottiePlayer name={item.iconLottie} />
-          ) : (
-            <img src={item.iconSrc} alt="" />
-          )}
-        </span>
-        <strong>{item.label}</strong>
-      </>
-    );
-  }
-
-  return (
-    <section
-      ref={dialogRef}
-      className={`all-services-sheet${closing ? " is-closing" : ""}${dragging ? " is-dragging" : ""}`}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Todos los servicios"
-      tabIndex={-1}
-      style={{ "--all-services-drag": `${dragOffset}px` } as CSSProperties}
-    >
-      <button
-        className="all-services-drag-handle"
-        type="button"
-        aria-label="Deslizar para cerrar todos los servicios"
-        onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId);
-          dragStartY.current = event.clientY;
-          setDragging(true);
-        }}
-        onPointerMove={(event) => {
-          if (dragStartY.current === null) return;
-          setDragOffset(Math.max(0, event.clientY - dragStartY.current));
-        }}
-        onPointerUp={finishDrag}
-        onPointerCancel={finishDrag}
-      >
-        <span />
-      </button>
-      <div className="all-services-content">
-        {allServicesSections.map((section) => (
-          <section className="all-services-section" key={section.title}>
-            <h2>{section.title}</h2>
-            <div className="all-services-grid">
-              {section.items.map((item) =>
-                item.href && !DISABLED_SERVICE_HREFS.has(item.href) ? (
-                  <Link
-                    className="all-services-item"
-                    href={item.href}
-                    key={item.label}
-                  >
-                    {itemContent(item)}
-                  </Link>
-                ) : (
-                  <button
-                    className="all-services-item"
-                    type="button"
-                    key={item.label}
-                  >
-                    {itemContent(item)}
-                  </button>
-                ),
-              )}
-            </div>
-          </section>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export function HomeView() {
   const [showBalance, setShowBalance] = useState(false);
   const [showMovements, setShowMovements] = useState(false);
@@ -349,20 +160,6 @@ export function HomeView() {
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(
     null,
   );
-  const [showAllServices, setShowAllServices] = useState(false);
-  const [closingAllServices, setClosingAllServices] = useState(false);
-  const allServicesCloseTimer = useRef<number | null>(null);
-
-  const closeAllServices = useCallback(() => {
-    if (closingAllServices) return;
-    setClosingAllServices(true);
-    allServicesCloseTimer.current = window.setTimeout(() => {
-      setShowAllServices(false);
-      setClosingAllServices(false);
-      allServicesCloseTimer.current = null;
-    }, 650);
-  }, [closingAllServices]);
-
   useEffect(() => {
     let cancelled = false;
     void fetchAccountBalance().then((result) => {
@@ -395,33 +192,6 @@ export function HomeView() {
       window.removeEventListener(HISTORY_CLEARED_EVENT, refreshMovements);
     };
   }, []);
-
-  useEffect(() => {
-    if (!showAllServices) return;
-    const scrollArea = document.querySelector(
-      ".mobile-bank-shell.view-home .bank-scroll-area",
-    ) as HTMLElement | null;
-    const previousScrollTop = scrollArea?.scrollTop ?? 0;
-    if (scrollArea) scrollArea.scrollTop = 0;
-    return () => {
-      if (scrollArea) scrollArea.scrollTop = previousScrollTop;
-    };
-  }, [showAllServices]);
-
-  useEffect(
-    () => () => {
-      if (allServicesCloseTimer.current !== null)
-        window.clearTimeout(allServicesCloseTimer.current);
-    },
-    [],
-  );
-
-  function openAllServices() {
-    if (allServicesCloseTimer.current !== null)
-      window.clearTimeout(allServicesCloseTimer.current);
-    setClosingAllServices(false);
-    setShowAllServices(true);
-  }
 
   if (selectedMovement) {
     return (
@@ -547,12 +317,6 @@ export function HomeView() {
         </div>
       </section>
       <HomeMainActions />
-      {showAllServices ? (
-        <AllServicesSheet
-          closing={closingAllServices}
-          onClose={closeAllServices}
-        />
-      ) : null}
     </div>
   );
 }

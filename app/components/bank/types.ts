@@ -2,8 +2,6 @@ export type BankView =
   | "home"
   | "movements"
   | "transfer"
-  | "services"
-  | "recharge"
   | "qr"
   | "personal-qr"
   | "profile"
@@ -14,16 +12,11 @@ export type BankView =
   | "high-amount"
   | "limits"
   | "transfer-alerts"
-  | "purchase-approval"
   | "help"
-  | "dollars"
-  | "insurance"
   | "biometric"
-  | "credits"
   | "addresses"
   | "online-purchases"
-  | "scanner"
-  | "transport-recharge";
+  | "scanner";
 
 export type Movement = {
   id: number | string;

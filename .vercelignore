@@ -5,8 +5,6 @@
 .git
 .github
 .tmp
-.vinext
-.wrangler
 dist
 examples
 node_modules

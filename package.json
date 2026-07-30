@@ -9,8 +9,6 @@
     "dev": "next dev --port 3000",
     "build": "next build && node scripts/verify-public-build.mjs .next/static",
     "start": "next start --port 3000",
-    "dev:cloudflare": "vinext dev",
-    "build:cloudflare": "vinext build && node scripts/verify-public-build.mjs dist/client",
     "typecheck": "tsc --noEmit",
     "lint": "biome check app db scripts proxy.ts next.config.ts --diagnostic-level=error",
     "security:scan": "node scripts/security-scan.mjs",
@@ -33,21 +31,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
-    "@cloudflare/vite-plugin": "1.47.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.19.19",
     "@types/qrcode": "^1.5.6",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.4",
-    "@vitejs/plugin-rsc": "0.5.26",
     "drizzle-kit": "0.31.10",
-    "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.3.3",
-    "typescript": "5.9.3",
-    "vinext": "0.2.1",
-    "vite": "8.1.5",
-    "wrangler": "4.113.0"
+    "typescript": "5.9.3"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {
