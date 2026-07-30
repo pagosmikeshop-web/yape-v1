@@ -358,8 +358,8 @@
 .mobile-bank-shell .movement-voucher.yape-success-voucher .voucher-logo-badge {
   top: 79px;
   left: 34px;
-  width: 76px;
-  height: 73px;
+  width: 58px;
+  height: 56px;
   max-width: none;
   aspect-ratio: auto;
   overflow: visible;
@@ -2383,8 +2383,8 @@
 .mobile-bank-shell .yape-success-voucher .voucher-logo-badge {
   top: 79px;
   left: 34px;
-  width: 76px;
-  height: 73px;
+  width: 58px;
+  height: 56px;
   max-width: none;
   aspect-ratio: auto;
 }
