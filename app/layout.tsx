@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import type { CSSProperties } from "react";
 import { AppInstallGate } from "./components/AppInstallGate";
 import { MobileViewportSync } from "./components/MobileViewportSync";
+import { PwaRuntime } from "./components/PwaRuntime";
+import { getRouteThemeColor } from "./lib/route-theme";
 import "./globals.css";
 import "./bank.css";
 import "./apk-fidelity.css";
@@ -42,13 +45,18 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: "#7a2185",
-  interactiveWidget: "resizes-content",
-};
+export async function generateViewport(): Promise<Viewport> {
+  const requestHeaders = await headers();
+  const pathname = requestHeaders.get("x-pathname") ?? "/";
+
+  return {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+    themeColor: getRouteThemeColor(pathname),
+    interactiveWidget: "resizes-content",
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -57,11 +65,20 @@ export default async function RootLayout({
 }>) {
   // El nonce de la CSP se genera por solicitud. Leer los encabezados obliga a
   // Next.js a renderizar dinámicamente y a propagar ese nonce a sus scripts.
-  await headers();
+  const requestHeaders = await headers();
+  const themeColor = getRouteThemeColor(
+    requestHeaders.get("x-pathname") ?? "/",
+  );
+  const routeThemeStyle = {
+    "--app-route-bg": themeColor,
+    backgroundColor: themeColor,
+  } as CSSProperties;
+
   return (
-    <html lang="es">
-      <body suppressHydrationWarning>
+    <html lang="es" style={routeThemeStyle}>
+      <body suppressHydrationWarning style={routeThemeStyle}>
         <MobileViewportSync />
+        <PwaRuntime />
         <AppInstallGate>{children}</AppInstallGate>
       </body>
     </html>

@@ -324,34 +324,94 @@ test("la compilación incluye las rutas nuevas de pagos y clientes", async () =>
 });
 
 test("la PWA ofrece instalación directa y una altura adaptable con zonas seguras", async () => {
-  const [manifestText, installGate, layout, mobileViewport, viewportSync] = await Promise.all([
+  const [
+    manifestText,
+    installGate,
+    pwaRuntime,
+    pwaClient,
+    layout,
+    mobileViewport,
+    viewportSync,
+    routeTheme,
+  ] = await Promise.all([
     source("public/manifest.webmanifest"),
     source("app/components/AppInstallGate.tsx"),
+    source("app/components/PwaRuntime.tsx"),
+    source("app/lib/pwa-client.ts"),
     source("app/layout.tsx"),
     source("app/mobile-viewport.css"),
     source("app/components/MobileViewportSync.tsx"),
+    source("app/lib/route-theme.ts"),
   ]);
   const manifest = JSON.parse(manifestText);
 
   assert.equal(manifest.display, "standalone");
-  assert.equal(manifest.start_url, "/?source=pwa");
+  assert.deepEqual(manifest.display_override, ["standalone"]);
+  assert.equal(manifest.start_url, "/");
+  assert.equal(manifest.scope, "/");
   assert.equal(manifest.prefer_related_applications, false);
+  assert.doesNotMatch(manifestText, /minimal-ui/u);
   assert.ok(manifest.icons.some((icon) => icon.sizes === "192x192" && icon.type === "image/png"));
   assert.ok(manifest.icons.some((icon) => icon.sizes === "512x512" && icon.type === "image/png"));
   assert.ok(manifest.icons.some((icon) => icon.purpose === "maskable"));
   assert.match(installGate, /beforeinstallprompt/u);
   assert.match(installGate, /appinstalled/u);
-  assert.match(installGate, />Instalar app</u);
-  assert.match(installGate, /installed && isMobileDevice/u);
+  assert.match(installGate, /Cómo instalar/u);
+  assert.match(installGate, /\{children\}/u);
+  assert.match(installGate, /pathname !== "\/"/u);
+  assert.doesNotMatch(installGate, /Descarga la app para continuar/u);
+  assert.doesNotMatch(installGate, /isNativeShell/u);
+  assert.match(installGate, /environment\.isSafari/u);
+  assert.doesNotMatch(installGate, /serviceWorker\.register/u);
+  assert.match(pwaClient, /display-mode: standalone/u);
+  assert.match(pwaClient, /display-mode: fullscreen/u);
+  assert.doesNotMatch(pwaClient, /minimal-ui/u);
+  assert.doesNotMatch(pwaClient, /capacitor:|ionic:/u);
+  assert.match(pwaRuntime, /serviceWorker[\s\S]*register\("\/sw\.js"/u);
+  assert.match(
+    pwaRuntime,
+    /waitingWorker\.postMessage\(\{ type: "SKIP_WAITING" \}\)/u,
+  );
+  assert.match(pwaRuntime, /Nueva versión disponible/u);
+  assert.match(pwaRuntime, /window\.addEventListener\("offline"/u);
+  assert.match(pwaRuntime, /window\.addEventListener\("online"/u);
+  assert.match(pwaRuntime, /Conexión restablecida/u);
+  assert.match(pwaRuntime, /visibilitychange/u);
   assert.doesNotMatch(installGate, /BROWSER_ROUTES/u);
   assert.match(layout, /\.\/mobile-viewport\.css/u);
   assert.match(layout, /<MobileViewportSync\s*\/>/u);
+  assert.match(layout, /<PwaRuntime\s*\/>/u);
+  assert.match(layout, /interactiveWidget:\s*"resizes-content"/u);
+  assert.match(layout, /viewportFit:\s*"cover"/u);
+  assert.match(layout, /generateViewport/u);
+  assert.doesNotMatch(layout, /maximumScale|userScalable/u);
+  assert.match(routeTheme, /getRouteThemeColor/u);
   assert.doesNotMatch(installGate, /--app-viewport-height/u);
   assert.match(viewportSync, /viewport\?\.height\s*\?\?/u);
   assert.doesNotMatch(viewportSync, /Math\.max\([\s\S]*visualHeight/u);
-  assert.match(mobileViewport, /--app-viewport-height:\s*100dvh/u);
+  assert.match(viewportSync, /viewport\?\.offsetTop/u);
+  assert.match(viewportSync, /viewport\?\.offsetLeft/u);
+  assert.doesNotMatch(viewportSync, /stableHeight/u);
+  assert.match(mobileViewport, /--app-height:\s*100dvh/u);
+  assert.match(mobileViewport, /--app-viewport-height:\s*var\(--app-height\)/u);
+  assert.match(mobileViewport, /--app-viewport-offset-top:\s*0px/u);
+  assert.match(viewportSync, /--keyboard-height/u);
+  assert.doesNotMatch(mobileViewport, /padding-bottom:\s*calc\(var\(--keyboard-height/u);
   assert.match(mobileViewport, /safe-area-inset-top/u);
   assert.match(mobileViewport, /safe-area-inset-bottom/u);
+  assert.match(mobileViewport, /--bottom-nav-height:\s*68px/u);
+  assert.match(
+    mobileViewport,
+    /\.banking-stage\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?--app-viewport-offset-top/u,
+  );
+  assert.match(
+    mobileViewport,
+    /\.view-home\s+\.home-main-actions\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?bottom:\s*0\s*!important/u,
+  );
+  assert.match(
+    mobileViewport,
+    /\.view-home\s+\.bank-scroll-area\s*\{[\s\S]*?--bottom-nav-height/u,
+  );
   assert.match(mobileViewport, /body:has\(\.returning-login\)[\s\S]*overflow:\s*hidden/u);
   assert.match(mobileViewport, /\.returning-keypad-card[\s\S]*overflow-y:\s*auto/u);
 
@@ -359,10 +419,33 @@ test("la PWA ofrece instalación directa y una altura adaptable con zonas segura
     assertFile("public/icons/yape-192.png"),
     assertFile("public/icons/yape-512.png"),
     assertFile("public/icons/yape-maskable-512.png"),
+    assertFile("public/offline.html"),
+    assertFile("app/hooks/useModalLayer.ts"),
   ]);
 });
 
-test("HomeMainActions vive en HomeView y no se monta en el voucher histórico", async () => {
+test("los overlays móviles contienen el foco y respetan Escape y el botón Atrás", async () => {
+  const [modalHook, homeView, transferView, bankApp] = await Promise.all([
+    source("app/hooks/useModalLayer.ts"),
+    source("app/components/bank/HomeView.tsx"),
+    source("app/components/bank/TransferView.tsx"),
+    source("app/components/BankApp.tsx"),
+  ]);
+
+  assert.match(modalHook, /FOCUSABLE_SELECTOR/u);
+  assert.match(modalHook, /window\.history\.pushState/u);
+  assert.match(modalHook, /window\.addEventListener\("popstate"/u);
+  assert.match(modalHook, /event\.key === "Escape"/u);
+  assert.match(modalHook, /event\.key !== "Tab"/u);
+  assert.match(modalHook, /previouslyFocused\?\.focus/u);
+  assert.match(homeView, /useModalLayer<HTMLElement>/u);
+  assert.match(transferView, /confirmDialogRef/u);
+  assert.match(transferView, /insufficientDialogRef/u);
+  assert.match(bankApp, /savedQrDialogRef/u);
+  assert.match(bankApp, /clearHistoryDialogRef/u);
+});
+
+test("HomeMainActions queda fuera del scroll y no se monta en el voucher histórico", async () => {
   const [bankApp, homeView, movementVoucher, balanceCache, sessionCache] = await Promise.all([
     source("app/components/BankApp.tsx"),
     source("app/components/bank/HomeView.tsx"),
@@ -371,16 +454,41 @@ test("HomeMainActions vive en HomeView y no se monta en el voucher histórico", 
     source("app/lib/session-cache.ts"),
   ]);
 
-  assert.match(homeView, /function HomeMainActions\(/u);
-  assert.match(homeView, /<HomeMainActions\s*\/>/u);
+  assert.match(homeView, /export function HomeMainActions\(/u);
+  assert.doesNotMatch(homeView, /<HomeMainActions\s*\/>/u);
   assert.match(homeView, /export function HomeView\(/u);
-  assert.doesNotMatch(bankApp, /view === "home"\s*\?\s*<HomeMainActions/u);
+  assert.match(bankApp, /import\s*\{\s*HomeMainActions,\s*HomeView\s*\}/u);
+  assert.match(
+    bankApp,
+    /<\/div>\s*\{view === "home"\s*\?\s*<HomeMainActions\s*\/>\s*:\s*null\}/u,
+  );
   assert.doesNotMatch(movementVoucher, /HomeMainActions/u);
   assert.doesNotMatch(movementVoucher, /Escanear QR/u);
   assert.match(balanceCache, /export function fetchAccountBalance/u);
   assert.match(sessionCache, /No cachear fallos de red/u);
   assert.match(bankApp, /HISTORY_CLEARED_EVENT/u);
   assert.match(homeView, /HISTORY_CLEARED_EVENT/u);
+});
+
+test("el voucher no fuerza la captura interna a ocupar una pantalla completa", async () => {
+  const mobileViewport = await source("app/mobile-viewport.css");
+
+  assert.match(
+    mobileViewport,
+    /\.yape-success-voucher\s+\.voucher-share-capture\s*\{[\s\S]*?min-height:\s*0\s*!important/u,
+  );
+  assert.doesNotMatch(
+    mobileViewport,
+    /\.yape-success-voucher\s+\.voucher-content,\s*[\s\S]*?\.voucher-share-capture\s*\{[\s\S]*?min-height:\s*100%\s*!important/u,
+  );
+  assert.match(
+    mobileViewport,
+    /\.voucher-logo-badge\s*\{[\s\S]*?width:\s*clamp\(70px,\s*19vw,\s*84px\)[\s\S]*?overflow:\s*visible/u,
+  );
+  assert.match(
+    mobileViewport,
+    /\.voucher-new-yape-button\s*\{[\s\S]*?min-height:\s*var\(--app-touch-target\)/u,
+  );
 });
 
 test("bootstrap, permisos y tokens de cuenta fallan cerrados", async () => {

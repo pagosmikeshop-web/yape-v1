@@ -35,6 +35,7 @@ declare module "cloudflare:workers" {
     ADMIN_PROXY_SECRET?: string;
     AUTH_BOOTSTRAP_ENABLED?: string;
     AUTH_BOOTSTRAP_SECRET?: string;
+    AUTH_OWNER_PASSWORD_RESET_ENABLED?: string;
     AUTH_OWNER_TELEGRAM_ID?: string;
     AUTH_RATE_LIMIT_PEPPER?: string;
     AUTH_SESSION_IDLE_MINUTES?: string;

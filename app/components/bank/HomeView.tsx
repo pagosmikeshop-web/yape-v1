@@ -17,6 +17,7 @@ import {
   movements,
   SimpleMovementList,
 } from "../BankApp";
+import { useModalLayer } from "../../hooks/useModalLayer";
 import { fetchAccountBalance } from "../../lib/balance-cache";
 import { HomeBannerCarousel } from "./HomeBannerCarousel";
 import { AssetIcon, LottiePlayer } from "./primitives";
@@ -238,6 +239,7 @@ function AllServicesSheet({
   const dragStartY = useRef<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const dialogRef = useModalLayer<HTMLElement>(true, onClose);
 
   function finishDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     if (event.currentTarget.hasPointerCapture(event.pointerId))
@@ -266,10 +268,12 @@ function AllServicesSheet({
 
   return (
     <section
+      ref={dialogRef}
       className={`all-services-sheet${closing ? " is-closing" : ""}${dragging ? " is-dragging" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-label="Todos los servicios"
+      tabIndex={-1}
       style={{ "--all-services-drag": `${dragOffset}px` } as CSSProperties}
     >
       <button
@@ -386,23 +390,15 @@ export function HomeView() {
 
   useEffect(() => {
     if (!showAllServices) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const scrollArea = document.querySelector(
       ".mobile-bank-shell.view-home .bank-scroll-area",
     ) as HTMLElement | null;
     const previousScrollTop = scrollArea?.scrollTop ?? 0;
     if (scrollArea) scrollArea.scrollTop = 0;
-    const handleEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") closeAllServices();
-    };
-    window.addEventListener("keydown", handleEscape);
     return () => {
-      document.body.style.overflow = previousOverflow;
       if (scrollArea) scrollArea.scrollTop = previousScrollTop;
-      window.removeEventListener("keydown", handleEscape);
     };
-  }, [closeAllServices, showAllServices]);
+  }, [showAllServices]);
 
   useEffect(
     () => () => {
@@ -544,7 +540,6 @@ export function HomeView() {
           </div>
         </div>
       </section>
-      <HomeMainActions />
       {showAllServices ? (
         <AllServicesSheet
           closing={closingAllServices}
@@ -555,7 +550,7 @@ export function HomeView() {
   );
 }
 
-function HomeMainActions() {
+export function HomeMainActions() {
   return (
     <div className="home-main-actions" role="navigation" aria-label="Acciones principales">
       <Link href="/escanear-qr" className="outline-teal-action">

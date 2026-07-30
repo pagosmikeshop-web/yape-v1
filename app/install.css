@@ -1,66 +1,104 @@
-.install-gate {
-  min-height: 100svh;
+.pwa-update-banner {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right, 0px));
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  left: max(14px, env(safe-area-inset-left, 0px));
+  z-index: 1000;
+  width: min(520px, calc(100% - 28px));
+  margin-inline: auto;
   display: grid;
-  place-items: center;
-  padding: max(24px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
-  background: linear-gradient(160deg, #4c0d58 0%, #742284 52%, #5b006b 100%);
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
   color: #ffffff;
-  font-family: Roboto, sans-serif;
+  background: rgba(53, 16, 60, 0.96);
+  box-shadow: 0 16px 42px rgba(30, 0, 35, 0.32);
+  backdrop-filter: blur(14px);
 }
 
-.install-card {
-  width: min(100%, 390px);
-  display: grid;
-  gap: 16px;
-  justify-items: center;
-  text-align: center;
+.pwa-network-banner {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(14px, env(safe-area-inset-right, 0px));
+  left: max(14px, env(safe-area-inset-left, 0px));
+  z-index: 1001;
+  width: min(520px, calc(100% - 28px));
+  min-height: 44px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  color: #ffffff;
+  background: rgba(47, 42, 50, 0.96);
+  box-shadow: 0 10px 28px rgba(20, 14, 22, 0.28);
+  font-size: 13px;
+  line-height: 1.35;
+  backdrop-filter: blur(14px);
 }
 
-.install-card > img {
-  width: 86px;
-  height: 86px;
-  object-fit: contain;
+.pwa-network-banner.is-restored {
+  background: rgba(13, 118, 103, 0.96);
 }
 
-.install-card h1 {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.1;
+.pwa-network-banner button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.12);
+  font: inherit;
   font-weight: 700;
 }
 
-.install-card p,
-.install-card li {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 16px;
-  line-height: 1.45;
+.pwa-update-banner > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
 }
 
-.install-card button {
-  width: 100%;
-  height: 54px;
+.pwa-update-banner strong,
+.pwa-update-banner span {
+  display: block;
+}
+
+.pwa-update-banner span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.pwa-update-banner button {
+  min-height: 44px;
+  padding: 0 16px;
   border: 0;
   border-radius: 12px;
-  background: #ffffff;
   color: #62196f;
-  font-size: 17px;
+  background: #ffffff;
   font-weight: 700;
-  box-shadow: 0 9px 24px rgba(44, 0, 52, 0.2);
   cursor: pointer;
 }
 
-.install-card ol {
-  width: 100%;
-  margin: 4px 0 0;
-  padding-left: 24px;
-  text-align: left;
+.pwa-update-banner .pwa-update-later {
+  color: #ffffff;
+  background: transparent;
 }
 
-.install-help {
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.12);
+@media (max-width: 520px) {
+  .pwa-update-banner {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pwa-update-banner > div {
+    grid-column: 1 / -1;
+  }
 }
 
 .entry-install-cta {
@@ -74,6 +112,15 @@
   transform: translateX(-50%);
   text-align: center;
   font-family: Roboto, sans-serif;
+}
+
+.entry-install-cta[aria-label] {
+  pointer-events: none;
+}
+
+.entry-install-cta button,
+.entry-install-cta p {
+  pointer-events: auto;
 }
 
 .entry-install-cta button {

@@ -175,7 +175,23 @@ function Field({
 }) {
   return (
     <div className="field">
-      <input id={id} name={id} type={type} inputMode={inputMode} autoComplete={autoComplete} autoCapitalize="none" spellCheck="false" placeholder={label} aria-label={label} maxLength={maxLength} minLength={minLength} pattern={pattern} required={required} />
+      <label className="sr-only" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        name={id}
+        type={type}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        autoCapitalize="none"
+        spellCheck="false"
+        placeholder={label}
+        maxLength={maxLength}
+        minLength={minLength}
+        pattern={pattern}
+        required={required}
+      />
     </div>
   );
 }
@@ -184,8 +200,26 @@ function PasswordField({ id, label, autoComplete }: { id: string; label: string;
   const [visible, setVisible] = useState(false);
   return (
     <div className="field password-field">
-      <input id={id} name={id} type={visible ? "text" : "password"} autoComplete={autoComplete} placeholder={label} aria-label={label} minLength={6} required />
-      <button className="password-toggle" type="button" onClick={() => setVisible((current) => !current)}>
+      <label className="sr-only" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        name={id}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        placeholder={label}
+        minLength={6}
+        required
+      />
+      <button
+        className="password-toggle"
+        type="button"
+        aria-controls={id}
+        aria-label={visible ? `Ocultar ${label}` : `Mostrar ${label}`}
+        aria-pressed={visible}
+        onClick={() => setVisible((current) => !current)}
+      >
         {visible ? "Ocultar" : "Mostrar"}
       </button>
     </div>
@@ -672,7 +706,15 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         <Header screen={screen} onRefresh={resetForm} />
         <div className="login-card">
           <div className="login-heading"><h1>{content.title}</h1><p>{content.subtitle}</p></div>
-          {notice ? <p className={`form-notice is-${notice.tone}`} role="status" aria-live="polite">{notice.text}</p> : null}
+          {notice ? (
+            <p
+              className={`form-notice is-${notice.tone}`}
+              role={notice.tone === "error" ? "alert" : "status"}
+              aria-live={notice.tone === "error" ? "assertive" : "polite"}
+            >
+              {notice.text}
+            </p>
+          ) : null}
           <form className="login-form" ref={formRef} onSubmit={handleSubmit}>
               {screen === "register" ? (
                 <>

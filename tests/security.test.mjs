@@ -136,6 +136,14 @@ test("el service worker sólo almacena recursos públicos explícitos", async ()
   assert.match(serviceWorker, /PUBLIC_ASSET_PREFIXES/u);
   assert.match(serviceWorker, /no-store/u);
   assert.match(serviceWorker, /private/u);
+  assert.match(serviceWorker, /OFFLINE_PAGE/u);
+  assert.match(serviceWorker, /event\.data\?\.type === "SKIP_WAITING"/u);
+  assert.match(serviceWorker, /key\.startsWith\(CACHE_PREFIX\)/u);
+  const installSection = serviceWorker.slice(
+    serviceWorker.indexOf('self.addEventListener("install"'),
+    serviceWorker.indexOf('self.addEventListener("activate"'),
+  );
+  assert.doesNotMatch(installSection, /skipWaiting/u);
 });
 
 test("registro y webhook no exponen endpoints GET de diagnóstico", async () => {
@@ -351,4 +359,14 @@ test("las transferencias son atómicas, admiten números guardados y conservan e
   assert.match(authServer, /DAILY_LIMIT_EXCEEDED/u);
   assert.doesNotMatch(movements, /DELETE FROM account_movements/u);
   assert.doesNotMatch(deleteUser, /DELETE FROM account_movements WHERE user_id/u);
+});
+test("el restablecimiento temporal del Owner falla cerrado y revoca sesiones", async () => {
+  const route = await source("app/api/auth/owner-password-reset/route.ts");
+  assert.match(route, /AUTH_OWNER_PASSWORD_RESET_ENABLED/u);
+  assert.match(route, /secureCompare\(secret, configuredSecret\)/u);
+  assert.match(route, /role = 'admin'/u);
+  assert.match(route, /is_owner = 1/u);
+  assert.match(route, /DELETE FROM sessions WHERE user_id/u);
+  assert.match(route, /RESTABLECER OWNER/u);
+  assert.doesNotMatch(route, /console\.(?:log|info|error)\([^)]*secret/iu);
 });
