@@ -9,7 +9,7 @@
     "dev": "next dev --port 3000",
     "build": "next build && node scripts/verify-public-build.mjs .next/static",
     "start": "next start --port 3000",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "lint": "biome check app db scripts proxy.ts next.config.ts --diagnostic-level=error",
     "security:scan": "node scripts/security-scan.mjs",
     "security:audit": "npm audit --audit-level=high",

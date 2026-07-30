@@ -1,14 +1,20 @@
-const CACHE_PREFIX = "yape-public-assets-";
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const APP_CACHE_PREFIX = "yape-app-shell-";
+const RUNTIME_CACHE_PREFIX = "yape-runtime-assets-";
+const APP_CACHE_NAME = `${APP_CACHE_PREFIX}v4`;
+const RUNTIME_CACHE_NAME = `${RUNTIME_CACHE_PREFIX}v4`;
 const OFFLINE_PAGE = "/offline.html";
 const PUBLIC_SHELL = [
   OFFLINE_PAGE,
   "/manifest.webmanifest",
+  "/favicon.ico",
+  "/icons/favicon-16.png",
+  "/icons/favicon-32.png",
+  "/icons/apple-touch-icon.png",
   "/icons/yape-192.png",
   "/icons/yape-512.png",
   "/icons/yape-maskable-512.png",
 ];
-const PUBLIC_ASSET_PREFIXES = ["/assets/", "/icons/"];
+const PUBLIC_ASSET_PREFIXES = ["/_next/static/", "/assets/", "/icons/"];
 
 function isCacheablePublicAsset(request, url) {
   return (
@@ -21,6 +27,14 @@ function isCacheablePublicAsset(request, url) {
       )
     )
   );
+}
+
+function isSameOriginGet(request, url) {
+  return request.method === "GET" && url.origin === self.location.origin;
+}
+
+function isApiRequest(url) {
+  return url.pathname.startsWith("/api/");
 }
 
 function responseMayBeCached(response) {
@@ -42,7 +56,7 @@ function responseMayBeCached(response) {
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
-      .open(CACHE_NAME)
+      .open(APP_CACHE_NAME)
       .then((cache) => cache.addAll(PUBLIC_SHELL))
       .catch(() => undefined),
   );
@@ -56,7 +70,13 @@ self.addEventListener("activate", (event) => {
         Promise.all(
           keys
             .filter(
-              (key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME,
+              (key) =>
+                (
+                  key.startsWith(APP_CACHE_PREFIX)
+                  || key.startsWith(RUNTIME_CACHE_PREFIX)
+                )
+                && key !== APP_CACHE_NAME
+                && key !== RUNTIME_CACHE_NAME,
             )
             .map((key) => caches.delete(key)),
         ),
@@ -73,6 +93,8 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
+  if (!isSameOriginGet(request, url) || isApiRequest(url)) return;
+
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => caches.match(OFFLINE_PAGE)),
@@ -80,7 +102,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Todas las APIs permanecen network-only y nunca entran en Cache Storage.
   if (!isCacheablePublicAsset(request, url)) return;
 
   event.respondWith(
@@ -89,7 +110,13 @@ self.addEventListener("fetch", (event) => {
         if (responseMayBeCached(response)) {
           const copy = response.clone();
           event.waitUntil(
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)),
+            caches
+              .open(
+                PUBLIC_SHELL.includes(url.pathname)
+                  ? APP_CACHE_NAME
+                  : RUNTIME_CACHE_NAME,
+              )
+              .then((cache) => cache.put(request, copy)),
           );
         }
         return response;

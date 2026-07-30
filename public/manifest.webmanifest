@@ -12,8 +12,27 @@
   "orientation": "portrait",
   "background_color": "#742284",
   "theme_color": "#742284",
+  "categories": ["finance", "productivity"],
   "prefer_related_applications": false,
   "icons": [
+    {
+      "src": "/icons/favicon-16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icons/yape-192.png",
       "sizes": "192x192",

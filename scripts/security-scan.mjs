@@ -14,7 +14,16 @@ const textExtensions = new Set([
   ".cjs", ".css", ".env", ".html", ".js", ".json", ".jsx", ".md", ".mjs",
   ".sql", ".svg", ".toml", ".ts", ".tsx", ".txt", ".yaml", ".yml",
 ]);
-const skippedPrefixes = ["node_modules/", "dist/", ".next/"];
+const skippedPrefixes = [
+  "node_modules/",
+  "dist/",
+  ".next/",
+  ".vinext/",
+  ".wrangler/",
+  ".agents/",
+  ".codex/",
+  "artifacts/",
+];
 const forbiddenNames = [
   /(^|\/)\.env(?:\..+)?$/u,
   /\.(?:bak|backup|old|orig|p12|pfx|jks|keystore|pem|key|zip)$/iu,
@@ -77,4 +86,3 @@ if (findings.length > 0) {
 } else {
   console.log(`Security scan passed (${files.length} repository files inspected).`);
 }
-

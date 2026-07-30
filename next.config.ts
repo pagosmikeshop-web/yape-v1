@@ -29,7 +29,6 @@ const nextConfig: NextConfig = {
   compress: true,
   experimental: {
     optimizePackageImports: ["lottie-web", "qrcode", "@zxing/browser"],
-    useTypeScriptCli: true,
   },
   async headers() {
     return [
@@ -54,6 +53,19 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
           { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+      {
+        source: "/favicon.ico",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, immutable" },
+          { key: "Content-Type", value: "image/x-icon" },
+        ],
+      },
+      {
+        source: "/icons/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, immutable" },
         ],
       },
       {
