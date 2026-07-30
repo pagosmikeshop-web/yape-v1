@@ -282,13 +282,13 @@ canvas {
     height: clamp(52px, 7.2dvh, 62px);
   }
 
-.bank-scroll-area,
-.login-card,
-.returning-keypad-card {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  scroll-padding-block: 18px max(24px, var(--app-safe-bottom));
-}
+  .bank-scroll-area,
+  .login-card,
+  .returning-keypad-card {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-padding-block: 18px max(24px, var(--app-safe-bottom));
+  }
 
   .bank-scroll-area {
     min-height: 0;
@@ -313,7 +313,8 @@ canvas {
     background: var(--app-surface-bg);
   }
 
-  .mobile-bank-shell.view-transfer .bank-scroll-area:has(.transfer-amount-screen),
+  .mobile-bank-shell.view-transfer
+    .bank-scroll-area:has(.transfer-amount-screen),
   .mobile-bank-shell.view-transfer:has(.transfer-amount-screen) {
     background: var(--app-surface-bg) !important;
   }
@@ -338,20 +339,14 @@ canvas {
     background: transparent !important;
   }
 
-  .mobile-bank-shell
-    .transfer-amount-screen
-    .transfer-flow-header {
+  .mobile-bank-shell .transfer-amount-screen .transfer-flow-header {
     height: auto;
     min-height: calc(clamp(56px, 15vw, 62px) + max(var(--app-safe-top), 8px));
     padding-top: max(var(--app-safe-top), 8px);
   }
 
-  .mobile-bank-shell
-    .transfer-amount-screen
-    .transfer-header-back,
-  .mobile-bank-shell
-    .transfer-amount-screen
-    .transfer-header-close {
+  .mobile-bank-shell .transfer-amount-screen .transfer-header-back,
+  .mobile-bank-shell .transfer-amount-screen .transfer-header-close {
     min-width: var(--app-touch-target);
     min-height: var(--app-touch-target);
   }
@@ -388,9 +383,7 @@ canvas {
     background: var(--app-surface-bg);
   }
 
-  .mobile-bank-shell
-    .transfer-amount-footer
-    .transfer-message-field,
+  .mobile-bank-shell .transfer-amount-footer .transfer-message-field,
   .mobile-bank-shell .transfer-amount-actions {
     width: min(100%, 371px);
   }
@@ -400,10 +393,8 @@ canvas {
     padding-bottom: max(10px, var(--app-safe-bottom));
   }
 
-  .mobile-bank-shell
-    .bank-scroll-area:has(.yape-success-voucher),
-  .mobile-bank-shell
-    .bank-scroll-area:has(.yape-voucher) {
+  .mobile-bank-shell .bank-scroll-area:has(.yape-success-voucher),
+  .mobile-bank-shell .bank-scroll-area:has(.yape-voucher) {
     height: 100% !important;
     min-height: 100% !important;
     max-height: 100% !important;
@@ -415,6 +406,23 @@ canvas {
 
   .mobile-bank-shell .bank-scroll-area:has(.yape-success-voucher) {
     padding-bottom: 0 !important;
+  }
+
+  /*
+   * El comprobante abierto desde Movimientos necesita un pequeño margen de
+   * desplazamiento después de la promoción. Sin él, el contenido termina
+   * justo en el borde del scroller y el rebote de iOS devuelve la vista hacia
+   * arriba cuando se intenta seguir bajando.
+   */
+  .mobile-bank-shell .bank-scroll-area:has(.movement-voucher) {
+    padding-bottom: max(
+      clamp(36px, 9vw, 64px),
+      var(--app-safe-bottom)
+    ) !important;
+    scroll-padding-bottom: max(
+      clamp(36px, 9vw, 64px),
+      var(--app-safe-bottom)
+    ) !important;
   }
 
   .mobile-bank-shell .yape-voucher,
@@ -441,9 +449,7 @@ canvas {
    * heredar la altura completa del viewport: al hacerlo empujaba los botones
    * y la promoción una pantalla hacia abajo y dejaba una franja morada vacía.
    */
-  .mobile-bank-shell
-    .yape-success-voucher
-    .voucher-share-capture {
+  .mobile-bank-shell .yape-success-voucher .voucher-share-capture {
     flex: 0 0 auto !important;
     width: 100% !important;
     height: auto !important;
@@ -451,18 +457,14 @@ canvas {
     background: transparent !important;
   }
 
-  .mobile-bank-shell
-    .yape-success-voucher
-    .voucher-close-button {
+  .mobile-bank-shell .yape-success-voucher .voucher-close-button {
     top: calc(max(var(--app-safe-top), 8px) + min(2vw, 9px)) !important;
     right: max(min(2vw, 9px), var(--app-safe-right)) !important;
     min-width: var(--app-touch-target);
     min-height: var(--app-touch-target);
   }
 
-  .mobile-bank-shell
-    .yape-success-voucher
-    .voucher-success-animation {
+  .mobile-bank-shell .yape-success-voucher .voucher-success-animation {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -473,12 +475,8 @@ canvas {
     contain: layout paint;
   }
 
-  .mobile-bank-shell
-    .yape-success-voucher
-    .voucher-success-animation canvas,
-  .mobile-bank-shell
-    .yape-success-voucher
-    .voucher-success-animation svg {
+  .mobile-bank-shell .yape-success-voucher .voucher-success-animation canvas,
+  .mobile-bank-shell .yape-success-voucher .voucher-success-animation svg {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -493,7 +491,7 @@ canvas {
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-logo-badge {
-    top: 47%;
+    top: 50%;
     left: clamp(58px, 16vw, 74px);
     width: clamp(62px, 17vw, 78px);
     height: clamp(62px, 17vw, 78px);
@@ -515,11 +513,15 @@ canvas {
   }
 
   /* Compacta el comprobante sin sacrificar legibilidad ni áreas táctiles. */
-  .mobile-bank-shell .yape-success-voucher:not(.movement-voucher) .voucher-banner {
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-banner {
     min-height: clamp(178px, 48vw, 206px);
   }
 
-  .mobile-bank-shell .yape-success-voucher:not(.movement-voucher) .voucher-card {
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-card {
     width: calc(100% - clamp(30px, 8vw, 38px));
     margin: clamp(-15px, -3vw, -10px) auto 4px;
     padding: clamp(13px, 3.4vw, 16px) clamp(14px, 3.8vw, 18px);
@@ -660,8 +662,7 @@ canvas {
     height: 100% !important;
     min-height: 0 !important;
     max-height: 100% !important;
-    padding: 0 0
-      calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 12px) !important;
+    padding: 0 0 calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 12px) !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
@@ -751,10 +752,8 @@ canvas {
    * regla general de Inicio queda deliberadamente sobrescrita aquí para que
    * el área de desplazamiento mantenga el fondo morado hasta el último píxel.
    */
-  .mobile-bank-shell.view-home
-    .bank-scroll-area:has(.yape-success-voucher),
-  .mobile-bank-shell.view-home
-    .bank-scroll-area:has(.yape-voucher) {
+  .mobile-bank-shell.view-home .bank-scroll-area:has(.yape-success-voucher),
+  .mobile-bank-shell.view-home .bank-scroll-area:has(.yape-voucher) {
     background: #660185 !important;
   }
 
@@ -901,9 +900,7 @@ canvas {
     border-radius: 0;
   }
 
-  .mobile-bank-shell
-    .transfer-amount-screen
-    .transfer-flow-header {
+  .mobile-bank-shell .transfer-amount-screen .transfer-flow-header {
     grid-column: 1 / -1;
   }
 

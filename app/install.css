@@ -1,3 +1,130 @@
+.installation-required {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: max(28px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px))
+    max(28px, env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(255, 255, 255, 0.16), transparent 34%),
+    linear-gradient(145deg, #742284 0%, #4b0c5c 100%);
+  font-family: Roboto, Arial, sans-serif;
+}
+
+.installation-required__card {
+  box-sizing: border-box;
+  width: min(100%, 520px);
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: clamp(28px, 7vw, 52px) clamp(22px, 6vw, 48px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 28px;
+  text-align: center;
+  background: rgba(37, 8, 44, 0.38);
+  box-shadow: 0 24px 70px rgba(23, 0, 28, 0.3);
+  backdrop-filter: blur(18px);
+}
+
+.installation-required__logo {
+  width: clamp(72px, 22vw, 96px);
+  height: auto;
+  border-radius: 22%;
+  box-shadow: 0 12px 26px rgba(15, 0, 20, 0.24);
+}
+
+.installation-required__eyebrow {
+  margin: 4px 0 0;
+  color: #63e4d4;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.installation-required h1 {
+  max-width: 18ch;
+  margin: 0;
+  font-size: clamp(28px, 7vw, 44px);
+  line-height: 1.08;
+}
+
+.installation-required__description,
+.installation-required__instructions p,
+.installation-required__instructions li {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: clamp(14px, 3.8vw, 17px);
+  line-height: 1.45;
+}
+
+.installation-required__description {
+  max-width: 42ch;
+}
+
+.installation-required__install-button {
+  min-width: min(100%, 280px);
+  min-height: 48px;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 999px;
+  color: #5d176b;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(19, 0, 25, 0.24);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.installation-required__install-button:active {
+  transform: translateY(1px);
+}
+
+.installation-required__instructions {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.installation-required__instructions h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.installation-required__instructions ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.installation-required__status {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: #d8fff8;
+  background: rgba(10, 150, 132, 0.26);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .installation-required__install-button {
+    transition: none;
+  }
+}
+
 .pwa-update-banner {
   position: fixed;
   right: max(14px, env(safe-area-inset-right, 0px));

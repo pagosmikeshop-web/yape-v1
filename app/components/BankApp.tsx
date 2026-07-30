@@ -11,7 +11,6 @@ import {
 import {
   clearSessionCache,
   fetchSession,
-  hasOptimisticUnlock,
   setOptimisticUnlock,
 } from "../lib/session-cache";
 import { clearBalanceCache, fetchAccountBalance } from "../lib/balance-cache";
@@ -3456,12 +3455,16 @@ function isLocalEditMode() {
 
 export function BankApp({ view }: { view: BankView }) {
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(() =>
-    isLocalEditMode() ? true : hasOptimisticUnlock(),
-  );
+  // Keep the first render deterministic on the server and in the browser.
+  // Browser-only state (local edit mode/sessionStorage) is resolved after
+  // hydration so the protected shell cannot appear only on the client.
+  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    if (isLocalEditMode()) return;
+    if (isLocalEditMode()) {
+      setAuthorized(true);
+      return;
+    }
 
     let cancelled = false;
     void fetchSession().then((result) => {
