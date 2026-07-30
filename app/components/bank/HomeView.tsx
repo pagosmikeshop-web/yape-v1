@@ -30,27 +30,36 @@ import type {
 
 const VIAJAR_BUS_ICON = "/assets/captured/all-services/viajar-bus.jpg";
 
+// Estas secciones permanecen visibles en el inicio, pero están pausadas hasta
+// que se configure su contenido. Conservamos las rutas para no romper enlaces
+// existentes fuera de esta pantalla.
+const DISABLED_SERVICE_HREFS = new Set([
+  "/recargar",
+  "/servicios",
+  "/aprobar-compras",
+  "/creditos",
+  "/dolares",
+  "/seguro-vehicular",
+  "/recargar-transportes",
+]);
+
 const serviceItems: ServiceItem[] = [
   {
     label: "Recargar celular",
     iconSrc: "/assets/icons/recargar-celular.svg",
-    href: "/recargar",
   },
   {
     label: "Yapear servicios",
     iconSrc: "/assets/icons/yapear-servicios.svg",
-    href: "/servicios",
   },
   { label: "Promos", iconSrc: "/assets/icons/promos.svg" },
   {
     label: "Aprobar compras",
     iconSrc: "/assets/icons/aprobar-compras.svg",
-    href: "/aprobar-compras",
   },
   {
     label: "Créditos",
     iconLottie: "ic_lending_animated_001",
-    href: "/creditos",
     fullTile: true,
   },
   { label: "Gaming", iconSrc: "/assets/icons/gaming.svg", badge: "Juega" },
@@ -101,7 +110,6 @@ const allServicesSections: Array<{ title: string; items: ServiceItem[] }> = [
       {
         label: "Dólares",
         iconSrc: "/assets/icons/dolares.svg",
-        href: "/dolares",
       },
     ],
   },
@@ -210,7 +218,7 @@ function ServiceTile({
     </>
   );
 
-  if (item.href) {
+  if (item.href && !DISABLED_SERVICE_HREFS.has(item.href)) {
     return (
       <Link className="home-service" href={item.href}>
         {content}
@@ -300,7 +308,7 @@ function AllServicesSheet({
             <h2>{section.title}</h2>
             <div className="all-services-grid">
               {section.items.map((item) =>
-                item.href ? (
+                item.href && !DISABLED_SERVICE_HREFS.has(item.href) ? (
                   <Link
                     className="all-services-item"
                     href={item.href}
@@ -468,9 +476,7 @@ export function HomeView() {
             <ServiceTile
               item={item}
               key={item.label}
-              onUnavailable={(label) => {
-                if (label === "Ver todo") openAllServices();
-              }}
+              onUnavailable={() => undefined}
             />
           ))}
         </div>
