@@ -407,6 +407,10 @@ canvas {
     background: #660185 !important;
   }
 
+  .mobile-bank-shell .bank-scroll-area:has(.yape-success-voucher) {
+    padding-bottom: 0 !important;
+  }
+
   .mobile-bank-shell .yape-voucher,
   .mobile-bank-shell .yape-success-voucher,
   .mobile-bank-shell .yape-success-voucher .voucher-content {
@@ -483,13 +487,13 @@ canvas {
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-logo-badge {
-    top: 50%;
-    left: clamp(62px, 18vw, 78px);
-    width: clamp(70px, 19vw, 84px);
-    height: clamp(70px, 19vw, 84px);
-    max-width: 84px;
+    top: 47%;
+    left: clamp(58px, 16vw, 74px);
+    width: clamp(62px, 17vw, 78px);
+    height: clamp(62px, 17vw, 78px);
+    max-width: 78px;
     overflow: visible;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -52%);
   }
 
   .mobile-bank-shell
@@ -608,8 +612,7 @@ canvas {
     margin-bottom: max(14px, var(--app-safe-bottom));
   }
 
-  .mobile-bank-shell.view-movements .reference-movements-view,
-  .mobile-bank-shell .reference-dollars-view {
+  .mobile-bank-shell.view-movements .reference-movements-view {
     min-height: 100% !important;
   }
 

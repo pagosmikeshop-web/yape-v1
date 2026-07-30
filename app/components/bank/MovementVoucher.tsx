@@ -181,17 +181,13 @@ export function formatVoucherTime(date: Date) {
 export function VoucherSinglePromo() {
   return (
     <div className="voucher-single-promo">
-      <Link
-        href="/creditos"
-        className="voucher-single-promo-frame"
-        aria-label="Ir a Créditos: pide tu crédito preaprobado"
-      >
+      <div className="voucher-single-promo-frame" aria-hidden="true">
         <img
           src="/assets/reference/mas-en-yape-banner.png"
-          alt="Pide tu crédito preaprobado. Ir a Créditos."
+          alt=""
           draggable={false}
         />
-      </Link>
+      </div>
     </div>
   );
 }
