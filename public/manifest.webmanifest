@@ -10,8 +10,8 @@
   "display": "standalone",
   "display_override": ["standalone"],
   "orientation": "portrait",
-  "background_color": "#742284",
-  "theme_color": "#742284",
+  "background_color": "#660185",
+  "theme_color": "#660185",
   "categories": ["finance", "productivity"],
   "prefer_related_applications": false,
   "icons": [

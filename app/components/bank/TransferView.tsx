@@ -2,9 +2,10 @@
 /* eslint-disable @next/next/no-img-element -- extracted APK assets must keep their exact native proportions */
 
 import Link from "next/link";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useModalLayer } from "../../hooks/useModalLayer";
 import { fetchAccountBalance, clearBalanceCache } from "../../lib/balance-cache";
+import { resetIOSViewport } from "../../lib/ios-viewport";
 import { fetchSession } from "../../lib/session-cache";
 import { APK_ASSET_ROOT, AssetIcon, LottiePlayer } from "./primitives";
 import {
@@ -127,6 +128,11 @@ export function TransferView() {
     insufficientBalance,
     () => setInsufficientBalance(false),
   );
+
+  const getBankScrollContainer = () =>
+    document.querySelector<HTMLElement>(
+      ".mobile-bank-shell.view-transfer .bank-scroll-area",
+    );
 
   useEffect(() => {
     let cancelled = false;
@@ -515,6 +521,7 @@ export function TransferView() {
           String(Math.floor(10000000 + Math.random() * 90000000)),
         completedAt,
       });
+      resetIOSViewport(getBankScrollContainer());
       setStage(processingStage);
     } catch (error) {
       setNotice(
@@ -599,6 +606,7 @@ export function TransferView() {
       voucher
     ) {
       const timer = window.setTimeout(() => {
+        resetIOSViewport(getBankScrollContainer());
         setStage("success");
       }, TRANSFER_LOADING_MS);
       return () => window.clearTimeout(timer);
@@ -610,6 +618,11 @@ export function TransferView() {
       return () => window.clearTimeout(timer);
     }
   }, [stage, destination, voucher]);
+
+  useLayoutEffect(() => {
+    if (stage !== "success") return undefined;
+    return resetIOSViewport(getBankScrollContainer());
+  }, [stage]);
 
   const showAmountScreen = stage === "amount" || stage === "amount-processing";
   const showEntitiesScreen =

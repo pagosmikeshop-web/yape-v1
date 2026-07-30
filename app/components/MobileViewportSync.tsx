@@ -108,6 +108,10 @@ export function MobileViewportSync() {
 
         if (Number.isFinite(visibleHeight) && visibleHeight > 0) {
           root.style.setProperty("--app-height", `${visibleHeight}px`);
+          root.style.setProperty(
+            "--visible-app-height",
+            `${Math.round(visibleHeight + offsetTop)}px`,
+          );
         }
         if (Number.isFinite(width) && width > 0) {
           root.style.setProperty("--app-viewport-width", `${width}px`);
@@ -181,6 +185,7 @@ export function MobileViewportSync() {
       document.removeEventListener("focusout", apply);
       document.removeEventListener("visibilitychange", applyWhenVisible);
       root.style.removeProperty("--app-height");
+      root.style.removeProperty("--visible-app-height");
       root.style.removeProperty("--app-viewport-width");
       root.style.removeProperty("--keyboard-height");
       root.style.removeProperty("--visual-offset-top");

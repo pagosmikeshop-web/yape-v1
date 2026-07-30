@@ -50,6 +50,7 @@
 }
 
 :root {
+  --app-background: #660185;
   --auth-primary-900: #480f54;
   --auth-primary-800: #5e186c;
   --auth-primary-700: #790699;
@@ -73,7 +74,7 @@
 html {
   min-width: 320px;
   min-height: 100%;
-  background: #ffffff;
+  background: var(--app-background);
 }
 
 body {
@@ -83,7 +84,7 @@ body {
   min-height: 100dvh;
   margin: 0;
   color: var(--auth-text);
-  background: #ffffff;
+  background: var(--app-background);
   font-family: "Yape", Roboto, Arial, sans-serif;
 }
 

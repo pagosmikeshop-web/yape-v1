@@ -9,6 +9,7 @@
 :root {
   /* MobileViewportSync reemplaza estos fallbacks con visualViewport en runtime. */
   --app-height: 100svh;
+  --visible-app-height: var(--app-height);
   --app-viewport-height: var(--app-height);
   --app-viewport-width: 100vw;
   --app-viewport-offset-top: 0px;
@@ -23,10 +24,15 @@
   --app-touch-target: 44px;
   /* Única fuente de verdad para la barra fija de acciones de Inicio. */
   --bottom-nav-height: 68px;
-  --app-shell-bg: #7a2185;
+  --app-background: #660185;
+  --safe-area-top: var(--app-safe-top);
+  --safe-area-right: var(--app-safe-right);
+  --safe-area-bottom: var(--app-safe-bottom);
+  --safe-area-left: var(--app-safe-left);
+  --app-shell-bg: var(--app-background);
   --app-surface-bg: #ffffff;
   --app-auth-bg: #7a2185;
-  --app-route-bg: var(--app-auth-bg);
+  --app-route-bg: var(--app-background);
 }
 
 /* Preferir dvh cuando exista; svh solo como fallback previo al @supports dvh. */
@@ -42,24 +48,26 @@
   }
 }
 
+:root,
 html {
   width: 100%;
   min-width: 320px;
   min-height: 100%;
-  background: var(--app-route-bg);
+  background: var(--app-background);
   overflow-x: hidden;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
 }
 
-body {
+body,
+#__next {
   width: 100%;
   min-height: 100%;
   min-height: 100dvh;
   margin: 0;
   overflow-x: hidden;
   overscroll-behavior-x: none;
-  background: var(--app-route-bg);
+  background: var(--app-background);
 }
 
 @media (max-width: 599px) {
@@ -69,7 +77,7 @@ body {
    */
   html {
     min-height: 100%;
-    background: var(--app-auth-bg);
+    background: var(--app-background);
   }
 
   body {
@@ -77,7 +85,7 @@ body {
     min-height: 100%;
     min-height: 100dvh;
     overflow-x: hidden;
-    background: var(--app-route-bg);
+    background: var(--app-background);
   }
 
   /*
@@ -120,9 +128,9 @@ canvas {
 .site-stage,
 .banking-stage {
   width: 100%;
-  height: var(--app-viewport-height);
-  min-height: var(--app-viewport-height);
-  max-height: var(--app-viewport-height);
+  height: var(--visible-app-height, var(--app-viewport-height));
+  min-height: var(--visible-app-height, var(--app-viewport-height));
+  max-height: var(--visible-app-height, var(--app-viewport-height));
   background: var(--app-shell-bg);
 }
 
@@ -178,7 +186,7 @@ canvas {
     display: flex;
     align-items: stretch;
     justify-content: center;
-    background: var(--app-surface-bg);
+    background: var(--app-background);
   }
 
   .site-stage {
@@ -305,9 +313,7 @@ canvas {
     background: var(--app-surface-bg);
   }
 
-  html:has(.transfer-amount-screen),
-  body:has(.transfer-amount-screen),
-  .banking-stage:has(.transfer-amount-screen),
+  .mobile-bank-shell.view-transfer .bank-scroll-area:has(.transfer-amount-screen),
   .mobile-bank-shell.view-transfer:has(.transfer-amount-screen) {
     background: var(--app-surface-bg) !important;
   }
@@ -743,10 +749,8 @@ canvas {
     min-height: 44px !important;
   }
 
-  html:has(.mobile-bank-shell.view-home),
-  body:has(.mobile-bank-shell.view-home),
   .banking-stage:has(.mobile-bank-shell.view-home) {
-    background: #ffffff !important;
+    background: var(--app-background) !important;
   }
 
   .mobile-bank-shell:has(.yape-success-voucher),
@@ -757,7 +761,7 @@ canvas {
   html:has(.yape-success-voucher),
   body:has(.yape-success-voucher),
   .banking-stage:has(.yape-success-voucher) {
-    background: #660185 !important;
+    background: var(--app-background) !important;
   }
 
   .mobile-bank-shell input:not([type="checkbox"]):not([type="radio"]),
