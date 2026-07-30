@@ -399,6 +399,19 @@ test("la PWA ofrece instalación directa y una altura adaptable con zonas segura
   assert.doesNotMatch(mobileViewport, /padding-bottom:\s*calc\(var\(--keyboard-height/u);
   assert.match(mobileViewport, /safe-area-inset-top/u);
   assert.match(mobileViewport, /safe-area-inset-bottom/u);
+  assert.match(mobileViewport, /--bottom-nav-height:\s*68px/u);
+  assert.match(
+    mobileViewport,
+    /\.banking-stage\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?--app-viewport-offset-top/u,
+  );
+  assert.match(
+    mobileViewport,
+    /\.view-home\s+\.home-main-actions\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?bottom:\s*0\s*!important/u,
+  );
+  assert.match(
+    mobileViewport,
+    /\.view-home\s+\.bank-scroll-area\s*\{[\s\S]*?--bottom-nav-height/u,
+  );
   assert.match(mobileViewport, /body:has\(\.returning-login\)[\s\S]*overflow:\s*hidden/u);
   assert.match(mobileViewport, /\.returning-keypad-card[\s\S]*overflow-y:\s*auto/u);
 
@@ -467,6 +480,14 @@ test("el voucher no fuerza la captura interna a ocupar una pantalla completa", a
   assert.doesNotMatch(
     mobileViewport,
     /\.yape-success-voucher\s+\.voucher-content,\s*[\s\S]*?\.voucher-share-capture\s*\{[\s\S]*?min-height:\s*100%\s*!important/u,
+  );
+  assert.match(
+    mobileViewport,
+    /\.voucher-logo-badge\s*\{[\s\S]*?width:\s*clamp\(70px,\s*19vw,\s*84px\)[\s\S]*?overflow:\s*visible/u,
+  );
+  assert.match(
+    mobileViewport,
+    /\.voucher-new-yape-button\s*\{[\s\S]*?min-height:\s*var\(--app-touch-target\)/u,
   );
 });
 

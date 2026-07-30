@@ -21,6 +21,8 @@
   --app-safe-left: env(safe-area-inset-left, 0px);
   --app-inline-gutter: clamp(14px, 4vw, 22px);
   --app-touch-target: 44px;
+  /* Única fuente de verdad para la barra fija de acciones de Inicio. */
+  --bottom-nav-height: 68px;
   --app-shell-bg: #7a2185;
   --app-surface-bg: #ffffff;
   --app-auth-bg: #7a2185;
@@ -131,6 +133,17 @@ canvas {
   left: var(--app-viewport-offset-left, 0px);
   width: var(--app-viewport-width, 100vw);
   background: var(--app-auth-bg);
+}
+
+.banking-stage {
+  /*
+   * iOS conserva un layout viewport mayor al abrir el teclado. Anclar la
+   * banca al visual viewport evita descubrir el fondo morado del documento.
+   */
+  position: fixed;
+  top: var(--app-viewport-offset-top, 0px);
+  left: var(--app-viewport-offset-left, 0px);
+  width: var(--app-viewport-width, 100vw);
 }
 
 .bank-app {
@@ -292,6 +305,13 @@ canvas {
     background: var(--app-surface-bg);
   }
 
+  html:has(.transfer-amount-screen),
+  body:has(.transfer-amount-screen),
+  .banking-stage:has(.transfer-amount-screen),
+  .mobile-bank-shell.view-transfer:has(.transfer-amount-screen) {
+    background: var(--app-surface-bg) !important;
+  }
+
   .mobile-bank-shell .transfer-amount-screen {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
@@ -337,6 +357,7 @@ canvas {
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
+    scroll-padding-block: 16px 24px;
   }
 
   .mobile-bank-shell .transfer-amount-content::-webkit-scrollbar {
@@ -462,9 +483,129 @@ canvas {
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-logo-badge {
-    top: 48%;
-    left: 18%;
+    top: 50%;
+    left: clamp(62px, 18vw, 78px);
+    width: clamp(70px, 19vw, 84px);
+    height: clamp(70px, 19vw, 84px);
+    max-width: 84px;
+    overflow: visible;
     transform: translate(-50%, -50%);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-logo-lottie,
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-logo-lottie
+    svg {
+    width: 100% !important;
+    height: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Compacta el comprobante sin sacrificar legibilidad ni áreas táctiles. */
+  .mobile-bank-shell .yape-success-voucher:not(.movement-voucher) .voucher-banner {
+    min-height: clamp(178px, 48vw, 206px);
+  }
+
+  .mobile-bank-shell .yape-success-voucher:not(.movement-voucher) .voucher-card {
+    width: calc(100% - clamp(30px, 8vw, 38px));
+    margin: clamp(-15px, -3vw, -10px) auto 4px;
+    padding: clamp(13px, 3.4vw, 16px) clamp(14px, 3.8vw, 18px);
+    border-radius: clamp(18px, 4.8vw, 21px);
+    transform: none;
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-card-headline {
+    margin-bottom: clamp(6px, 1.8vw, 8px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-card-headline
+    h2 {
+    font-size: clamp(20px, 5.1vw, 23px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-amount {
+    gap: clamp(5px, 1.5vw, 7px);
+    margin-bottom: clamp(5px, 1.5vw, 7px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-amount
+    > span {
+    font-size: clamp(27px, 7vw, 31px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-amount
+    > strong {
+    font-size: clamp(44px, 11.8vw, 51px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-recipient {
+    padding-top: 0;
+    font-size: clamp(19px, 5vw, 22px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-datetime {
+    padding: clamp(7px, 2vw, 9px) 0 clamp(10px, 2.7vw, 12px);
+    font-size: clamp(14px, 3.8vw, 17px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-security {
+    padding: clamp(10px, 2.8vw, 12px) 0;
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-details
+    > .voucher-section-label {
+    padding: clamp(10px, 2.8vw, 12px) 0 clamp(7px, 2vw, 9px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-details
+    > div {
+    padding: clamp(3px, 0.9vw, 4px) 0;
+    font-size: clamp(14px, 3.8vw, 17px);
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-new-yape-button {
+    height: var(--app-touch-target);
+    min-height: var(--app-touch-target);
+    margin-top: 8px;
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-help-link {
+    min-height: var(--app-touch-target);
+    margin-top: 6px;
+  }
+
+  .mobile-bank-shell
+    .yape-success-voucher:not(.movement-voucher)
+    .voucher-more-section {
+    margin-top: 6px;
+    margin-bottom: max(14px, var(--app-safe-bottom));
   }
 
   .mobile-bank-shell.view-movements .reference-movements-view,
@@ -508,7 +649,10 @@ canvas {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    padding: 0 !important;
+    padding: 0 0
+      calc(
+        var(--bottom-nav-height) + var(--app-safe-bottom) + 12px
+      ) !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
@@ -548,26 +692,38 @@ canvas {
    * movimientos o el desplazamiento del contenido de inicio.
    */
   .mobile-bank-shell.view-home .home-main-actions {
-    position: relative !important;
-    inset: auto !important;
-    bottom: auto !important;
+    position: fixed !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: 0 !important;
+    left: 50% !important;
     z-index: 40 !important;
-    flex: 0 0 auto !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
     gap: 12px !important;
     width: 100% !important;
-    max-width: none !important;
-    height: auto !important;
-    min-height: 0 !important;
+    max-width: 430px !important;
+    height: calc(var(--bottom-nav-height) + var(--app-safe-bottom)) !important;
+    min-height: calc(
+      var(--bottom-nav-height) + var(--app-safe-bottom)
+    ) !important;
     margin: 0 !important;
-    padding: 12px max(16px, var(--app-inline-gutter))
-      calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-top: 12px !important;
+    padding-right: max(
+      var(--app-inline-gutter),
+      calc(var(--app-safe-right) + 12px)
+    ) !important;
+    padding-bottom: calc(12px + var(--app-safe-bottom)) !important;
+    padding-left: max(
+      var(--app-inline-gutter),
+      calc(var(--app-safe-left) + 12px)
+    ) !important;
+    box-sizing: border-box !important;
     background: #ffffff !important;
     border: 0 !important;
     box-shadow: none !important;
-    transform: none !important;
+    transform: translateX(-50%) !important;
   }
 
   .mobile-bank-shell.view-home .home-main-actions::before,
@@ -688,13 +844,17 @@ canvas {
   }
 
   .mobile-bank-shell.view-home .home-main-actions {
-    width: 100% !important;
-    margin: 0 !important;
+    height: calc(60px + var(--app-safe-bottom)) !important;
+    min-height: calc(60px + var(--app-safe-bottom)) !important;
     padding-top: 8px !important;
     padding-right: max(16px, var(--app-safe-right)) !important;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(8px + var(--app-safe-bottom)) !important;
     padding-left: max(16px, var(--app-safe-left)) !important;
     background: #ffffff !important;
+  }
+
+  .mobile-bank-shell.view-home .bank-scroll-area {
+    padding-bottom: calc(60px + var(--app-safe-bottom) + 12px) !important;
   }
 
   .mobile-bank-shell.view-transfer
