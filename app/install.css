@@ -123,7 +123,7 @@
   pointer-events: auto;
 }
 
-.entry-install-cta button {
+.entry-install-cta button:not(.entry-install-close) {
   min-height: 44px;
   padding: 10px 20px;
   border: 1px solid rgba(255, 255, 255, 0.72);
@@ -137,9 +137,31 @@
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
 
-.entry-install-cta button:active {
+.entry-install-cta button:not(.entry-install-close):active {
   transform: scale(0.96);
   box-shadow: 0 4px 12px rgba(44, 0, 52, 0.2);
+}
+
+.entry-install-close {
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(53, 16, 60, 0.82);
+  box-shadow: 0 6px 16px rgba(44, 0, 52, 0.22);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.entry-install-close:active {
+  transform: scale(0.94);
 }
 
 .entry-install-cta p {

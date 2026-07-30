@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -20,6 +20,8 @@ const EMPTY_ENVIRONMENT: InstallEnvironment = {
   isMobile: false,
   isSafari: false,
 };
+const INSTALL_DISMISS_UNTIL_KEY = "yape_install_prompt_dismissed_until";
+const INSTALL_DISMISS_MS = 12 * 60 * 60 * 1000;
 
 function isLocalEditMode() {
   if (
@@ -45,14 +47,28 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
     useState<BeforeInstallPromptEvent | null>(null);
   const [installHelpVisible, setInstallHelpVisible] = useState(false);
   const [installAccepted, setInstallAccepted] = useState(false);
+  const [installDismissed, setInstallDismissed] = useState(false);
 
   useEffect(() => {
     const standaloneQuery = window.matchMedia("(display-mode: standalone)");
     const fullscreenQuery = window.matchMedia("(display-mode: fullscreen)");
 
+    const updateDismissed = () => {
+      const dismissedUntil = Number(
+        window.localStorage.getItem(INSTALL_DISMISS_UNTIL_KEY) ?? "0",
+      );
+      const stillDismissed = Number.isFinite(dismissedUntil)
+        && dismissedUntil > Date.now();
+      if (!stillDismissed) {
+        window.localStorage.removeItem(INSTALL_DISMISS_UNTIL_KEY);
+      }
+      setInstallDismissed(stillDismissed);
+    };
+
     const updateInstalled = () => {
       setEnvironment(getInstallEnvironment());
       setInstalled(isInstalledApp());
+      updateDismissed();
       setReady(true);
     };
 
@@ -68,6 +84,8 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
       setPromptEvent(null);
       setInstallHelpVisible(false);
       setInstallAccepted(false);
+      setInstallDismissed(false);
+      window.localStorage.removeItem(INSTALL_DISMISS_UNTIL_KEY);
     };
 
     updateInstalled();
@@ -95,6 +113,18 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
     setPromptEvent(null);
     setInstallAccepted(choice.outcome === "accepted");
     setInstallHelpVisible(choice.outcome !== "accepted");
+    if (choice.outcome === "accepted") {
+      window.localStorage.removeItem(INSTALL_DISMISS_UNTIL_KEY);
+    }
+  }
+
+  function dismissInstallCta() {
+    window.localStorage.setItem(
+      INSTALL_DISMISS_UNTIL_KEY,
+      String(Date.now() + INSTALL_DISMISS_MS),
+    );
+    setInstallDismissed(true);
+    setInstallHelpVisible(false);
   }
 
   if (
@@ -102,6 +132,7 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
     || isLocalEditMode()
     || installed
     || installAccepted
+    || installDismissed
     || !environment.isMobile
     || pathname !== "/"
   ) {
@@ -120,6 +151,14 @@ export function AppInstallGate({ children }: { children: ReactNode }) {
     <>
       {children}
       <aside className="entry-install-cta" aria-label="Instalar aplicación">
+        <button
+          type="button"
+          className="entry-install-close"
+          aria-label="Ocultar instalación por ahora"
+          onClick={dismissInstallCta}
+        >
+          ×
+        </button>
         <button type="button" onClick={installApp}>
           {buttonLabel}
         </button>

@@ -47,8 +47,14 @@ yarn-error.log*
 
 # local-only workspace and tool metadata
 /.cursor/
+/.agents/
+/.codex/
 /.openai/
+/artifacts/
 /tests/
+fix.mjs
+out.b64
+skills-lock.json
 
 # vercel
 .vercel

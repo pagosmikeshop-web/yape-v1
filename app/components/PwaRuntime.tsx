@@ -54,6 +54,7 @@ export function PwaRuntime() {
   useEffect(() => {
     if (
       process.env.NODE_ENV !== "production"
+      || !window.isSecureContext
       || !("serviceWorker" in navigator)
     ) {
       return;

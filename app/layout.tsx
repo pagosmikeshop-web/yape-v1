@@ -14,6 +14,9 @@ import "./mobile-viewport.css";
 
 const appIcon = "/assets/apk/icons/ic_yape_logo_r_yape_primary_700.svg";
 const androidIcon = "/icons/yape-192.png";
+const appleIcon = "/icons/apple-touch-icon.png";
+const favicon32 = "/icons/favicon-32.png";
+const favicon16 = "/icons/favicon-16.png";
 
 export const metadata: Metadata = {
   applicationName: "Yape",
@@ -33,15 +36,19 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: favicon32, type: "image/png", sizes: "32x32" },
+      { url: favicon16, type: "image/png", sizes: "16x16" },
       { url: androidIcon, type: "image/png", sizes: "192x192" },
       { url: appIcon, type: "image/svg+xml" },
     ],
-    apple: [{ url: androidIcon, type: "image/png", sizes: "192x192" }],
+    apple: [{ url: appleIcon, type: "image/png", sizes: "180x180" }],
   },
   other: {
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "Yape",
   },
 };
 
