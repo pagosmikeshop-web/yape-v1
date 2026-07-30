@@ -612,8 +612,7 @@ canvas {
     margin-bottom: max(14px, var(--app-safe-bottom));
   }
 
-  .mobile-bank-shell.view-movements .reference-movements-view,
-  .mobile-bank-shell .reference-dollars-view {
+  .mobile-bank-shell.view-movements .reference-movements-view {
     min-height: 100% !important;
   }
 
