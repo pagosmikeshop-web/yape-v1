@@ -2229,6 +2229,11 @@
   text-align: center;
 }
 
+.mobile-bank-shell .transfer-recipient-name-input::placeholder {
+  color: #9b969f;
+  opacity: 1;
+}
+
 .mobile-bank-shell .transfer-recipient-name-input {
   width: 100%;
   margin-top: min(3vw, 12px);

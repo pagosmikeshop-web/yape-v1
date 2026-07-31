@@ -1103,7 +1103,7 @@ function ProfileView() {
         <ProfileMenuItem
           icon="ic_location_r_yape_primary"
           label="Mis direcciones"
-          href="/direcciones"
+          onClick={() => undefined}
         />
         <ProfileMenuItem
           icon="ic_broken_heart_outline_yape_primary"
@@ -1122,22 +1122,22 @@ function ProfileView() {
         <ProfileMenuItem
           icon="ic_credit_card_outline_yape_primary"
           label="Compras por internet y POS"
-          href="/compras-internet"
+          onClick={() => undefined}
         />
         <ProfileMenuItem
           icon="ic_info_outline_yape_primary"
           label="Confirmación de yapeo alto"
-          href="/confirmacion-montos"
+          onClick={() => undefined}
         />
         <ProfileMenuItem
           icon="ic_bar_chart_outline_yape_primary"
           label="Límites Transaccionales"
-          href="/limites-transaccionales"
+          onClick={() => undefined}
         />
         <ProfileMenuItem
           icon="ic_bell_r_yape_primary"
           label="Notificaciones por yapeo"
-          href="/notificaciones-transferencias"
+          onClick={() => undefined}
         />
       </section>
 
@@ -2854,61 +2854,18 @@ function SwitchControl({
 }
 
 function HighAmountView() {
-  const [enabled, setEnabled] = useState(true);
-  const [amount, setAmount] = useState("500");
-
   return (
     <div className="settings-page high-amount-page">
-      <section className="settings-purple-hero">
-        <InnerHeader
-          title="Confirmación de yapeo alto"
-          backHref="/perfil"
-          compact
-        />
-        <AssetIcon name="ic_info_outline_yape_on_primary" />
-        <p>
-          Elige desde qué monto quieres confirmar tus yapeos antes de enviarlos.
-        </p>
-      </section>
-      <section className="settings-sheet">
-        <div className="setting-toggle-row">
-          <strong>Activar la confirmación</strong>
-          <SwitchControl
-            checked={enabled}
-            onChange={setEnabled}
-            label="Activar confirmación de montos altos"
-          />
-        </div>
-        <label className="generic-amount-field">
-          <span>Indica el monto alto</span>
-          <div>
-            <b>S/</b>
-            <input
-              value={amount}
-              onChange={(event) =>
-                setAmount(event.target.value.replace(/[^0-9.]/g, ""))
-              }
-              inputMode="decimal"
-              disabled={!enabled}
-            />
-            <button
-              type="button"
-              onClick={() => setAmount("")}
-              aria-label="Limpiar monto"
-            >
-              ×
-            </button>
-          </div>
-          <small>Mínimo S/ 1 y máximo S/ 500</small>
-        </label>
-      </section>
+      <InnerHeader
+        title="Confirmación de yapeo alto"
+        backHref="/perfil"
+        compact
+      />
     </div>
   );
 }
 
 function TransferAlertsView() {
-  const [emailAlerts, setEmailAlerts] = useState(false);
-
   return (
     <div className="settings-page transfer-alerts-page">
       <InnerHeader
@@ -2916,81 +2873,18 @@ function TransferAlertsView() {
         backHref="/perfil"
         compact
       />
-      <section className="simple-settings-body">
-        <h2>YAPEOS</h2>
-        <div className="setting-toggle-row detailed">
-          <span>
-            <strong>Recibir aviso por correo</strong>
-            <small>
-              Indica el monto desde el cual deseas recibir tus notificaciones.
-            </small>
-          </span>
-          <SwitchControl
-            checked={emailAlerts}
-            onChange={setEmailAlerts}
-            label="Recibir avisos por correo"
-          />
-        </div>
-      </section>
     </div>
   );
 }
 
 function LimitsView() {
-  const [editing, setEditing] = useState(false);
-  const [limit, setLimit] = useState("1000");
-
   return (
     <div className="settings-page limits-page">
-      <section className="limits-purple-hero">
-        <InnerHeader
-          title="Límites transaccionales"
-          backHref="/perfil"
-          compact
-        />
-        <AssetIcon name="ic_bar_chart_outline_yape_on_primary" />
-        <p>Consulta y ajusta tus límites de yapeo.</p>
-      </section>
-      <section className="limits-sheet">
-        <small>LÍMITE DIARIO DE ENVÍOS</small>
-        <div className="limit-card">
-          <span>
-            <small>Límite configurado</small>
-            <strong>S/ {Number(limit || 0).toFixed(2)}</strong>
-          </span>
-          <button
-            type="button"
-            onClick={() => setEditing((current) => !current)}
-          >
-            {editing ? "Cancelar" : "Editar límite"}
-          </button>
-        </div>
-        {editing ? (
-          <label className="generic-amount-field">
-            <span>Nuevo límite diario</span>
-            <div>
-              <b>S/</b>
-              <input
-                value={limit}
-                onChange={(event) =>
-                  setLimit(event.target.value.replace(/[^0-9.]/g, ""))
-                }
-                inputMode="decimal"
-              />
-            </div>
-          </label>
-        ) : null}
-        <div className="monthly-limit-card">
-          <span>
-            <small>Recibido durante el mes</small>
-            <strong>S/ 320.00</strong>
-          </span>
-          <div>
-            <i />
-          </div>
-          <p>32% de un máximo de S/ 1,000.00</p>
-        </div>
-      </section>
+      <InnerHeader
+        title="Límites transaccionales"
+        backHref="/perfil"
+        compact
+      />
     </div>
   );
 }
@@ -3181,69 +3075,21 @@ function BiometricView() {
 }
 
 function AddressesView() {
-  const [notice, setNotice] = useState("");
-
   return (
     <div className="reference-addresses-view">
       <InnerHeader title="Mis direcciones" backHref="/perfil" compact />
-      <button
-        className="new-address-row"
-        type="button"
-        onClick={() => setNotice("Nueva dirección")}
-      >
-        <AssetIcon name="ic_add_circle_solid_yape_secondary" />
-        <span>Nueva dirección</span>
-      </button>
-      <section className="addresses-empty">
-        <AssetIllustration name="sp_change_location" />
-        <h2>Aún no nos has proporcionado ninguna dirección.</h2>
-        <p>
-          Agrega una dirección para brindarte la mejor experiencia de delivery.
-        </p>
-      </section>
-      {notice ? (
-        <p className="inline-notice addresses-notice" role="status">
-          {notice}
-        </p>
-      ) : null}
     </div>
   );
 }
 
 function OnlinePurchasesView() {
-  const [enabled, setEnabled] = useState(true);
-
   return (
     <div className="reference-online-purchases-view">
-      <section className="online-purchases-hero">
-        <InnerHeader title="Compras por internet" backHref="/perfil" compact />
-        <article className="generic-bank-card">
-          <AssetIcon name="ic_bcp_logo" className="card-logo" />
-          <AssetIcon name="bcp_card_tdc" className="card-symbol" />
-          <small>Número de tarjeta</small>
-          <strong>•••• •••• •••• 0000</strong>
-        </article>
-      </section>
-      <section className="online-purchases-body">
-        <div className="online-purchase-toggle">
-          <span>
-            <strong>Activar Compras por internet</strong>
-            <p>
-              Permite comprar en apps y páginas web, aplica a tu tarjeta
-              afiliada y a las siguientes funcionalidades de Yape:
-            </p>
-          </span>
-          <SwitchControl
-            checked={enabled}
-            onChange={setEnabled}
-            label="Activar compras por internet"
-          />
-        </div>
-        <ol>
-          <li>Código de Aprobación</li>
-          <li>Pago QR en Comercio electrónico</li>
-        </ol>
-      </section>
+      <InnerHeader
+        title="Compras por internet"
+        backHref="/perfil"
+        compact
+      />
     </div>
   );
 }

@@ -328,17 +328,20 @@ export function TransferView() {
     }
   }
 
-  function pickContact(_name: string, phone: string) {
+  function pickContact(name: string, phone: string) {
+    const normalizedPhone = normalizeMobileNumber(phone);
     setRecipientId("");
-    setRecipientName("");
-    setRecipientPhone("");
+    setRecipientName(name.trim());
+    setRecipientPhone(normalizedPhone || phone);
     setManualRecipientMode(false);
     setRecipientIsNewNumber(false);
     setPhoneIsEditing(false);
     setDestination("Yape");
-    setNewNumber(phone.replace(/\D/g, "").slice(-9));
+    setNewNumber("");
     setNotice("");
-    setStage("new-number");
+    // Los contactos frecuentes ya tienen nombre y celular guardados. No
+    // necesitan volver a pasar por la consulta externa de titulares.
+    setStage("amount");
   }
 
   function enableManualRecipientFallback(phone: string) {
@@ -360,10 +363,6 @@ export function TransferView() {
       return;
     }
     if (manualRecipientMode) {
-      if (recipientName.trim().length < 2) {
-        setNotice("Escribe el nombre del destinatario para continuar.");
-        return;
-      }
       setRecipientPhone(normalizedPhone);
       setRecipientIsNewNumber(true);
       setNotice("");
@@ -762,7 +761,7 @@ export function TransferView() {
       ) : null}
 
       {stage === "new-number" ? (
-        <>
+        <section className="transfer-new-number-screen">
           <header className="transfer-flow-header">
             <button
               type="button"
@@ -822,22 +821,6 @@ export function TransferView() {
                   ) : null}
                 </div>
               </label>
-              {manualRecipientMode ? (
-                <label className="phone-prefix-field transfer-manual-recipient-field">
-                  <span>Nombre del destinatario</span>
-                  <div>
-                    <input
-                      value={recipientName}
-                      onChange={(event) =>
-                        setRecipientName(event.target.value.slice(0, 80))
-                      }
-                      placeholder="Escribe el nombre"
-                      autoComplete="name"
-                      required
-                    />
-                  </div>
-                </label>
-              ) : null}
               {notice ? (
                 <p className="inline-notice" role="status">
                   {notice}
@@ -852,14 +835,13 @@ export function TransferView() {
               form="new-number-form"
               disabled={
                 newNumber.length < 9 ||
-                recipientLookupLoading ||
-                (manualRecipientMode && recipientName.trim().length < 2)
+                recipientLookupLoading
               }
             >
               Continuar
             </button>
           </div>
-        </>
+        </section>
       ) : null}
 
       {showAmountScreen ? (
@@ -887,6 +869,7 @@ export function TransferView() {
               <input
                 className="transfer-recipient-name-input"
                 aria-label="Nombre del destinatario"
+                placeholder="Nombre del destinatario"
                 value={recipientName}
                 readOnly={Boolean(recipientId)}
                 onChange={(event) =>
