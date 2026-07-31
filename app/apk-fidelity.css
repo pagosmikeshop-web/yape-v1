@@ -2230,21 +2230,20 @@
 .mobile-bank-shell .recipient-name-skeleton {
   width: clamp(55%, 60%, 65%);
   max-width: 260px;
-  height: 11px;
+  height: 15px;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    #e4dce8 0%,
-    #f2edf4 50%,
-    #e4dce8 100%
-  );
+  background: linear-gradient(90deg, #e4dce8 0%, #f2edf4 50%, #e4dce8 100%);
   background-size: 200% 100%;
   animation: recipient-name-shimmer 1.8s ease-in-out infinite;
 }
 
 @keyframes recipient-name-shimmer {
-  from { background-position: 100% 0; }
-  to { background-position: -100% 0; }
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
