@@ -1741,33 +1741,105 @@ input:focus-visible {
   background: #fff;
 }
 
+.mobile-bank-shell .transfer-new-number-screen .transfer-flow-header {
+  position: relative;
+  top: auto;
+  z-index: 1;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  width: 100%;
+  height: clamp(68px, 20vw, 78px);
+  min-height: clamp(68px, 20vw, 78px);
+  padding: env(safe-area-inset-top, 0px) 16px 0;
+  border: 0;
+  background: #fff;
+}
+
+.mobile-bank-shell .transfer-new-number-screen .transfer-header-back {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mobile-bank-shell .transfer-new-number-screen .transfer-header-back .apk-icon {
+  width: 24px;
+  height: 24px;
+}
+
 .mobile-bank-shell .transfer-new-number-screen .transfer-flow-content {
   flex: 1 1 auto;
   width: 100%;
-  padding: clamp(24px, 7vw, 40px) clamp(20px, 8.5vw, 40px) 28px;
+  padding: 0 clamp(16px, 4.8vw, 18px) 24px;
 }
 
 .mobile-bank-shell .transfer-new-number-screen .transfer-new-number-title {
-  margin: clamp(26px, 7vw, 42px) 0 clamp(28px, 7vw, 40px);
-  font-size: clamp(26px, 7.6vw, 34px);
+  margin: clamp(22px, 7vw, 30px) 0 clamp(28px, 8vw, 34px);
+  color: var(--primary-700);
+  font-size: clamp(22px, 6.8vw, 26px);
+  font-weight: 700;
   line-height: 1.12;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field {
-  gap: clamp(8px, 2.4vw, 12px);
-  font-size: clamp(15px, 4.2vw, 18px);
+  position: relative;
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #c28bc9;
+  font-size: clamp(14px, 4.2vw, 16px);
+  font-weight: 500;
 }
 
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field > div {
-  min-height: clamp(58px, 15vw, 72px);
-  padding-inline: clamp(14px, 4vw, 20px);
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: clamp(58px, 16vw, 62px);
+  padding-inline: clamp(14px, 5vw, 20px);
   border-width: 2px;
-  border-radius: clamp(14px, 3.6vw, 18px);
+  border-radius: clamp(6px, 2vw, 8px);
+  border-color: var(--primary-700);
+  background: #fff;
+  box-shadow: none;
+}
+
+.mobile-bank-shell .transfer-new-number-screen .phone-prefix-field > span {
+  position: absolute;
+  top: 0;
+  left: clamp(4px, 2vw, 8px);
+  z-index: 1;
+  padding: 0 8px;
+  color: #c28bc9;
+  background: #fff;
+  font-size: inherit;
+  font-weight: 500;
+  line-height: 1;
+  transform: translateY(-50%);
 }
 
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field b,
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field input {
-  font-size: clamp(18px, 5vw, 23px);
+  font-size: clamp(18px, 5vw, 21px);
+}
+
+.mobile-bank-shell .transfer-new-number-screen .phone-prefix-field b {
+  flex: 0 0 auto;
+  color: #302846;
+  font-weight: 600;
+}
+
+.mobile-bank-shell .transfer-new-number-screen .phone-prefix-field input {
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: #302846;
+  font-weight: 500;
 }
 
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field input::placeholder {
@@ -1777,14 +1849,29 @@ input:focus-visible {
 
 .mobile-bank-shell .transfer-new-number-screen .transfer-flow-footer {
   flex: 0 0 auto;
-  padding: clamp(18px, 5vw, 28px) clamp(20px, 8.5vw, 40px)
-    max(clamp(18px, 5vw, 28px), env(safe-area-inset-bottom, 0px));
+  padding: 0 clamp(16px, 4.8vw, 18px)
+    max(clamp(22px, 6vw, 26px), env(safe-area-inset-bottom, 0px));
+  border: 0;
+  background: #fff;
 }
 
 .mobile-bank-shell .transfer-new-number-screen .transfer-full-width-button {
-  min-height: clamp(56px, 15vw, 70px);
-  border-radius: clamp(16px, 4vw, 20px);
-  font-size: clamp(16px, 4.6vw, 20px);
+  min-height: clamp(50px, 14vw, 54px);
+  border-radius: clamp(8px, 2.5vw, 10px);
+  color: #b9aac7;
+  background: #e8e3eb;
+  font-size: clamp(16px, 4.6vw, 18px);
+  font-weight: 600;
+}
+
+.mobile-bank-shell .transfer-new-number-screen .transfer-full-width-button:not(:disabled) {
+  color: #fff;
+  background: var(--teal);
+}
+
+.mobile-bank-shell .transfer-new-number-screen .inline-notice {
+  margin: 10px 0 0;
+  font-size: 12px;
 }
 
 .transfer-new-number-title {

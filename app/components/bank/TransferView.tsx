@@ -786,7 +786,9 @@ export function TransferView() {
                 <div>
                   <b>+51</b>
                   <input
+                    type="tel"
                     inputMode="numeric"
+                    maxLength={9}
                     value={newNumber}
                     onChange={(event) => {
                       recipientLookupAbortRef.current?.abort();
@@ -798,7 +800,6 @@ export function TransferView() {
                       setManualRecipientMode(false);
                       setNewNumber(event.target.value.replace(/\D/g, "").slice(0, 9));
                     }}
-                    placeholder="000 000 000"
                     required
                   />
                   {newNumber ? (
