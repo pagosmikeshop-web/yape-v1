@@ -3,6 +3,13 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { getRouteThemeColor } from "../lib/route-theme";
+import { isNativeApp } from "../lib/pwa-client";
+import {
+  subscribeToNetworkState,
+  type ConnectivityState,
+} from "../lib/platform-adapters";
+import { subscribeToWebLifecycle } from "../lib/web-lifecycle";
+import { PwaBridge } from "../lib/pwa-bridge";
 
 function findThemeMeta() {
   return document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -11,9 +18,7 @@ function findThemeMeta() {
 export function PwaRuntime() {
   const pathname = usePathname();
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
-  const [connectivity, setConnectivity] = useState<
-    "online" | "offline" | "restored"
-  >("online");
+  const [connectivity, setConnectivity] = useState<ConnectivityState>("online");
   const reloadAfterActivation = useRef(false);
 
   useEffect(() => {
@@ -34,25 +39,13 @@ export function PwaRuntime() {
   }, []);
 
   useEffect(() => {
-    const markOffline = () => setConnectivity("offline");
-    const markOnline = () => {
-      setConnectivity((current) =>
-        current === "offline" ? "restored" : "online",
-      );
-    };
-
-    setConnectivity(navigator.onLine ? "online" : "offline");
-    window.addEventListener("offline", markOffline);
-    window.addEventListener("online", markOnline);
-
-    return () => {
-      window.removeEventListener("offline", markOffline);
-      window.removeEventListener("online", markOnline);
-    };
+    return subscribeToNetworkState(setConnectivity);
   }, []);
 
   useEffect(() => {
     if (
+      isNativeApp()
+      ||
       process.env.NODE_ENV !== "production"
       || !window.isSecureContext
       || !("serviceWorker" in navigator)
@@ -108,11 +101,13 @@ export function PwaRuntime() {
       })
       .catch(() => undefined);
 
-    document.addEventListener("visibilitychange", checkForUpdate);
+    const stopLifecycle = subscribeToWebLifecycle((event) => {
+      if (event.type === "visibilitychange" && event.visible) checkForUpdate();
+    });
 
     return () => {
       disposed = true;
-      document.removeEventListener("visibilitychange", checkForUpdate);
+      stopLifecycle();
       navigator.serviceWorker.removeEventListener(
         "controllerchange",
         handleControllerChange,
@@ -125,10 +120,16 @@ export function PwaRuntime() {
     };
   }, []);
 
-  function applyUpdate() {
+  async function applyUpdate() {
     if (!waitingWorker) return;
     reloadAfterActivation.current = true;
-    waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    try {
+      const result = await PwaBridge.requestUpdate();
+      if (!result.requested) waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    } catch {
+      // El fallback mantiene la actualización funcional si el bridge no está disponible.
+      waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    }
   }
 
   return (
@@ -162,7 +163,7 @@ export function PwaRuntime() {
             <strong>Nueva versión disponible</strong>
             <span>Actualiza cuando estés listo. No perderás tu sesión.</span>
           </div>
-          <button type="button" onClick={applyUpdate}>
+          <button type="button" onClick={() => void applyUpdate()}>
             Actualizar
           </button>
           <button

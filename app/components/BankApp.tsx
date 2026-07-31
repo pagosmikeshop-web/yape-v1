@@ -14,6 +14,7 @@ import {
   setOptimisticUnlock,
 } from "../lib/session-cache";
 import { clearBalanceCache, fetchAccountBalance } from "../lib/balance-cache";
+import { copyText, shareText } from "../lib/platform-adapters";
 import { useModalLayer } from "../hooks/useModalLayer";
 import {
   APK_ASSET_ROOT,
@@ -166,21 +167,19 @@ async function shareContent(
   payload: { title: string; text: string; url?: string },
   fallback?: () => void,
 ) {
-  const textToCopy = [payload.text, payload.url].filter(Boolean).join("\n");
-  if (
-    typeof navigator !== "undefined" &&
-    typeof navigator.share === "function"
-  ) {
-    await navigator.share(payload);
+  const result = await shareText(payload);
+  if (result.ok && result.method === "native-share") {
     return "Listo para compartir.";
   }
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(textToCopy);
+  if (result.ok && result.method === "clipboard") {
     fallback?.();
     return "Copiado para compartir.";
   }
+  if (result.ok) return "Listo para compartir.";
   fallback?.();
-  return "Tu dispositivo no permite compartir desde el navegador.";
+  return result.reason === "cancelled"
+    ? "Compartir cancelado."
+    : "Tu dispositivo no permite compartir desde el navegador.";
 }
 
 export function SimpleMovementList({
@@ -1338,10 +1337,10 @@ function AccountDataView() {
   }, []);
 
   async function copyReferral(value: string, message: string) {
-    try {
-      await navigator.clipboard.writeText(value);
+    const result = await copyText(value);
+    if (result.ok) {
       setReferralNotice(message);
-    } catch {
+    } else {
       setReferralNotice("Mantén presionado el código para copiarlo.");
     }
   }

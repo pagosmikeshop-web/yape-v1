@@ -24,7 +24,7 @@
       "app/**/*.{ts,tsx}",
       "db/**/*.ts",
       "scripts/**/*.mjs",
-      "tests/**/*.mjs",
+      "tests/**/*.{mjs,ts,tsx}",
       "proxy.ts",
       "next.config.ts",
       "!**/.next/**",

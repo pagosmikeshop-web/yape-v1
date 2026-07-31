@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { copyText } from "../lib/platform-adapters";
 
 /** Debe coincidir con TELEGRAM_TRIAL_SELLER_ID en trial-activation.ts */
 const TELEGRAM_TRIAL_SELLER_ID = "system-telegram-trial";
@@ -432,7 +433,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
               <small>Compártela por un canal privado. No contiene ninguna contraseña y vence en 24 horas.</small>
             </div>
             <input value={invitation.activationUrl} readOnly aria-label="Enlace de invitación" />
-            <button type="button" onClick={() => void navigator.clipboard.writeText(invitation.activationUrl)}>Copiar enlace</button>
+            <button type="button" onClick={() => void copyText(invitation.activationUrl)}>Copiar enlace</button>
           </section>
         ) : null}
 
@@ -443,7 +444,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
               <small>Se muestra una sola vez. Entrégalo únicamente a este cliente.</small>
             </div>
             <input value={permanentToken.token} readOnly aria-label="Token de acceso permanente" />
-            <button type="button" onClick={() => void navigator.clipboard.writeText(permanentToken.token)}>Copiar token</button>
+            <button type="button" onClick={() => void copyText(permanentToken.token)}>Copiar token</button>
           </section>
         ) : null}
 

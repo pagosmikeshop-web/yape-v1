@@ -1,3 +1,5 @@
+import { getRuntimePlatform } from "./platform";
+
 export type InstallEnvironment = {
   isAndroid: boolean;
   isIos: boolean;
@@ -5,9 +7,14 @@ export type InstallEnvironment = {
   isSafari: boolean;
 };
 
-type NavigatorWithStandalone = Navigator & {
-  standalone?: boolean;
-};
+/**
+ * Capacitor y la PWA comparten una sola detección de plataforma. La función
+ * es segura durante SSR porque `getRuntimePlatform` no toca el navegador al
+ * cargar el módulo.
+ */
+export function isNativeApp(): boolean {
+  return getRuntimePlatform().isNative;
+}
 
 export function getInstallEnvironment(): InstallEnvironment {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
@@ -19,28 +26,20 @@ export function getInstallEnvironment(): InstallEnvironment {
     };
   }
 
+  const platform = getRuntimePlatform();
   const userAgent = navigator.userAgent;
-  const isAndroid = /android/iu.test(userAgent);
-  const isIpadOs = /macintosh/iu.test(userAgent) && navigator.maxTouchPoints > 1;
-  const isIos = /iphone|ipad|ipod/iu.test(userAgent) || isIpadOs;
   const isSafari =
     /safari/iu.test(userAgent)
     && !/crios|fxios|edgios|opios|duckduckgo/iu.test(userAgent);
+
   return {
-    isAndroid,
-    isIos,
-    isMobile: isAndroid || isIos,
+    isAndroid: platform.isAndroid,
+    isIos: platform.isIos,
+    isMobile: platform.isAndroid || platform.isIos,
     isSafari,
   };
 }
 
-export function isInstalledApp() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return false;
-  }
-
-  const standalone = window.matchMedia("(display-mode: standalone)").matches;
-  const fullscreen = window.matchMedia("(display-mode: fullscreen)").matches;
-  const iosStandalone = (navigator as NavigatorWithStandalone).standalone === true;
-  return standalone || fullscreen || iosStandalone;
+export function isInstalledApp(): boolean {
+  return getRuntimePlatform().isInstalledApp;
 }

@@ -10,12 +10,15 @@
     "build": "next build && node scripts/verify-public-build.mjs .next/static",
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit",
-    "lint": "biome check app db scripts proxy.ts next.config.ts --diagnostic-level=error",
+    "lint": "biome check app db scripts tests proxy.ts next.config.ts capacitor.config.ts --diagnostic-level=error",
+    "test": "vitest run",
     "security:scan": "node scripts/security-scan.mjs",
     "security:audit": "npm audit --audit-level=high",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "cap:check:webdir": "node scripts/verify-capacitor-webdir.mjs out"
   },
   "dependencies": {
+    "@capacitor/core": "8.4.2",
     "@fingerprintjs/fingerprintjs": "5.2.0",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
@@ -32,6 +35,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
+    "@capacitor/cli": "8.4.2",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.19.19",
     "@types/qrcode": "^1.5.6",
@@ -39,7 +43,8 @@
     "@types/react-dom": "19.2.3",
     "drizzle-kit": "0.31.10",
     "tailwindcss": "4.3.3",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^3.2.6"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {

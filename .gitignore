@@ -50,7 +50,8 @@ yarn-error.log*
 /.codex/
 /.openai/
 /artifacts/
-/tests/
+/tests/*
+!/tests/platform-contracts.test.ts
 /.vinext/
 /.wrangler/
 fix.mjs
