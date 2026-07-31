@@ -1,5 +1,5 @@
 import { jsonError, jsonOk } from "@/app/lib/api-utils";
-import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import { dbBinding, requireUnlockedSession, routeError, userHasRole } from "@/app/lib/auth-server";
 import { requireManagedAccount } from "@/app/lib/management-server";
 import { requirePermission } from "@/app/lib/rbac";
 import { activateClientTrial } from "@/app/lib/trial-activation";
@@ -13,11 +13,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     if (actor.role === "admin") {
       const managed = await requireManagedAccount(actor, id);
-      if (managed.role !== "client") return jsonError("Cliente no encontrado.", 404);
+      if (!userHasRole(managed, "client")) return jsonError("Cliente no encontrado.", 404);
     }
     const database = dbBinding();
     const client = await database.prepare(
-      "SELECT id, owner_id, display_name, status FROM users WHERE id = ? AND role = 'client' AND deleted_at IS NULL LIMIT 1",
+      `SELECT id, owner_id, display_name, status FROM users
+       WHERE id = ? AND (role = 'client' OR EXISTS (
+         SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+       )) AND deleted_at IS NULL LIMIT 1`,
     ).bind(id).first<{ id: string; owner_id: string | null; display_name: string; status: string }>();
 
     if (!client || (actor.role === "seller" && client.owner_id !== actor.id)) {

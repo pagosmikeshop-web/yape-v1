@@ -21,6 +21,7 @@ import {
 import {
   checkCurrentTelegramGroupMember,
   telegramMembershipError,
+  telegramMembershipIsUnavailable,
 } from "@/app/lib/telegram-manager";
 import { TELEGRAM_TRIAL_SELLER_ID } from "@/app/lib/trial-activation";
 
@@ -90,7 +91,12 @@ export async function POST(request: Request) {
       ).first(),
     ]);
 
-    if (!telegramCheck.member) return jsonError(telegramMembershipError(telegramCheck), 403);
+    if (!telegramCheck.member) {
+      return jsonError(
+        telegramMembershipError(telegramCheck),
+        telegramMembershipIsUnavailable(telegramCheck) ? 503 : 403,
+      );
+    }
     if (existingTelegram) {
       return jsonError("Ese Telegram ID ya tiene una cuenta. Inicia sesión o recupera tu acceso.", 409);
     }

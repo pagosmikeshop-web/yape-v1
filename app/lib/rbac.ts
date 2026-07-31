@@ -1,4 +1,4 @@
-import { dbBinding, type AuthUser } from "@/app/lib/auth-server";
+import { dbBinding, type AuthUser, userHasRole } from "@/app/lib/auth-server";
 
 export type StaffRole = "owner" | "admin" | "seller";
 
@@ -107,11 +107,17 @@ const ROLE_PERMISSIONS: Record<StaffRole, readonly Permission[]> = {
 };
 
 export function staffRole(user: Pick<AuthUser, "role" | "isOwner">): StaffRole {
-  return user.role === "admin" && user.isOwner ? "owner" : user.role === "admin" ? "admin" : "seller";
+  const withRoles = user as Pick<AuthUser, "role" | "roles" | "isOwner">;
+  return userHasRole(withRoles, "admin") && user.isOwner
+    ? "owner"
+    : userHasRole(withRoles, "admin")
+      ? "admin"
+      : "seller";
 }
 
 export function basePermissions(user: Pick<AuthUser, "role" | "isOwner">) {
-  if (user.role === "client") return [] as Permission[];
+  const withRoles = user as Pick<AuthUser, "role" | "roles" | "isOwner">;
+  if (!userHasRole(withRoles, "admin") && !userHasRole(withRoles, "seller")) return [] as Permission[];
   return [...ROLE_PERMISSIONS[staffRole(user)]];
 }
 
@@ -141,7 +147,7 @@ export const OWNER_ONLY_PERMISSIONS: readonly Permission[] = [
 
 export async function permissionsFor(user: AuthUser) {
   const permissions = new Set(basePermissions(user));
-  if (user.role === "client" || user.isOwner) return permissions;
+  if ((!userHasRole(user, "admin") && !userHasRole(user, "seller")) || user.isOwner) return permissions;
 
   const overrides = await dbBinding().prepare(
     `SELECT permission, effect

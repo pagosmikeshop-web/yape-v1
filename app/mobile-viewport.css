@@ -490,18 +490,6 @@ canvas {
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
-    .voucher-logo-badge {
-    top: 50%;
-    left: clamp(58px, 16vw, 74px);
-    width: clamp(62px, 17vw, 78px);
-    height: clamp(62px, 17vw, 78px);
-    max-width: 78px;
-    overflow: visible;
-    transform: translate(-50%, -52%);
-  }
-
-  .mobile-bank-shell
-    .yape-success-voucher:not(.movement-voucher)
     .voucher-logo-lottie,
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
@@ -919,5 +907,147 @@ canvas {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Responsive layout contract
+ *
+ * Keep dimensions relative to the component that owns them. In particular,
+ * voucher branding must follow the banner width rather than the device
+ * viewport: the shell is intentionally capped on larger screens and can be
+ * narrower than the viewport on tablets and desktop.
+ */
+:root {
+  --voucher-brand-center-x: 16%;
+  --voucher-brand-center-y: 50%;
+  --voucher-brand-size: clamp(60px, 17%, 78px);
+  --movement-brand-center-x: 8%;
+  --movement-brand-center-y: 34%;
+  --movement-brand-size: clamp(52px, 14%, 58px);
+}
+
+.mobile-bank-shell {
+  container-type: inline-size;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.mobile-bank-shell .bank-scroll-area,
+.mobile-bank-shell .reference-home,
+.mobile-bank-shell .home-account-sheet,
+.mobile-bank-shell .account-disclosure,
+.mobile-bank-shell .voucher-content,
+.mobile-bank-shell .voucher-share-capture,
+.mobile-bank-shell .voucher-banner {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.mobile-bank-shell img,
+.mobile-bank-shell svg,
+.mobile-bank-shell video {
+  max-inline-size: 100%;
+}
+
+/* Text and actions are allowed to wrap instead of forcing horizontal scroll. */
+.mobile-bank-shell .home-main-actions,
+.mobile-bank-shell .home-main-actions a,
+.mobile-bank-shell .account-disclosure > button,
+.mobile-bank-shell .voucher-card,
+.mobile-bank-shell .voucher-card * {
+  min-inline-size: 0;
+}
+
+.mobile-bank-shell .home-main-actions a,
+.mobile-bank-shell .voucher-card,
+.mobile-bank-shell .voucher-card strong,
+.mobile-bank-shell .voucher-card span {
+  overflow-wrap: anywhere;
+}
+
+/* A single reservation keeps the fixed home actions from covering content. */
+.mobile-bank-shell.view-home .bank-scroll-area {
+  scroll-padding-block-end: calc(
+    var(--bottom-nav-height) + var(--app-safe-bottom) + 16px
+  );
+}
+
+/*
+ * The banner is the positioning context for both logo variants. Percentage
+ * coordinates now scale with the actual banner, so a 320px shell and a
+ * 412px shell preserve the same visual composition.
+ */
+.mobile-bank-shell .voucher-banner {
+  position: relative;
+  inline-size: 100%;
+  min-block-size: clamp(176px, 55vw, 237px);
+  overflow: hidden;
+}
+
+.mobile-bank-shell .voucher-banner-image {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+.mobile-bank-shell
+  .yape-success-voucher:not(.movement-voucher)
+  .voucher-logo-badge {
+  top: var(--voucher-brand-center-y);
+  left: var(--voucher-brand-center-x);
+  inline-size: var(--voucher-brand-size);
+  block-size: auto;
+  aspect-ratio: 1;
+  max-inline-size: 78px;
+  overflow: visible;
+  transform: translate(-50%, -52%);
+}
+
+.mobile-bank-shell
+  .movement-voucher.yape-success-voucher
+  .voucher-logo-badge {
+  top: var(--movement-brand-center-y);
+  left: var(--movement-brand-center-x);
+  inline-size: var(--movement-brand-size);
+  block-size: auto;
+  aspect-ratio: 1;
+  max-inline-size: 58px;
+  overflow: visible;
+  transform: translate(-50%, -50%);
+}
+
+.mobile-bank-shell
+  .movement-voucher.yape-success-voucher
+  .voucher-logo-static,
+.mobile-bank-shell
+  .movement-voucher.yape-success-voucher
+  .voucher-logo-lottie {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+/* Keep interactive controls usable while the viewport narrows or text grows. */
+.mobile-bank-shell button,
+.mobile-bank-shell a,
+.mobile-bank-shell input,
+.mobile-bank-shell select,
+.mobile-bank-shell textarea {
+  max-inline-size: 100%;
+}
+
+@media (max-width: 599px) {
+  .mobile-bank-shell .home-main-actions {
+    gap: clamp(8px, 3vw, 12px);
+    padding-inline: max(var(--app-inline-gutter), var(--app-safe-left))
+      max(var(--app-inline-gutter), var(--app-safe-right));
+  }
+
+  .mobile-bank-shell .home-main-actions a {
+    font-size: clamp(13px, 3.8vw, 16px);
+    white-space: normal;
+    text-align: center;
   }
 }

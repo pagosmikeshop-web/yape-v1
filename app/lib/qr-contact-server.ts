@@ -273,7 +273,9 @@ export async function createQrContact(userId: string, input: {
       `SELECT u.id, u.display_name, d.phone_e164
        FROM users u
        LEFT JOIN payment_directory d ON d.user_id = u.id AND d.discoverable = 1
-       WHERE u.id = ? AND u.role = 'client' AND u.status = 'active'
+       WHERE u.id = ? AND (u.role = 'client' OR EXISTS (
+         SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
+       )) AND u.status = 'active'
        LIMIT 1`,
     ).bind(parsedRecipientId).first<VerifiedRecipientRow>();
     if (!recipient) {

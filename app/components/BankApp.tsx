@@ -15,6 +15,7 @@ import {
 } from "../lib/session-cache";
 import { clearBalanceCache, fetchAccountBalance } from "../lib/balance-cache";
 import { copyText, shareText } from "../lib/platform-adapters";
+import { safeApiMessage, safeClientMessage } from "../lib/client-error";
 import { useModalLayer } from "../hooks/useModalLayer";
 import {
   APK_ASSET_ROOT,
@@ -135,7 +136,7 @@ export async function fetchStoredMovements() {
     error?: string;
   };
   if (!response.ok || !data.ok || !Array.isArray(data.movements)) {
-    throw new Error(data.error || "No pudimos cargar los movimientos.");
+    throw new Error(safeApiMessage(data.error, "No pudimos cargar los movimientos."));
   }
   return {
     historyCleared: Boolean(data.historyCleared),
@@ -438,13 +439,13 @@ function QrView() {
         error?: string;
       };
       if (!response.ok || !Array.isArray(data.contacts)) {
-        throw new Error(data.error || "No pudimos cargar tus QR guardados.");
+        throw new Error(safeApiMessage(data.error, "No pudimos cargar tus QR guardados."));
       }
       setContacts(data.contacts);
     } catch (error) {
       setNotice(
         error instanceof Error
-          ? error.message
+          ? safeClientMessage(error, "No pudimos cargar tus QR guardados.")
           : "No pudimos cargar tus QR guardados.",
       );
     } finally {
@@ -596,7 +597,7 @@ function QrView() {
         error?: string;
       };
       if (!response.ok || !data.contact)
-        throw new Error(data.error || "No pudimos guardar el QR.");
+        throw new Error(safeApiMessage(data.error, "No pudimos guardar el QR."));
       setHolderName("");
       setPhone("");
       setProvider("Yape");
@@ -607,7 +608,7 @@ function QrView() {
       await loadContacts();
     } catch (error) {
       setNotice(
-        error instanceof Error ? error.message : "No pudimos guardar el QR.",
+        safeClientMessage(error, "No pudimos guardar el QR."),
       );
     } finally {
       setSaving(false);
@@ -624,14 +625,14 @@ function QrView() {
       );
       const data = (await response.json()) as { error?: string };
       if (!response.ok)
-        throw new Error(data.error || "No pudimos eliminar el QR.");
+        throw new Error(safeApiMessage(data.error, "No pudimos eliminar el QR."));
       setContacts((current) =>
         current.filter((item) => item.id !== contact.id),
       );
       setNotice("QR eliminado.");
     } catch (error) {
       setNotice(
-        error instanceof Error ? error.message : "No pudimos eliminar el QR.",
+        safeClientMessage(error, "No pudimos eliminar el QR."),
       );
     }
   }
@@ -894,11 +895,12 @@ function PersonalQrView() {
       const displayName =
         typeof user.displayName === "string" ? user.displayName : "";
       const role = typeof user.role === "string" ? user.role : "";
+      const roles = Array.isArray(user.roles) ? user.roles : [];
       if (!id || !displayName) {
         setNotice("No pudimos preparar tu QR.");
         return;
       }
-      if (role !== "client") {
+      if (role !== "client" && !roles.includes("client")) {
         setNotice("El QR de cobro está disponible para cuentas de cliente.");
         return;
       }
@@ -919,7 +921,7 @@ function PersonalQrView() {
         if (!cancelled)
           setNotice(
             error instanceof Error
-              ? error.message
+              ? safeClientMessage(error, "No pudimos preparar tu QR.")
               : "No pudimos preparar tu QR.",
           );
       }
@@ -1358,17 +1360,17 @@ function AccountDataView() {
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data?.error || "No pudimos validar el token.");
+        throw new Error(safeApiMessage(data?.error, "No pudimos validar el token."));
       setUser((current) =>
         current ? { ...current, accessExpiresAt: null } : current,
       );
       setAccessToken("");
       setAccessMessage(
-        String(data.message || "Tu acceso ahora es permanente."),
+        safeApiMessage(data.message, "Tu acceso ahora es permanente."),
       );
     } catch (error) {
       setAccessMessage(
-        error instanceof Error ? error.message : "No pudimos validar el token.",
+        safeClientMessage(error, "No pudimos validar el token."),
       );
     } finally {
       setClaimingAccess(false);
@@ -2261,7 +2263,7 @@ function AccountDetailsView() {
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok)
-        throw new Error(data.error || "No pudimos borrar los yapeos.");
+        throw new Error(safeApiMessage(data.error, "No pudimos borrar los yapeos."));
       window.localStorage.setItem(MOVEMENT_HISTORY_CLEARED_KEY, "1");
       window.dispatchEvent(new Event(HISTORY_CLEARED_EVENT));
       setClearConfirmation(false);
@@ -2272,7 +2274,7 @@ function AccountDetailsView() {
     } catch (error) {
       setNotice(
         error instanceof Error
-          ? error.message
+          ? safeClientMessage(error, "No pudimos borrar los yapeos.")
           : "No pudimos borrar los yapeos.",
       );
       setClearConfirmation(false);
@@ -2300,7 +2302,7 @@ function AccountDetailsView() {
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data?.error || "No pudimos validar el token.");
+        throw new Error(safeApiMessage(data?.error, "No pudimos validar el token."));
 
       if (kind === "sms") {
         setSmsValidated(true);
@@ -2320,7 +2322,7 @@ function AccountDetailsView() {
         setAutocomplete(false);
       }
       setMessage(
-        error instanceof Error ? error.message : "No pudimos validar el token.",
+        safeClientMessage(error, "No pudimos validar el token."),
       );
     } finally {
       setValidatingToken(null);
@@ -2373,7 +2375,7 @@ function AccountDetailsView() {
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data?.error || "No pudimos guardar el saldo.");
+        throw new Error(safeApiMessage(data?.error, "No pudimos guardar el saldo."));
       const savedBalance = Number(data.balance);
       clearBalanceCache();
       setBalance(savedBalance);
@@ -2383,7 +2385,7 @@ function AccountDetailsView() {
       window.setTimeout(() => setBalanceMessage(""), 3200);
     } catch (error) {
       setBalanceMessage(
-        error instanceof Error ? error.message : "No pudimos guardar el saldo.",
+        safeClientMessage(error, "No pudimos guardar el saldo."),
       );
     } finally {
       setSavingBalance(false);
@@ -3127,7 +3129,7 @@ function BiometricView() {
     } catch (error) {
       const message =
         error instanceof Error
-          ? error.message
+          ? safeClientMessage(error, "No se pudo actualizar la biometría.")
           : "No se pudo actualizar la biometría.";
       setNotice({ text: message, tone: "error" });
     } finally {
@@ -3458,6 +3460,8 @@ export function BankApp({ view }: { view: BankView }) {
   // Browser-only state (local edit mode/sessionStorage) is resolved after
   // hydration so the protected shell cannot appear only on the client.
   const [authorized, setAuthorized] = useState(false);
+  const [sessionError, setSessionError] = useState("");
+  const [sessionAttempt, setSessionAttempt] = useState(0);
 
   useEffect(() => {
     if (isLocalEditMode()) {
@@ -3466,9 +3470,14 @@ export function BankApp({ view }: { view: BankView }) {
     }
 
     let cancelled = false;
+    setSessionError("");
     void fetchSession().then((result) => {
       if (cancelled) return;
       if (!result.ok) {
+        if (result.transient) {
+          setSessionError("No pudimos comprobar tu sesión por un problema de conexión. Vuelve a intentarlo sin perder tus datos.");
+          return;
+        }
         setOptimisticUnlock(false);
         clearSessionCache();
         if (result.code === "ACCESS_EXPIRED") {
@@ -3491,9 +3500,22 @@ export function BankApp({ view }: { view: BankView }) {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, sessionAttempt]);
 
-  if (!authorized) return <main className="banking-stage" />;
+  if (!authorized) {
+    return (
+      <main className="banking-stage">
+        {sessionError ? (
+          <section className="session-recovery" aria-live="polite">
+            <p className="form-notice is-error" role="alert">{sessionError}</p>
+            <button className="login-button" type="button" onClick={() => setSessionAttempt((value) => value + 1)}>
+              REINTENTAR
+            </button>
+          </section>
+        ) : null}
+      </main>
+    );
+  }
 
   const entryAnimationClass =
     view === "profile"

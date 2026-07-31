@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     const sortDirection = url.searchParams.get("order") === "asc" ? "ASC" : "DESC";
     const canViewAll = actor.isOwner || await hasPermission(actor, "clients:view_all");
 
-    const conditions = ["u.role = 'client'", "u.deleted_at IS NULL"];
+    const conditions = ["(u.role = 'client' OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'))", "u.deleted_at IS NULL"];
     const values: unknown[] = [];
     if (!canViewAll) {
       if (actor.role === "seller") {
@@ -160,7 +160,9 @@ export async function GET(request: Request) {
        FROM users u
        LEFT JOIN payment_directory d ON d.user_id = u.id
        LEFT JOIN client_crm_profiles p ON p.user_id = u.id
-       LEFT JOIN users s ON s.id = u.owner_id AND s.role = 'seller' AND s.deleted_at IS NULL
+       LEFT JOIN users s ON s.id = u.owner_id AND (s.role = 'seller' OR EXISTS (
+         SELECT 1 FROM user_roles sr WHERE sr.user_id = s.id AND sr.role = 'seller'
+       )) AND s.deleted_at IS NULL
        LEFT JOIN client_crm_activities a ON a.user_id = u.id
        ${where}
        GROUP BY u.id

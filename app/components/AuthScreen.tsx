@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createDeviceProof } from "../lib/device-key";
+import { authErrorMessage, createAuthAttemptId, requestAuthJson } from "../lib/auth-client";
+import { safeApiMessage, safeClientMessage } from "../lib/client-error";
 import { buildPaymentQrPayload } from "../lib/payment-qr";
 import { getFingerprintId, hasLocalRegistrationAnchor, saveLocalRegistrationAnchor, clearLocalRegistrationAnchor } from "../lib/registration-device";
 import { unlockWithPlatformBiometric, WebAuthnClientError } from "../lib/webauthn-client";
@@ -17,6 +19,7 @@ type AuthUser = {
   username: string;
   displayName: string;
   role: "admin" | "seller" | "client";
+  roles?: Array<"admin" | "seller" | "client">;
   mustChangePassword: boolean;
   mustSetPin: boolean;
   pinSet: boolean;
@@ -49,24 +52,18 @@ const screenContent: Record<Screen, { title: string; subtitle: string }> = {
 };
 
 function rolePath(user: AuthUser) {
-  if (user.role === "seller") return "/vendedor";
+  // Una cuenta promovida conserva el acceso a la app; el panel se abre con
+  // la misma sesión desde su ruta administrativa.
+  if (user.role === "seller" && !user.roles?.includes("client")) return "/vendedor";
   return "/inicio";
 }
 
-async function apiPost(path: string, payload: Record<string, unknown>) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data?.ok === false) {
-    const error = new Error(String(data?.error ?? "No se pudo completar la operación.")) as Error & { code?: string; referralCode?: string };
-    error.code = typeof data?.code === "string" ? data.code : undefined;
-    error.referralCode = typeof data?.referralCode === "string" ? data.referralCode : undefined;
-    throw error;
-  }
-  return data;
+async function apiPost(
+  path: string,
+  payload: Record<string, unknown>,
+  attemptId = createAuthAttemptId(),
+) {
+  return requestAuthJson(path, payload, { attemptId });
 }
 
 function AuthAssetIcon({ name }: { name: string }) {
@@ -397,11 +394,22 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   const [registerChecking, setRegisterChecking] = useState(screen === "register");
   const [groupInviteUrl, setGroupInviteUrl] = useState("/api/telegram/group");
   const [accessLookup, setAccessLookup] = useState<AccessLookup | null>(null);
+  const authActionInFlightRef = useRef(false);
 
   useEffect(() => {
     if (screen !== "login") return;
     let cancelled = false;
-    fetch("/api/auth/me").then((response) => response.json()).then((data) => {
+    fetch("/api/auth/me", {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "x-auth-attempt": createAuthAttemptId() },
+    }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok && response.status !== 401 && response.status !== 403) {
+        throw new Error("No pudimos comprobar tu sesión. Revisa tu conexión e inténtalo nuevamente.");
+      }
+      return data;
+    }).then((data) => {
       if (cancelled) return;
       if (data?.code === "ACCESS_EXPIRED") {
         const code = typeof data.referralCode === "string" && data.referralCode ? ` Tu código es ${data.referralCode}.` : "";
@@ -415,7 +423,9 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         sessionStorage.setItem(UNLOCK_KEY, "1");
         router.replace(rolePath(user));
       } else setSessionUser(user);
-    }).catch(() => undefined).finally(() => {
+    }).catch((error: unknown) => {
+      if (!cancelled) setNotice({ text: authErrorMessage(error, "No pudimos comprobar tu sesión. Revisa tu conexión e inténtalo nuevamente."), tone: "error" });
+    }).finally(() => {
       if (!cancelled) setChecking(false);
     });
     return () => { cancelled = true; };
@@ -438,7 +448,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       if (cancelled) return;
       setFingerprintId(id);
     }).catch((error: Error) => {
-      if (!cancelled) setNotice({ text: error.message, tone: "error" });
+      if (!cancelled) setNotice({ text: safeClientMessage(error, "No pudimos preparar el acceso biométrico."), tone: "error" });
     }).finally(() => {
       if (!cancelled) setRegisterChecking(false);
     });
@@ -458,8 +468,8 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   async function unlockWithPin(pin: string) {
     setNotice(null);
     const endpoint = sessionUser?.mustSetPin || !sessionUser?.pinSet ? "/api/auth/pin" : "/api/auth/pin/verify";
-    const data = await apiPost(endpoint, { pin }).catch((error: Error) => {
-      setNotice({ text: error.message, tone: "error" });
+    const data = await apiPost(endpoint, { pin }).catch((error: unknown) => {
+      setNotice({ text: authErrorMessage(error, "No se pudo verificar la clave."), tone: "error" });
       return null;
     });
     if (!data || !sessionUser) return;
@@ -476,10 +486,8 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       router.replace(rolePath({ ...sessionUser, mustSetPin: false, pinSet: true }));
     } catch (error) {
       const message = error instanceof WebAuthnClientError
-        ? error.message
-        : error instanceof Error
-          ? error.message
-          : "No pudimos usar el biométrico. Usa tu clave.";
+        ? safeClientMessage(error, "No pudimos usar el biométrico. Usa tu clave.")
+        : safeClientMessage(error, "No pudimos usar el biométrico. Usa tu clave.");
       // Fallback explícito: el teclado PIN sigue activo; solo avisamos.
       setNotice({ text: message, tone: "info" });
     }
@@ -487,9 +495,12 @@ export function AuthScreen({ screen }: { screen: Screen }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (authActionInFlightRef.current) return;
+    authActionInFlightRef.current = true;
     setBusy(true);
     setNotice(null);
     const formData = new FormData(event.currentTarget);
+    const attemptId = createAuthAttemptId();
 
     try {
       if (screen === "login") {
@@ -497,7 +508,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         const username = String(formData.get("username") ?? "");
         const password = String(formData.get("password") ?? "");
         const proof = await createDeviceProof(sellerId, username);
-        const data = await apiPost("/api/auth/login", { sellerId, username, password, ...proof });
+        const data = await apiPost("/api/auth/login", { sellerId, username, password, ...proof }, attemptId);
         const user = data.user as AuthUser;
         sessionStorage.removeItem(UNLOCK_KEY);
         if (user.mustChangePassword) {
@@ -526,7 +537,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
           password,
           pin,
           fingerprintId,
-        });
+        }, attemptId);
         await saveLocalRegistrationAnchor(fingerprintId);
         formRef.current?.reset();
         setRegisterAllowed(false);
@@ -535,7 +546,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
           ? new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(data.accessExpiresAt))
           : "";
         setNotice({
-          text: `${String(data.message ?? "Registro completado y prueba de 3 días activada.")}${expiresLabel ? ` Vence: ${expiresLabel}.` : ""} Tu ID de ingreso es ${String(user.loginId ?? "")}.`,
+          text: `${safeApiMessage(data.message, "Registro completado y prueba de 3 días activada.")}${expiresLabel ? ` Vence: ${expiresLabel}.` : ""} Tu ID de ingreso es ${String(user.loginId ?? "")}.`,
           tone: "info",
         });
         sessionStorage.setItem(UNLOCK_KEY, "1");
@@ -552,7 +563,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         await apiPost("/api/auth/password/change", {
           currentPassword: String(formData.get("old-password") ?? ""),
           newPassword: String(formData.get("new-password") ?? ""),
-        });
+        }, attemptId);
         sessionStorage.removeItem(UNLOCK_KEY);
         setNotice({ text: "Contraseña actualizada. Ahora configura o verifica tu clave.", tone: "info" });
         window.setTimeout(() => router.replace("/"), 700);
@@ -568,15 +579,15 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         if (!/^[A-Za-z0-9_.-]{3,40}$/u.test(username)) throw new Error("Ingresa tu usuario registrado.");
         if (!token) throw new Error("Ingresa el token entregado por tu vendedor.");
         const proof = await createDeviceProof(sellerId, username);
-        const data = await apiPost("/api/access/redeem", { sellerId, username, password, token, ...proof });
+        const data = await apiPost("/api/access/redeem", { sellerId, username, password, token, ...proof }, attemptId);
         setAccessLookup({
           permanent: true,
           accessExpiresAt: null,
           referralCode: typeof data.referralCode === "string" ? data.referralCode : null,
-          displayName: String(data?.user?.displayName ?? username),
+          displayName: String((data.user as { displayName?: unknown } | undefined)?.displayName ?? username),
         });
         sessionStorage.removeItem(UNLOCK_KEY);
-        setNotice({ text: String(data.message ?? "Tu acceso ahora es permanente. Ya puedes ingresar."), tone: "info" });
+        setNotice({ text: safeApiMessage(data.message, "Tu acceso ahora es permanente. Ya puedes ingresar."), tone: "info" });
         window.setTimeout(() => router.replace("/"), 1100);
         return;
       }
@@ -590,13 +601,13 @@ export function AuthScreen({ screen }: { screen: Screen }) {
             sellerId,
             username,
             ...proof,
-          });
+          }, attemptId);
           const requestId = String(data.requestId ?? "");
           const resetToken = String(data.resetToken ?? "");
           const nextCode = requestId && resetToken ? `${requestId}.${resetToken}` : "";
           setRecoveryCode(nextCode);
           setRecoveryMode("complete");
-          setNotice({ text: String(data.message ?? "Si los datos corresponden a una cuenta, la solicitud fue registrada."), tone: "info" });
+          setNotice({ text: safeApiMessage(data.message, "Si los datos corresponden a una cuenta, la solicitud fue registrada."), tone: "info" });
         } else {
           const newPassword = String(formData.get("recover-new-password") ?? "");
           const confirmation = String(formData.get("recover-confirm-password") ?? "");
@@ -609,7 +620,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
             requestId,
             resetToken,
             newPassword,
-          });
+          }, attemptId);
           setNotice({ text: "Contraseña restablecida. Ya puedes iniciar sesión.", tone: "info" });
           window.setTimeout(() => router.replace("/"), 900);
         }
@@ -621,32 +632,26 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       const referral = accessError.code === "ACCESS_EXPIRED" && accessError.referralCode
         ? ` Tu código es ${accessError.referralCode}.`
         : "";
-      setNotice({ text: error instanceof Error ? `${error.message}${referral}` : "No se pudo completar la operación.", tone: "error" });
+      setNotice({ text: `${authErrorMessage(error)}${referral}`, tone: "error" });
     } finally {
+      authActionInFlightRef.current = false;
       setBusy(false);
     }
   }
 
   async function verifyTelegramForRegister() {
-    if (screen !== "register" || busy) return;
+    if (screen !== "register" || busy || authActionInFlightRef.current) return;
+    authActionInFlightRef.current = true;
     setBusy(true);
     setNotice(null);
+    const attemptId = createAuthAttemptId();
     try {
       if (!fingerprintId) throw new Error("Espera la validacion del dispositivo.");
       const telegramId = String(new FormData(formRef.current ?? undefined).get("telegram-id") ?? "");
-      const response = await fetch("/api/auth/register/status", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({
-          telegramUserId: telegramId,
-          fingerprintId,
-        }),
-      });
-      const data = await response.json();
+      const data = await apiPost("/api/auth/register/status", { telegramUserId: telegramId, fingerprintId }, attemptId);
       setGroupInviteUrl(String(data.groupInviteUrl ?? ""));
-      if (!response.ok || !data.ok || !data.allowed) {
-        throw new Error(String(data.error ?? "Aun no puedes registrarte."));
+      if (!data.allowed) {
+        throw new Error(safeApiMessage(data.error, "Aun no puedes registrarte."));
       }
       // Si el servidor liberó el dispositivo (p. ej. cuenta eliminada), limpia el ancla local.
       if (await hasLocalRegistrationAnchor(fingerprintId)) {
@@ -656,14 +661,16 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       setNotice({ text: "Telegram confirmado. Ya puedes crear tu cuenta.", tone: "info" });
     } catch (error) {
       setRegisterAllowed(false);
-      setNotice({ text: error instanceof Error ? error.message : "No se pudo validar Telegram.", tone: "error" });
+      setNotice({ text: authErrorMessage(error, "No se pudo validar Telegram."), tone: "error" });
     } finally {
+      authActionInFlightRef.current = false;
       setBusy(false);
     }
   }
 
   async function inspectAccess() {
-    if (screen !== "change-number" || busy || !formRef.current) return;
+    if (screen !== "change-number" || busy || authActionInFlightRef.current || !formRef.current) return;
+    authActionInFlightRef.current = true;
     setBusy(true);
     setNotice(null);
     setAccessLookup(null);
@@ -673,15 +680,16 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       const username = String(formData.get("change-number-username") ?? "").trim().replace(/^@/u, "");
       const password = String(formData.get("change-number-password") ?? "");
       const proof = await createDeviceProof(sellerId, username);
-      const data = await apiPost("/api/access/status", { sellerId, username, password, ...proof });
+      const data = await apiPost("/api/access/status", { sellerId, username, password, ...proof }, createAuthAttemptId());
       setAccessLookup(data as AccessLookup);
       const days = data.permanent || !data.accessExpiresAt
         ? null
         : Math.max(0, Math.ceil((Date.parse(String(data.accessExpiresAt)) - Date.now()) / 86_400_000));
       setNotice({ text: data.permanent ? "Tu acceso es permanente." : `Te quedan ${days} días de acceso.`, tone: "info" });
     } catch (error) {
-      setNotice({ text: error instanceof Error ? error.message : "No pudimos consultar tu acceso.", tone: "error" });
+      setNotice({ text: authErrorMessage(error, "No pudimos consultar tu acceso."), tone: "error" });
     } finally {
+      authActionInFlightRef.current = false;
       setBusy(false);
     }
   }

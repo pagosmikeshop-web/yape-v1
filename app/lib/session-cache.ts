@@ -1,3 +1,5 @@
+import { createAuthAttemptId } from "./auth-client";
+
 type SessionUser = {
   unlocked?: boolean;
   role?: string;
@@ -11,7 +13,7 @@ type SessionPayload = {
 
 type SessionResult =
   | { ok: true; user: SessionUser }
-  | { ok: false; status: number; code?: string; unauthorized: true };
+  | { ok: false; status: number; code?: string; unauthorized: true; transient?: boolean };
 
 const SESSION_TTL_MS = 45_000;
 
@@ -58,7 +60,11 @@ export function fetchSession(options?: {
 
   if (!force && inflight) return inflight;
 
-  inflight = fetch("/api/auth/me", { cache: "no-store" })
+  inflight = fetch("/api/auth/me", {
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: { "x-auth-attempt": createAuthAttemptId() },
+  })
     .then(async (response) => {
       const data = (await response.json().catch(() => ({}))) as SessionPayload;
       if (response.status === 403 && data?.code === "ACCESS_EXPIRED") {
@@ -93,6 +99,7 @@ export function fetchSession(options?: {
         ok: false,
         status: 0,
         unauthorized: true,
+        transient: true,
       };
       return result;
     })

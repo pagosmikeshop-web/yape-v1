@@ -38,6 +38,21 @@ export const users = sqliteTable("users", {
   index("users_owner_role_idx").on(table.ownerId, table.role, table.deletedAt),
 ]);
 
+/** Roles adicionales de una misma cuenta. `users.role` conserva el rol
+ * operativo principal para compatibilidad con las consultas existentes. */
+export const userRoles = sqliteTable("user_roles", {
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull(),
+  grantedBy: text("granted_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("user_roles_user_role_unique").on(table.userId, table.role),
+  index("user_roles_role_idx").on(table.role, table.userId),
+  check("user_roles_role_check", sql`${table.role} in ('admin', 'seller', 'client')`),
+]);
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),

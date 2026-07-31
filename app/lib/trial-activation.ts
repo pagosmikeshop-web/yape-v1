@@ -40,7 +40,9 @@ export async function activateClientTrial(input: {
   const client = await database.prepare(
     `SELECT id, status, activated_at, access_expires_at
      FROM users
-     WHERE id = ? AND role = 'client' AND deleted_at IS NULL
+     WHERE id = ? AND (role = 'client' OR EXISTS (
+       SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+     )) AND deleted_at IS NULL
      LIMIT 1`,
   ).bind(input.userId).first<{
     id: string;
@@ -88,7 +90,9 @@ export async function activateClientTrial(input: {
     database.prepare(
       `INSERT INTO activations (id, user_id, seller_id, credits_charged, created_at)
        SELECT ?, id, ?, 0, ? FROM users
-       WHERE id = ? AND role = 'client' AND status = 'pending'
+     WHERE id = ? AND (role = 'client' OR EXISTS (
+       SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+     )) AND status = 'pending'
          AND NOT EXISTS (SELECT 1 FROM activations WHERE user_id = ?)`,
     ).bind(activationId, input.sellerId, now, client.id, client.id),
     database.prepare(

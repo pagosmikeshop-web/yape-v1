@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     const pageSize = Math.min(100, Math.max(10, Number.parseInt(url.searchParams.get("pageSize") ?? "20", 10) || 20));
     const canViewAll = actor.isOwner || await hasPermission(actor, "clients:view_all");
 
-    const conditions = ["u.role = 'client'", "u.deleted_at IS NULL"];
+    const conditions = ["(u.role = 'client' OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'))", "u.deleted_at IS NULL"];
     const values: unknown[] = [];
     if (!canViewAll) {
       if (actor.role === "seller") {

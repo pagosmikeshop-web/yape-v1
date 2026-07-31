@@ -4,6 +4,7 @@ import {
   getSessionUser,
   getSessionUserIncludingExpired,
   routeError,
+  userHasRole,
 } from "@/app/lib/auth-server";
 import { permissionsFor, staffRole } from "@/app/lib/rbac";
 
@@ -13,10 +14,10 @@ export async function GET(request: Request) {
   try {
     const session = await getSessionUser(request);
     if (session) {
-      const referralCode = session.user.role === "client"
+      const referralCode = userHasRole(session.user, "client")
         ? await ensureReferralCodeForUser(session.user.id)
         : session.user.referralCode;
-      const staff = session.user.role !== "client";
+      const staff = userHasRole(session.user, "admin") || userHasRole(session.user, "seller");
       const permissions = staff ? [...await permissionsFor(session.user)] : [];
       return jsonOk(
         {

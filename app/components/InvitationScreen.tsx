@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import styles from "./InvitationScreen.module.css";
+import { safeApiMessage, safeClientMessage } from "../lib/client-error";
 
 type RedeemResponse = {
   ok?: boolean;
@@ -65,14 +66,14 @@ export function InvitationScreen() {
         body: JSON.stringify({ token, password, confirmPassword: confirmation }),
       });
       const data = await response.json() as RedeemResponse;
-      if (!response.ok || !data.ok) throw new Error(data.error || "No se pudo activar la cuenta.");
+      if (!response.ok || !data.ok) throw new Error(safeApiMessage(data.error, "No se pudo activar la cuenta."));
 
       setToken("");
       setPassword("");
       setConfirmation("");
       setSuccess(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo activar la cuenta.");
+      setError(safeClientMessage(caught, "No se pudo activar la cuenta."));
     } finally {
       setSubmitting(false);
     }

@@ -4,6 +4,7 @@ import {
   createUser,
   dbBinding,
   generateTemporaryPassword,
+  getUserRoles,
   linkTelegramIdentity,
   publicAppBaseUrl,
   requireUnlockedSession,
@@ -35,6 +36,7 @@ type ListedUser = {
   access_expires_at: string | null;
   created_at: string;
   activated_at: string | null;
+  roles?: AppRole[];
 };
 
 export async function GET(request: Request) {
@@ -105,8 +107,13 @@ export async function GET(request: Request) {
        LIMIT ? OFFSET ?`,
     ).bind(...values, pageSize, (safePage - 1) * pageSize).all<ListedUser>();
 
+    const users = await Promise.all((result.results ?? []).map(async (entry) => ({
+      ...entry,
+      roles: await getUserRoles(entry.id),
+    })));
+
     return jsonOk({
-      users: result.results ?? [],
+      users,
       viewerRole: actor.isOwner ? "owner" : "admin",
       pagination: { page: safePage, pageSize, total, totalPages },
       summary: {

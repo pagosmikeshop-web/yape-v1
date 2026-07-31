@@ -3,6 +3,7 @@ import {
   bindDevice,
   dbBinding,
   findLoginUser,
+  userHasRole,
   hashSecret,
   publicSha256,
   secretHashNeedsUpgrade,
@@ -48,7 +49,7 @@ export async function authenticateAccessCredentials(input: AccessCredentialInput
   const validDevice = await verifyDeviceProof(input);
   if (!validDevice) return null;
   const user = await findLoginUser(input.sellerId, input.username);
-  if (!user || user.role !== "client" || user.status !== "active") return null;
+  if (!user || !userHasRole(user, "client") || user.status !== "active") return null;
   const validPassword = await verifySecret(input.password, user.password_salt, user.password_hash);
   if (!validPassword) return null;
   if (secretHashNeedsUpgrade(user.password_hash)) {
@@ -72,7 +73,10 @@ export async function issuePermanentAccessToken(actor: AuthUser, clientId: strin
   }
   const client = await database.prepare(
     `SELECT id, owner_id, display_name, status, access_expires_at
-     FROM users WHERE id = ? AND role = 'client' AND deleted_at IS NULL LIMIT 1`,
+     FROM users
+     WHERE id = ? AND (role = 'client' OR EXISTS (
+       SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+     )) AND deleted_at IS NULL LIMIT 1`,
   ).bind(clientId).first<{
     id: string;
     owner_id: string | null;

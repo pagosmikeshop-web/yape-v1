@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useModalLayer } from "../../hooks/useModalLayer";
 import { fetchAccountBalance, clearBalanceCache } from "../../lib/balance-cache";
 import { resetIOSViewport } from "../../lib/ios-viewport";
+import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
 import { fetchSession } from "../../lib/session-cache";
 import { APK_ASSET_ROOT, AssetIcon, LottiePlayer } from "./primitives";
 import {
@@ -95,6 +96,7 @@ export function TransferView() {
   const [destination, setDestination] = useState("Yape");
   const [newNumber, setNewNumber] = useState("");
   const [recipientLookupLoading, setRecipientLookupLoading] = useState(false);
+  const [manualRecipientMode, setManualRecipientMode] = useState(false);
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
@@ -116,6 +118,8 @@ export function TransferView() {
   const [voucherShareFile, setVoucherShareFile] = useState<File | null>(null);
   const voucherCaptureRef = useRef<HTMLDivElement>(null);
   const transferSubmittingRef = useRef(false);
+  const recipientLookupAbortRef = useRef<AbortController | null>(null);
+  const recipientLookupSequenceRef = useRef(0);
   const transferIdempotencyRef = useRef<{
     key: string;
     payload: string;
@@ -154,6 +158,7 @@ export function TransferView() {
     fetch("/api/payments/recipient-lookup", {
       method: "POST",
       headers: { "content-type": "application/json" },
+      cache: "no-store",
       body: JSON.stringify({ recipientId: requestedRecipientId }),
     })
       .then(async (response) => {
@@ -167,7 +172,7 @@ export function TransferView() {
           !data.recipient.displayName
         ) {
           throw new Error(
-            data.error || "No encontramos al destinatario de este QR.",
+            safeApiMessage(data.error, "No encontramos al destinatario de este QR."),
           );
         }
         return data.recipient as { id: string; displayName: string };
@@ -178,13 +183,14 @@ export function TransferView() {
         setRecipientName(recipient.displayName);
         setRecipientPhone("");
         setRecipientIsNewNumber(false);
+        setManualRecipientMode(false);
         setDestination("Yape");
         setNotice("");
         setStage("amount");
       })
       .catch((error: Error) => {
         if (cancelled) return;
-        setNotice(error.message || "No pudimos verificar este QR.");
+        setNotice(safeClientMessage(error, "No pudimos verificar este QR."));
         setStage("contact");
       });
 
@@ -229,6 +235,11 @@ export function TransferView() {
     return () => window.clearTimeout(timer);
   }, [contactsCacheKey]);
 
+  useEffect(() => () => {
+    recipientLookupAbortRef.current?.abort();
+    recipientLookupSequenceRef.current += 1;
+  }, []);
+
   useEffect(() => {
     if (stage !== "success" || !voucher) return;
 
@@ -256,7 +267,9 @@ export function TransferView() {
     amount !== "" && amountValue > 0 && amountValue <= DAILY_YAPE_LIMIT;
   const recipientIsValid =
     recipientName.trim().length >= 2 &&
-    (Boolean(recipientId) || recipientPhone.replace(/\D/g, "").length === 9);
+    (Boolean(recipientId) || (
+      recipientPhone.replace(/\D/g, "").length === 9
+    ));
   const yapearEnabled = recipientIsValid && amountIsInRange;
   const voucherRecipientName = recipientName;
   const recipientDisplayReference =
@@ -315,99 +328,113 @@ export function TransferView() {
     }
   }
 
-  function pickContact(name: string, phone: string) {
+  function pickContact(_name: string, phone: string) {
     setRecipientId("");
-    setRecipientName(name);
-    setRecipientPhone(phone);
+    setRecipientName("");
+    setRecipientPhone("");
+    setManualRecipientMode(false);
     setRecipientIsNewNumber(false);
     setPhoneIsEditing(false);
     setDestination("Yape");
-    setStage("amount");
+    setNewNumber(phone.replace(/\D/g, "").slice(-9));
+    setNotice("");
+    setStage("new-number");
+  }
+
+  function enableManualRecipientFallback(phone: string) {
+    setRecipientId("");
+    setRecipientName("");
+    setRecipientPhone(phone);
+    setManualRecipientMode(true);
+    setRecipientIsNewNumber(true);
+    setPhoneIsEditing(false);
+    setDestination("Yape");
+    setNotice("");
   }
 
   async function submitNewNumber(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (newNumber.length < 9) return;
+    const normalizedPhone = newNumber.replace(/\D/g, "");
+    if (!/^9\d{8}$/u.test(normalizedPhone)) {
+      setNotice("Ingresa un número de celular válido de 9 dígitos.");
+      return;
+    }
+    if (manualRecipientMode) {
+      if (recipientName.trim().length < 2) {
+        setNotice("Escribe el nombre del destinatario para continuar.");
+        return;
+      }
+      setRecipientPhone(normalizedPhone);
+      setRecipientIsNewNumber(true);
+      setNotice("");
+      setStage("amount");
+      return;
+    }
+    recipientLookupAbortRef.current?.abort();
+    const requestSequence = recipientLookupSequenceRef.current + 1;
+    recipientLookupSequenceRef.current = requestSequence;
+    const controller = new AbortController();
+    recipientLookupAbortRef.current = controller;
     setRecipientLookupLoading(true);
     setNotice("");
+    setRecipientId("");
+    setRecipientName("");
+    setRecipientPhone("");
+    setManualRecipientMode(false);
     try {
       const response = await fetch("/api/payments/recipient-lookup", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ phone: newNumber }),
+        body: JSON.stringify({ phone: normalizedPhone }),
+        cache: "no-store",
+        signal: controller.signal,
       });
       const data = (await response.json()) as {
-        found?: boolean;
-        recipient?: { id?: string; displayName?: string } | null;
-        savedRecipient?: { id?: string; displayName?: string; phone?: string };
+        recipient?: {
+          id?: string;
+          displayName?: string;
+          phone?: string;
+        };
         error?: string;
       };
       if (!response.ok) {
-        throw new Error(
-          data.error || "No encontramos un cliente con ese número.",
-        );
+        if ([404, 429, 500, 502, 503, 504].includes(response.status)) {
+          enableManualRecipientFallback(normalizedPhone);
+          return;
+        }
+        throw new Error(safeApiMessage(data.error, "No pudimos verificar el titular en este momento."));
       }
-
-      if (data.found === false) {
-        const fallbackName =
-          data.savedRecipient?.displayName?.trim() || "Número nuevo";
-        setRecipientId("");
-        setRecipientName(fallbackName);
-        setRecipientPhone(data.savedRecipient?.phone || newNumber);
-        setRecipientIsNewNumber(true);
-        setPhoneIsEditing(false);
-        setDestination("Yape");
-        setNotice("");
-        setPhoneContacts((current) => {
-          const normalizedNewNumber = newNumber.replace(/\D/g, "");
-          if (
-            current.some(
-              (contact) =>
-                contact.phone.replace(/\D/g, "") === normalizedNewNumber,
-            )
-          )
-            return current;
-          const nextContacts = [
-            {
-              name: fallbackName,
-              phone: newNumber,
-              initials: contactInitials(fallbackName),
-            },
-            ...current,
-          ].slice(0, 60);
-          window.sessionStorage.setItem(
-            contactsCacheKey,
-            JSON.stringify(nextContacts),
-          );
-          return nextContacts;
-        });
-        setStage("amount");
+      if (requestSequence !== recipientLookupSequenceRef.current) return;
+      if (!data.recipient?.displayName || !data.recipient.phone) {
+        enableManualRecipientFallback(normalizedPhone);
         return;
       }
-
-      if (!data.recipient?.id || !data.recipient.displayName) {
-        throw new Error(
-          data.error || "No encontramos un cliente con ese número.",
-        );
-      }
-
-      setRecipientId(data.recipient.id);
+      setRecipientId(data.recipient.id || "");
       setRecipientName(data.recipient.displayName);
-      setRecipientPhone(newNumber);
+      setRecipientPhone(data.recipient.phone);
+      setManualRecipientMode(false);
       setRecipientIsNewNumber(false);
       setPhoneIsEditing(false);
       setDestination("Yape");
       setNotice("");
       setStage("amount");
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (requestSequence !== recipientLookupSequenceRef.current) return;
+      if (error instanceof TypeError || error instanceof SyntaxError) {
+        enableManualRecipientFallback(normalizedPhone);
+        return;
+      }
       setRecipientId("");
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "No pudimos consultar ese número.",
-      );
+      setRecipientName("");
+      setRecipientPhone("");
+      setManualRecipientMode(false);
+      setNotice(safeClientMessage(error, "No pudimos verificar el titular en este momento."));
     } finally {
-      setRecipientLookupLoading(false);
+      if (requestSequence === recipientLookupSequenceRef.current) {
+        setRecipientLookupLoading(false);
+        recipientLookupAbortRef.current = null;
+      }
     }
   }
 
@@ -434,7 +461,7 @@ export function TransferView() {
         amountCents: Math.round(amountValue * 100),
         recipientId,
         recipientPhone,
-        recipientName: recipientName.trim(),
+        recipientManualName: recipientName.trim(),
         destination: destinationValue,
         message,
       });
@@ -451,6 +478,7 @@ export function TransferView() {
           "idempotency-key": transferIdempotencyRef.current.key,
         },
         body: transferPayload,
+        cache: "no-store",
       });
       const data = (await response.json()) as {
         balance?: number;
@@ -471,7 +499,7 @@ export function TransferView() {
           if (balanceResult.ok) setAvailableBalance(balanceResult.balance);
           return;
         }
-        throw new Error(data.error || "No pudimos completar el yapeo.");
+        throw new Error(safeApiMessage(data.error, "No pudimos completar el yapeo."));
       }
 
       const completedAt = data.movement?.createdAt
@@ -526,7 +554,7 @@ export function TransferView() {
     } catch (error) {
       setNotice(
         error instanceof Error
-          ? error.message
+          ? safeClientMessage(error, "No pudimos completar el yapeo.")
           : "No pudimos completar el yapeo.",
       );
     } finally {
@@ -557,6 +585,7 @@ export function TransferView() {
     setRecipientId("");
     setRecipientName("");
     setRecipientPhone("");
+    setManualRecipientMode(false);
     setRecipientIsNewNumber(false);
     setPhoneIsEditing(false);
     setDestination("Yape");
@@ -760,11 +789,16 @@ export function TransferView() {
                   <input
                     inputMode="numeric"
                     value={newNumber}
-                    onChange={(event) =>
-                      setNewNumber(
-                        event.target.value.replace(/\D/g, "").slice(0, 9),
-                      )
-                    }
+                    onChange={(event) => {
+                      recipientLookupAbortRef.current?.abort();
+                      recipientLookupSequenceRef.current += 1;
+                      setRecipientLookupLoading(false);
+                      setRecipientId("");
+                      setRecipientName("");
+                      setRecipientPhone("");
+                      setManualRecipientMode(false);
+                      setNewNumber(event.target.value.replace(/\D/g, "").slice(0, 9));
+                    }}
                     placeholder="000 000 000"
                     required
                   />
@@ -772,13 +806,38 @@ export function TransferView() {
                     <button
                       type="button"
                       aria-label="Limpiar número"
-                      onClick={() => setNewNumber("")}
+                      onClick={() => {
+                        recipientLookupAbortRef.current?.abort();
+                        recipientLookupSequenceRef.current += 1;
+                        setRecipientLookupLoading(false);
+                        setRecipientId("");
+                        setRecipientName("");
+                        setRecipientPhone("");
+                        setManualRecipientMode(false);
+                        setNewNumber("");
+                      }}
                     >
                       ×
                     </button>
                   ) : null}
                 </div>
               </label>
+              {manualRecipientMode ? (
+                <label className="phone-prefix-field transfer-manual-recipient-field">
+                  <span>Nombre del destinatario</span>
+                  <div>
+                    <input
+                      value={recipientName}
+                      onChange={(event) =>
+                        setRecipientName(event.target.value.slice(0, 80))
+                      }
+                      placeholder="Escribe el nombre"
+                      autoComplete="name"
+                      required
+                    />
+                  </div>
+                </label>
+              ) : null}
               {notice ? (
                 <p className="inline-notice" role="status">
                   {notice}
@@ -791,7 +850,11 @@ export function TransferView() {
               className="transfer-primary-button transfer-full-width-button"
               type="submit"
               form="new-number-form"
-              disabled={newNumber.length < 9 || recipientLookupLoading}
+              disabled={
+                newNumber.length < 9 ||
+                recipientLookupLoading ||
+                (manualRecipientMode && recipientName.trim().length < 2)
+              }
             >
               Continuar
             </button>

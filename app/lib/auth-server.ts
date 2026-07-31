@@ -27,6 +27,9 @@ type AuthEnv = {
   TELEGRAM_SUPPORT_USER_ID?: string;
   TELEGRAM_REQUIRED_GROUP_ID?: string;
   TELEGRAM_GROUP_INVITE_URL?: string;
+  RECIPIENT_LOOKUP_PROVIDER?: string;
+  RECIPIENT_LOOKUP_API_BASE_URL?: string;
+  RECIPIENT_LOOKUP_API_TOKEN?: string;
 };
 
 export type AuthUser = {
@@ -36,6 +39,7 @@ export type AuthUser = {
   displayName: string;
   email: string;
   role: AppRole;
+  roles: AppRole[];
   isOwner: boolean;
   ownerId: string | null;
   status: "pending" | "active" | "disabled";
@@ -57,6 +61,7 @@ export type UserRow = {
   display_name: string;
   email: string;
   role: AppRole;
+  roles?: AppRole[];
   is_owner: number;
   owner_id: string | null;
   status: "pending" | "active" | "disabled";
@@ -458,6 +463,16 @@ export async function ensureAuthSchema() {
       )`,
       "CREATE UNIQUE INDEX IF NOT EXISTS users_login_unique ON users(seller_code, username)",
       "CREATE UNIQUE INDEX IF NOT EXISTS users_device_unique ON users(device_id) WHERE device_id IS NOT NULL",
+      `CREATE TABLE IF NOT EXISTS user_roles (
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('admin', 'seller', 'client')),
+        granted_by TEXT,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, role),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS user_roles_role_idx ON user_roles(role, user_id)",
       `CREATE TABLE IF NOT EXISTS payment_directory (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL UNIQUE,
@@ -749,6 +764,13 @@ export async function ensureAuthSchema() {
     ];
     await db.batch(statements.map((sql) => db.prepare(sql)));
 
+    // Backfill idempotente para las cuentas existentes antes de habilitar
+    // cuentas con más de un rol.
+    await db.prepare(
+      `INSERT OR IGNORE INTO user_roles (user_id, role, granted_by, created_at)
+       SELECT id, role, NULL, created_at FROM users WHERE deleted_at IS NULL`,
+    ).run();
+
     const systemNow = new Date().toISOString();
     await db.prepare(
       `INSERT OR IGNORE INTO users (
@@ -769,13 +791,20 @@ export async function ensureAuthSchema() {
          WHEN EXISTS (
            SELECT 1 FROM users u
            WHERE u.id = client_crm_profiles.user_id
-             AND u.role = 'client'
+             AND (u.role = 'client' OR EXISTS (
+               SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
+             ))
              AND u.status = 'active'
              AND u.access_expires_at IS NULL
          ) THEN 'vip'
          ELSE 'new'
        END
-       WHERE user_id IN (SELECT id FROM users WHERE role = 'client')`,
+       WHERE user_id IN (
+         SELECT id FROM users u
+         WHERE u.role = 'client' OR EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
+         )
+       )`,
     ).run();
 
     const balanceColumns = await db.prepare("PRAGMA table_info(account_balances)").all<{ name: string }>();
@@ -896,6 +925,7 @@ export async function ensureAuthSchema() {
 }
 
 function mapUser(row: UserRow): AuthUser {
+  const roles = [...new Set<AppRole>([row.role, ...(row.roles ?? [])])];
   return {
     id: row.id,
     sellerCode: row.seller_code,
@@ -903,6 +933,7 @@ function mapUser(row: UserRow): AuthUser {
     displayName: row.display_name,
     email: row.email,
     role: row.role,
+    roles,
     isOwner: Boolean(row.is_owner),
     ownerId: row.owner_id,
     status: row.status,
@@ -932,9 +963,6 @@ async function findSessionUser(request: Request, roles?: AppRole[], includeExpir
   const token = cookieValue(request, sessionCookieName(request));
   if (!token) return null;
   const tokenHash = await sha256(token);
-  const accessCondition = includeExpiredAccess
-    ? ""
-    : "AND (u.access_expires_at IS NULL OR u.access_expires_at > ?)";
   const now = new Date().toISOString();
   const idleCutoff = new Date(Date.now() - sessionIdleMinutes() * 60_000).toISOString();
   await database().prepare(
@@ -951,13 +979,17 @@ async function findSessionUser(request: Request, roles?: AppRole[], includeExpir
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > ? AND s.last_seen_at > ?
        AND u.status = 'active' AND u.deleted_at IS NULL
-       ${accessCondition}
      LIMIT 1`,
   );
-  const row = includeExpiredAccess
-    ? await statement.bind(tokenHash, now, idleCutoff).first<SessionRow>()
-    : await statement.bind(tokenHash, now, idleCutoff, now).first<SessionRow>();
-  if (!row || (roles && !roles.includes(row.role))) return null;
+  const row = await statement.bind(tokenHash, now, idleCutoff).first<SessionRow>();
+  if (!row) return null;
+  row.roles = await getUserRoles(row.id);
+  const effectiveRoles = new Set<AppRole>([row.role, ...(row.roles ?? [])]);
+  if (roles && !roles.some((role) => effectiveRoles.has(role))) return null;
+  const hasStaffRole = effectiveRoles.has("admin") || effectiveRoles.has("seller");
+  if (!includeExpiredAccess && !hasStaffRole && row.access_expires_at && Date.parse(row.access_expires_at) <= Date.now()) {
+    return null;
+  }
   await database().prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ?").bind(now, row.session_id).run();
   return {
     user: {
@@ -984,7 +1016,12 @@ export async function requireSession(request: Request, roles?: AppRole[]) {
   const session = await getSessionUser(request, roles);
   if (!session) throw new Response(JSON.stringify({ error: "Acceso no autorizado." }), {
     status: 401,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "cache-control": "no-store, max-age=0",
+      "content-type": "application/json; charset=utf-8",
+      pragma: "no-cache",
+      "x-content-type-options": "nosniff",
+    },
   });
   return session;
 }
@@ -1066,7 +1103,9 @@ export async function createSession(request: Request, userId: string, options: {
     database().prepare(
       `DELETE FROM sessions
        WHERE user_id = ?
-         AND EXISTS (SELECT 1 FROM users WHERE id = ? AND role = 'client' AND deleted_at IS NULL)
+         AND EXISTS (SELECT 1 FROM users WHERE id = ? AND (role = 'client' OR EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+         )) AND deleted_at IS NULL)
          AND id IN (
          SELECT id FROM sessions WHERE user_id = ?
          ORDER BY created_at DESC LIMIT -1 OFFSET ?
@@ -1117,23 +1156,31 @@ export async function createUniqueReferralCode() {
 export async function ensureReferralCodeForUser(userId: string) {
   await ensureAuthSchema();
   const current = await database().prepare(
-    "SELECT role, referral_code FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-  ).bind(userId).first<{ role: AppRole; referral_code: string | null }>();
-  if (!current || current.role !== "client") return null;
+    `SELECT role, referral_code,
+            EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client') AS has_client_role
+     FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+  ).bind(userId).first<{ role: AppRole; referral_code: string | null; has_client_role: number }>();
+  if (!current || (current.role !== "client" && !Boolean(current.has_client_role))) return null;
   if (current.referral_code) return current.referral_code;
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const code = await createUniqueReferralCode();
     try {
       const result = await database().prepare(
-        "UPDATE users SET referral_code = ?, updated_at = ? WHERE id = ? AND role = 'client' AND referral_code IS NULL",
+    `UPDATE users SET referral_code = ?, updated_at = ?
+     WHERE id = ? AND (role = 'client' OR EXISTS (
+       SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+     )) AND referral_code IS NULL`,
       ).bind(code, new Date().toISOString(), userId).run();
       if (Number(result.meta.changes ?? 0) === 1) return code;
     } catch (error) {
       if (!/UNIQUE constraint failed/iu.test(error instanceof Error ? error.message : "")) throw error;
     }
     const assigned = await database().prepare(
-      "SELECT referral_code FROM users WHERE id = ? AND role = 'client' LIMIT 1",
+      `SELECT referral_code FROM users
+       WHERE id = ? AND (role = 'client' OR EXISTS (
+         SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+       )) LIMIT 1`,
     ).bind(userId).first<{ referral_code: string | null }>();
     if (assigned?.referral_code) return assigned.referral_code;
   }
@@ -1144,7 +1191,9 @@ export async function ensureClientReferralCodes(limit = 250) {
   await ensureAuthSchema();
   const missing = await database().prepare(
     `SELECT id FROM users
-     WHERE role = 'client' AND referral_code IS NULL AND deleted_at IS NULL
+     WHERE (role = 'client' OR EXISTS (
+       SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+     )) AND referral_code IS NULL AND deleted_at IS NULL
      ORDER BY created_at LIMIT ?`,
   ).bind(Math.max(1, Math.min(500, Math.trunc(limit)))).all<{ id: string }>();
   for (const row of missing.results ?? []) {
@@ -1184,11 +1233,103 @@ export async function findLoginUser(sellerCode: string, username: string) {
   const directMatch = await database().prepare(
     "SELECT * FROM users WHERE seller_code = ? AND username = ? AND deleted_at IS NULL LIMIT 1",
   ).bind(normalizedSellerCode, normalizedUsername).first<UserRow>();
-  if (directMatch || !/^\d{4,24}$/u.test(normalizedSellerCode)) return directMatch;
-
-  return database().prepare(
+  if (directMatch) {
+    directMatch.roles = await getUserRoles(directMatch.id);
+    return directMatch;
+  }
+  if (!/^\d{4,24}$/u.test(normalizedSellerCode)) return null;
+  const telegramMatch = await database().prepare(
     "SELECT * FROM users WHERE telegram_user_id = ? AND username = ? AND deleted_at IS NULL LIMIT 1",
   ).bind(normalizedSellerCode, normalizedUsername).first<UserRow>();
+  if (telegramMatch) telegramMatch.roles = await getUserRoles(telegramMatch.id);
+  return telegramMatch;
+}
+
+export function userHasRole(user: Pick<AuthUser, "role" | "roles"> | Pick<UserRow, "role" | "roles">, role: AppRole) {
+  return user.role === role || Boolean(user.roles?.includes(role));
+}
+
+export async function getUserRoles(userId: string): Promise<AppRole[]> {
+  await ensureAuthSchema();
+  const rows = await database().prepare(
+    "SELECT role FROM user_roles WHERE user_id = ? ORDER BY role",
+  ).bind(userId).all<{ role: AppRole }>();
+  return [...new Set(rows.results?.map((entry) => entry.role) ?? [])];
+}
+
+export async function grantUserRole(input: {
+  userId: string;
+  role: Extract<AppRole, "admin" | "seller">;
+  grantedBy: string;
+}) {
+  await ensureAuthSchema();
+  const target = await database().prepare(
+    `SELECT id, role, is_owner, status, deleted_at
+     FROM users WHERE id = ? LIMIT 1`,
+  ).bind(input.userId).first<{ id: string; role: AppRole; is_owner: number; status: string; deleted_at: string | null }>();
+  if (!target || target.deleted_at || target.is_owner || target.status !== "active") return null;
+  if (target.role !== "client" && target.role !== input.role) return null;
+
+  const now = new Date().toISOString();
+  const ownerId = input.grantedBy;
+  await database().batch([
+    database().prepare(
+      `INSERT OR IGNORE INTO user_roles (user_id, role, granted_by, created_at)
+       VALUES (?, 'client', ?, ?)`,
+    ).bind(target.id, input.grantedBy, now),
+    database().prepare(
+      `INSERT OR IGNORE INTO user_roles (user_id, role, granted_by, created_at)
+       VALUES (?, ?, ?, ?)`,
+    ).bind(target.id, input.role, input.grantedBy, now),
+    database().prepare(
+      `UPDATE users SET role = ?, owner_id = COALESCE(owner_id, ?), updated_at = ?
+       WHERE id = ? AND role = 'client'`,
+    ).bind(input.role, ownerId, now, target.id),
+    database().prepare(
+      `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
+       SELECT ?, COALESCE(telegram_user_id, id), 'web_role_grant', ?, ?
+       FROM users WHERE id = ?`,
+    ).bind(crypto.randomUUID(), `${target.id}:${input.role}`, now, target.id),
+  ]);
+  const refreshed = await database().prepare("SELECT * FROM users WHERE id = ? LIMIT 1").bind(target.id).first<UserRow>();
+  if (!refreshed) return null;
+  refreshed.roles = await getUserRoles(target.id);
+  return refreshed;
+}
+
+export async function revokeUserRole(input: {
+  userId: string;
+  role: Extract<AppRole, "admin" | "seller">;
+  revokedBy: string;
+}) {
+  await ensureAuthSchema();
+  const target = await database().prepare(
+    `SELECT id, role, is_owner, status, deleted_at
+     FROM users WHERE id = ? LIMIT 1`,
+  ).bind(input.userId).first<{ id: string; role: AppRole; is_owner: number; status: string; deleted_at: string | null }>();
+  if (!target || target.deleted_at || target.is_owner || target.status !== "active") return null;
+  const roles = await getUserRoles(target.id);
+  if (!roles.includes("client") || !roles.includes(input.role)) return null;
+
+  const now = new Date().toISOString();
+  await database().batch([
+    database().prepare(
+      "DELETE FROM user_roles WHERE user_id = ? AND role = ?",
+    ).bind(target.id, input.role),
+    database().prepare(
+      `UPDATE users SET role = 'client', updated_at = ?
+       WHERE id = ? AND role = ? AND is_owner = 0 AND deleted_at IS NULL`,
+    ).bind(now, target.id, input.role),
+    database().prepare(
+      `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
+       SELECT ?, COALESCE(telegram_user_id, id), 'web_role_revoke', ?, ?
+       FROM users WHERE id = ?`,
+    ).bind(crypto.randomUUID(), `${target.id}:${input.role}`, now, target.id),
+  ]);
+  const refreshed = await database().prepare("SELECT * FROM users WHERE id = ? LIMIT 1").bind(target.id).first<UserRow>();
+  if (!refreshed) return null;
+  refreshed.roles = await getUserRoles(target.id);
+  return refreshed;
 }
 
 export async function bindDevice(user: UserRow, deviceId: string, publicKey: JsonWebKey) {
@@ -1277,7 +1418,10 @@ export async function createUser(input: {
     now,
     effectiveStatus === "active" ? now : null,
     null,
-  )];
+  ), database().prepare(
+    `INSERT OR IGNORE INTO user_roles (user_id, role, granted_by, created_at)
+     VALUES (?, ?, ?, ?)`,
+  ).bind(id, input.role, input.ownerId ?? null, now)];
   if (phoneE164) {
     statements.push(database().prepare(
       `INSERT INTO payment_directory (

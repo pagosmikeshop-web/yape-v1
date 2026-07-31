@@ -63,6 +63,18 @@ iOS será necesario macOS/Xcode; para Android, Android Studio y el SDK.
 La matriz completa de plugins evaluados y la estrategia de migración está en
 [`docs/capacitor-pwa-audit.md`](docs/capacitor-pwa-audit.md).
 
+## Cuentas con acceso a la app y al panel
+
+Una misma identidad puede conservar su cuenta de la app y recibir acceso al
+panel como Vendedor o Administrador. El usuario primero se registra en la app;
+después el Owner abre la sección de equipo del panel, introduce su Telegram ID
+y asigna el rol. No se crea una segunda cuenta ni se modifica su contraseña.
+
+Los roles se conservan en `user_roles` y la cuenta mantiene el rol `client`.
+Al quitar el acceso desde el mismo panel, vuelve a ser cliente sin perder sus
+datos de la app. Una cuenta promovida no puede eliminarse accidentalmente sin
+retirar antes el rol administrativo.
+
 ## Validación
 
 ```bash

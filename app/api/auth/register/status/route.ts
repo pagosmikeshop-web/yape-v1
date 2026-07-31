@@ -6,7 +6,11 @@ import {
   requestIpRateLimitSubject,
   routeError,
 } from "@/app/lib/auth-server";
-import { checkCurrentTelegramGroupMember } from "@/app/lib/telegram-manager";
+import {
+  checkCurrentTelegramGroupMember,
+  telegramMembershipError,
+  telegramMembershipIsUnavailable,
+} from "@/app/lib/telegram-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +54,10 @@ export async function POST(request: Request) {
         "SELECT id FROM users WHERE telegram_user_id = ? AND deleted_at IS NULL LIMIT 1",
       ).bind(telegramUserId).first(),
     ]);
+
+    if (!telegramCheck.member && telegramMembershipIsUnavailable(telegramCheck)) {
+      return jsonError(telegramMembershipError(telegramCheck), 503);
+    }
 
     if (!telegramCheck.member || linkedTelegram) {
       return jsonOk({

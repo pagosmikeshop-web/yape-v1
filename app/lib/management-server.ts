@@ -1,9 +1,10 @@
-import { AuthUser, dbBinding } from "@/app/lib/auth-server";
+import { AuthUser, dbBinding, getUserRoles, userHasRole } from "@/app/lib/auth-server";
 import { hasPermission, requirePermission, staffRole, type Permission } from "@/app/lib/rbac";
 
 export type ManagedAccount = {
   id: string;
   role: "admin" | "seller" | "client";
+  roles?: Array<"admin" | "seller" | "client">;
   is_owner: number;
   owner_id: string | null;
   deleted_at: string | null;
@@ -14,19 +15,21 @@ export function effectiveRole(user: Pick<AuthUser, "role" | "isOwner">) {
 }
 
 export async function findManagedAccount(userId: string) {
-  return dbBinding().prepare(
+  const target = await dbBinding().prepare(
     `SELECT id, role, is_owner, owner_id, deleted_at
      FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
   ).bind(userId).first<ManagedAccount>();
+  if (target) target.roles = await getUserRoles(target.id);
+  return target;
 }
 
 export async function canManageAccount(actor: AuthUser, target: ManagedAccount) {
-  if (actor.role === "client" || target.deleted_at) return false;
+  if (!userHasRole(actor, "admin") && !userHasRole(actor, "seller") || target.deleted_at) return false;
   if (actor.isOwner) return true;
   if (target.role === "admin") return false;
   if (actor.role === "seller") return target.role === "client" && target.owner_id === actor.id;
   if (target.role === "seller") return target.owner_id === actor.id;
-  if (target.role !== "client" || !(await hasPermission(actor, "clients:update"))) return false;
+  if (!userHasRole(target, "client") || !(await hasPermission(actor, "clients:update"))) return false;
   if (await hasPermission(actor, "clients:view_all")) return true;
   if (!target.owner_id) return false;
   if (target.owner_id === actor.id) return true;
@@ -62,7 +65,9 @@ export async function canAccessClient(
   const client = await dbBinding().prepare(
     `SELECT id, owner_id
      FROM users
-     WHERE id = ? AND role = 'client' AND deleted_at IS NULL
+     WHERE id = ? AND (role = 'client' OR EXISTS (
+       SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+     )) AND deleted_at IS NULL
      LIMIT 1`,
   ).bind(clientId).first<{ id: string; owner_id: string | null }>();
   if (!client) return false;

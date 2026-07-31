@@ -7,6 +7,11 @@ import {
   requireUnlockedSession,
   routeError,
 } from "@/app/lib/auth-server";
+import {
+  maskRecipientName,
+  tryMaskRecipientName,
+} from "@/app/lib/recipient-lookup/name-masker";
+import { normalizeRecipientPhone } from "@/app/lib/recipient-lookup/phone";
 import { writeSecurityEvent } from "@/app/lib/security-log";
 
 export const dynamic = "force-dynamic";
@@ -46,11 +51,6 @@ function cleanText(value: unknown, maximum: number) {
   return asString(value).trim().replace(/[\u0000-\u001f\u007f]/gu, "").slice(0, maximum);
 }
 
-function normalizeRecipientName(value: unknown) {
-  const name = cleanText(value, 48);
-  return name.length >= 2 ? name : "";
-}
-
 function maskPhone(phoneE164: string) {
   const digits = phoneE164.replace(/\D/gu, "");
   return `*** *** ${digits.slice(-3).padStart(3, "0")}`;
@@ -68,7 +68,8 @@ async function resolveRecipient(
   requesterUserId: string,
   recipientId: string,
   rawPhone: string,
-  preferredName = "",
+  displayName = "",
+  recipientSource = "claro",
 ): Promise<ResolvedRecipient | null> {
   const database = dbBinding();
   if (recipientId) {
@@ -77,12 +78,15 @@ async function resolveRecipient(
       `SELECT u.id, u.display_name, d.phone_e164
        FROM users u
        LEFT JOIN payment_directory d ON d.user_id = u.id AND d.discoverable = 1
-       WHERE u.id = ? AND u.role = 'client' AND u.status = 'active' AND u.deleted_at IS NULL
+       WHERE u.id = ? AND (u.role = 'client' OR EXISTS (
+         SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
+       )) AND u.status = 'active' AND u.deleted_at IS NULL
        LIMIT 1`,
     ).bind(recipientId).first<{ id: string; display_name: string; phone_e164: string | null }>();
     if (!row) return null;
+    const displayName = maskRecipientName(row.display_name);
     return {
-      name: preferredName || row.display_name,
+      name: displayName,
       reference: row.phone_e164 ? maskPhone(row.phone_e164) : "QR Yape",
       recipientUserId: row.id,
       savedRecipientId: null,
@@ -90,19 +94,21 @@ async function resolveRecipient(
   }
 
   const phoneE164 = normalizePeruvianMobile(rawPhone);
-  if (!phoneE164) return null;
+  if (!phoneE164 || !displayName) return null;
   const internal = await database.prepare(
     `SELECT u.id, u.display_name
      FROM payment_directory d
      JOIN users u ON u.id = d.user_id
      WHERE d.phone_e164 = ? AND d.discoverable = 1
-       AND u.role = 'client' AND u.status = 'active' AND u.deleted_at IS NULL
+       AND (u.role = 'client' OR EXISTS (
+         SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
+       )) AND u.status = 'active' AND u.deleted_at IS NULL
      LIMIT 1`,
   ).bind(phoneE164).first<{ id: string; display_name: string }>();
   if (internal) {
     if (internal.id === requesterUserId) return null;
     return {
-      name: preferredName || internal.display_name,
+      name: displayName,
       reference: maskPhone(phoneE164),
       recipientUserId: internal.id,
       savedRecipientId: null,
@@ -116,14 +122,13 @@ async function resolveRecipient(
   if (!saved) {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
-    const initialName = preferredName || "Número nuevo";
     try {
       await database.prepare(
         `INSERT INTO saved_payment_recipients (
           id, user_id, phone_e164, display_name, source, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 'transfer', ?, ?)`,
-      ).bind(id, requesterUserId, phoneE164, initialName, now, now).run();
-      saved = { id, display_name: initialName };
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(id, requesterUserId, phoneE164, displayName, recipientSource, now, now).run();
+      saved = { id, display_name: displayName };
     } catch (error) {
       if (!/UNIQUE constraint failed/iu.test(error instanceof Error ? error.message : "")) throw error;
       saved = await database.prepare(
@@ -133,9 +138,8 @@ async function resolveRecipient(
     }
   }
   if (!saved) return null;
-  const displayName = preferredName || saved.display_name || "Número nuevo";
-  if (preferredName && preferredName !== saved.display_name) {
-    await persistSavedRecipientName(saved.id, preferredName);
+  if (displayName !== saved.display_name) {
+    await persistSavedRecipientName(saved.id, displayName);
   }
   return {
     name: displayName,
@@ -162,9 +166,15 @@ async function currentBalance(userId: string) {
 }
 
 function movementPayload(row: MovementRow) {
+  let recipientName = "Destinatario verificado";
+  try {
+    recipientName = maskRecipientName(row.recipient_name);
+  } catch {
+    // Mantener el fallback defensivo para datos históricos malformados.
+  }
   return {
     id: row.id,
-    recipientName: row.recipient_name,
+    recipientName,
     recipientReference: row.recipient_reference,
     destination: row.destination,
     amountCents: Number(row.amount_cents),
@@ -216,7 +226,7 @@ export async function POST(request: Request) {
     const amountCents = typeof body.amountCents === "number" ? body.amountCents : Number.NaN;
     const recipientId = asString(body.recipientId).trim();
     const recipientPhone = asString(body.recipientPhone).trim();
-    const preferredRecipientName = normalizeRecipientName(body.recipientName);
+    const recipientManualName = asString(body.recipientManualName).trim();
     const destination = cleanText(body.destination, 48) || "Yape";
     const message = cleanText(body.message, 120);
 
@@ -224,12 +234,23 @@ export async function POST(request: Request) {
       return jsonError("Ingresa un monto válido de hasta S/ 500.");
     }
     if (!ALLOWED_DESTINATIONS.has(destination)) return jsonError("Selecciona un destino permitido.");
-    // El nombre editable se usa en el movimiento/voucher; en números externos también se persiste en saved_payment_recipients.
+    if (!recipientId && !recipientPhone) return jsonError("Verifica el destinatario antes de continuar.", 400);
+    if (recipientId && recipientPhone) return jsonError("Indica un solo destinatario.", 400);
+    let recipientDisplayName = "";
+    const recipientSource = "manual";
+    if (!recipientId) {
+      normalizeRecipientPhone(recipientPhone);
+      recipientDisplayName = tryMaskRecipientName(recipientManualName);
+      if (!recipientDisplayName) {
+        return jsonError("Escribe un nombre válido para el destinatario.", 409);
+      }
+    }
     const recipient = await resolveRecipient(
       user.id,
       recipientId,
       recipientPhone,
-      preferredRecipientName,
+      recipientDisplayName,
+      recipientSource,
     );
     if (!recipient) return jsonError("No se pudo verificar el destinatario.", 400);
 

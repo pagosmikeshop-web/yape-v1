@@ -5,6 +5,7 @@ import {
   REFERRAL_EXTENSION_DAYS,
   REFERRAL_MONTHLY_LIMIT,
 } from "@/app/lib/auth-server";
+import { safeClientMessage } from "@/app/lib/client-error";
 
 type TelegramMessage = {
   message_id: number;
@@ -145,52 +146,67 @@ export async function checkCurrentTelegramGroupMember(
   }
   if (!groupId) return { member: false, reason: "invalid-group" };
 
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
-      method: "POST",
-      headers: { "content-type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ chat_id: groupId, user_id: telegramUserId }),
-      signal: AbortSignal.timeout(8_000),
-    });
-    const declaredLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(declaredLength) && declaredLength > 16 * 1024) {
+  // La consulta es de solo lectura. Una única repetición está permitida
+  // únicamente para fallos transitorios de red/Telegram, evitando convertir
+  // una caída breve del proveedor en un falso rechazo de identidad.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
+        method: "POST",
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ chat_id: groupId, user_id: telegramUserId }),
+        signal: AbortSignal.timeout(8_000),
+      });
+      const transientHttpFailure = response.status === 408
+        || response.status === 425
+        || response.status === 429
+        || response.status >= 500;
+      if (transientHttpFailure && attempt === 0) continue;
+      const declaredLength = Number(response.headers.get("content-length"));
+      if (Number.isFinite(declaredLength) && declaredLength > 16 * 1024) {
+        return { member: false, reason: "telegram-unavailable" };
+      }
+      const text = await limitedResponseText(response, 16 * 1024);
+      if (!text) {
+        if (attempt === 0) continue;
+        return { member: false, reason: "telegram-unavailable" };
+      }
+      const data = JSON.parse(text) as {
+        ok?: boolean;
+        description?: string;
+        result?: { status?: string; is_member?: boolean };
+      };
+      if (!response.ok || !data.ok) {
+        const description = (data.description ?? "").toLocaleLowerCase("en-US");
+        if (description.includes("chat not found")) {
+          return { member: false, reason: "invalid-group" };
+        }
+        if (
+          description.includes("not enough rights")
+          || description.includes("member list is inaccessible")
+          || description.includes("bot is not a member")
+        ) {
+          return { member: false, reason: "bot-not-authorized" };
+        }
+        if (description.includes("user not found")) {
+          return { member: false, reason: "user-not-found" };
+        }
+        return { member: false, reason: "telegram-unavailable" };
+      }
+      const status = data.result?.status ?? "";
+      if (status === "creator" || status === "administrator" || status === "member") {
+        return { member: true, status };
+      }
+      if (status === "restricted" && data.result?.is_member === true) {
+        return { member: true, status };
+      }
+      return { member: false, reason: "not-member" };
+    } catch {
+      if (attempt === 0) continue;
       return { member: false, reason: "telegram-unavailable" };
     }
-    const text = await limitedResponseText(response, 16 * 1024);
-    if (!text) return { member: false, reason: "telegram-unavailable" };
-    const data = JSON.parse(text) as {
-      ok?: boolean;
-      description?: string;
-      result?: { status?: string; is_member?: boolean };
-    };
-    if (!response.ok || !data.ok) {
-      const description = (data.description ?? "").toLocaleLowerCase("en-US");
-      if (description.includes("chat not found")) {
-        return { member: false, reason: "invalid-group" };
-      }
-      if (
-        description.includes("not enough rights")
-        || description.includes("member list is inaccessible")
-        || description.includes("bot is not a member")
-      ) {
-        return { member: false, reason: "bot-not-authorized" };
-      }
-      if (description.includes("user not found")) {
-        return { member: false, reason: "user-not-found" };
-      }
-      return { member: false, reason: "telegram-unavailable" };
-    }
-    const status = data.result?.status ?? "";
-    if (status === "creator" || status === "administrator" || status === "member") {
-      return { member: true, status };
-    }
-    if (status === "restricted" && data.result?.is_member === true) {
-      return { member: true, status };
-    }
-    return { member: false, reason: "not-member" };
-  } catch {
-    return { member: false, reason: "telegram-unavailable" };
   }
+  return { member: false, reason: "telegram-unavailable" };
 }
 
 export async function isCurrentTelegramGroupMember(telegramUserId: string) {
@@ -199,6 +215,15 @@ export async function isCurrentTelegramGroupMember(telegramUserId: string) {
 
 export function telegramMembershipError(check: TelegramMembershipCheck) {
   return membershipFailureMessage(check);
+}
+
+export function telegramMembershipIsUnavailable(check: TelegramMembershipCheck) {
+  return !check.member && (
+    check.reason === "telegram-unavailable"
+    || check.reason === "not-configured"
+    || check.reason === "invalid-group"
+    || check.reason === "bot-not-authorized"
+  );
 }
 
 async function redeemReferralCode(telegramId: string, args: string) {
@@ -315,7 +340,7 @@ export async function processTelegramUpdate(update: TelegramUpdate) {
     await audit(telegramId, command, `redeem error: ${error instanceof Error ? error.name : "desconocido"}`);
     await sendTelegramMessage(
       message.chat.id,
-      error instanceof Error ? error.message : "No se pudo completar la activacion.",
+      safeClientMessage(error, "No se pudo completar la activacion."),
     );
   }
 }

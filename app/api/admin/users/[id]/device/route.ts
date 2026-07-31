@@ -1,5 +1,5 @@
 import { jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
-import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import { dbBinding, requireUnlockedSession, routeError, userHasRole } from "@/app/lib/auth-server";
 import { requireManagedAccount } from "@/app/lib/management-server";
 import { requirePermission } from "@/app/lib/rbac";
 
@@ -12,7 +12,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await readJson(request);
     const { id } = await context.params;
     const target = await requireManagedAccount(actor, id);
-    if (target.role !== "client") {
+    if (!userHasRole(target, "client")) {
       return jsonError("El restablecimiento de dispositivo solo está disponible para clientes.", 409);
     }
 
@@ -22,14 +22,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       database.prepare(
         `UPDATE users
          SET device_id = NULL, device_public_key = NULL, updated_at = ?
-         WHERE id = ? AND role = 'client' AND deleted_at IS NULL`,
+         WHERE id = ? AND (role = 'client' OR EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+         )) AND deleted_at IS NULL`,
       ).bind(now, id),
       database.prepare(
         `DELETE FROM sessions
          WHERE user_id = ?
            AND EXISTS (
              SELECT 1 FROM users
-             WHERE id = ? AND role = 'client' AND deleted_at IS NULL
+             WHERE id = ? AND (role = 'client' OR EXISTS (
+               SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+             )) AND deleted_at IS NULL
            )`,
       ).bind(id, id),
       database.prepare(

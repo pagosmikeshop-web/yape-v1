@@ -211,6 +211,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (id === actor.id) return jsonError("No puedes eliminar tu propia cuenta.", 409);
     const target = await requireManagedAccount(actor, id);
     if (target.is_owner) return jsonError("La cuenta Owner no puede eliminarse.", 403);
+    if (target.role !== "client" && target.roles?.includes("client")) {
+      return jsonError("Esta cuenta también tiene acceso a la app. Retira primero el rol del panel para conservarla.", 409);
+    }
     if (actor.role === "seller" && target.role !== "client") {
       return jsonError("Solo puedes eliminar clientes de tu cartera.", 403);
     }

@@ -20,6 +20,10 @@ export function writeSecurityEvent(
       .slice(0, 12)
       .map(([name, value]) => [name.slice(0, 48), cleanDetail(name, value)]),
   );
+  const authAttempt = request.headers.get("x-auth-attempt")?.trim() ?? "";
+  if (/^[A-Za-z0-9._:-]{8,128}$/u.test(authAttempt)) {
+    safeDetails.authAttemptId = authAttempt;
+  }
   console.info("[security-event]", {
     timestamp: new Date().toISOString(),
     requestId: request.headers.get("x-request-id") ?? "unavailable",
@@ -30,4 +34,3 @@ export function writeSecurityEvent(
     ...safeDetails,
   });
 }
-

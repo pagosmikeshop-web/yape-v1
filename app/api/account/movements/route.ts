@@ -1,5 +1,6 @@
 import { jsonOk } from "@/app/lib/api-utils";
 import { dbBinding, requireSession, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import { maskRecipientName } from "@/app/lib/recipient-lookup/name-masker";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
       clearedAt: historyState?.cleared_at ?? null,
       movements: (movementsResult.results ?? []).map((row) => ({
         id: row.id,
-        recipientName: row.recipient_name,
+        recipientName: maskRecipientName(row.recipient_name),
         recipientReference: row.recipient_reference,
         destination: row.destination,
         amountCents: Number(row.amount_cents),

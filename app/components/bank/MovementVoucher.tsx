@@ -83,10 +83,6 @@ export async function shareVoucherImage(
 
         // Algunos WebView anuncian soporte para archivos, pero bloquean navigator.share.
         // En ese caso continuamos con la descarga del PNG completo.
-        console.warn(
-          "No se pudo abrir el menú nativo para compartir; se descargará el PNG.",
-          error,
-        );
       }
     }
   }

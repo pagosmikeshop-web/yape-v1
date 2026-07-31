@@ -9,6 +9,7 @@ import {
   requestIpRateLimitSubject,
   routeError,
   verifyDeviceProof,
+  userHasRole,
 } from "@/app/lib/auth-server";
 import { writeSecurityEvent } from "@/app/lib/security-log";
 
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
     ]);
     const eligible = Boolean(
       user
-      && user.role === "client"
+      && userHasRole(user, "client")
       && user.status === "active"
       && user.device_id === deviceId
       && validDeviceProof,

@@ -11,6 +11,8 @@ import {
   requestIpRateLimitSubject,
   routeError,
   safeUser,
+  getUserRoles,
+  userHasRole,
   secretHashNeedsUpgrade,
   verifyDeviceProof,
   verifySecret,
@@ -19,6 +21,7 @@ import {
 import { writeSecurityEvent } from "@/app/lib/security-log";
 import {
   checkCurrentTelegramGroupMember,
+  telegramMembershipIsUnavailable,
   telegramMembershipError,
 } from "@/app/lib/telegram-manager";
 import {
@@ -32,7 +35,7 @@ async function claimPendingTelegramTrial(user: UserRow): Promise<
   | { ok: true; user: UserRow }
   | { ok: false; response: Response }
 > {
-  if (user.role !== "client" || !user.telegram_user_id) {
+  if (!userHasRole(user, "client") || !user.telegram_user_id) {
     return {
       ok: false,
       response: jsonError("Tu cuenta está pendiente de aprobación.", 403),
@@ -52,18 +55,14 @@ async function claimPendingTelegramTrial(user: UserRow): Promise<
 
   const membership = await checkCurrentTelegramGroupMember(user.telegram_user_id);
   if (!membership.member) {
-    const temporary =
-      membership.reason === "telegram-unavailable"
-      || membership.reason === "bot-not-authorized"
-      || membership.reason === "not-configured"
-      || membership.reason === "invalid-group";
+    const temporary = telegramMembershipIsUnavailable(membership);
     return {
       ok: false,
       response: jsonError(
         temporary
           ? telegramMembershipError(membership)
           : "No pudimos confirmar que perteneces al grupo. Únete al grupo y vuelve a iniciar sesión.",
-        403,
+        temporary ? 503 : 403,
       ),
     };
   }
@@ -145,19 +144,20 @@ export async function POST(request: Request) {
       ).bind(upgraded.hash, upgraded.salt, new Date().toISOString(), user.id).run();
     }
     // AUTH-001: claim trial solo tras password válida (no quemar trial ajeno).
-    if (user.status === "pending") {
+  if (user.status === "pending") {
       const claimed = await claimPendingTelegramTrial(user);
       if (!claimed.ok) {
         writeSecurityEvent(request, "auth.login", "denied", { reason: "pending_approval", actorId: user.id });
         return claimed.response;
       }
       user = claimed.user;
+      user.roles = await getUserRoles(user.id);
     }
     if (user.status !== "active") {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "account_inactive", actorId: user.id });
       return jsonError("Tu cuenta no está activa. Contacta al administrador.", 403);
     }
-    if (user.role === "client") {
+    if (userHasRole(user, "client")) {
       const bound = await bindDevice(user, deviceId, publicKey);
       if (!bound) {
         writeSecurityEvent(request, "auth.login", "denied", { reason: "device_binding", actorId: user.id });
@@ -165,10 +165,11 @@ export async function POST(request: Request) {
       }
     } else if (user.device_id || user.device_public_key) {
       await dbBinding().prepare(
-        "UPDATE users SET device_id = NULL, device_public_key = NULL, updated_at = ? WHERE id = ? AND role <> 'client'",
+        "UPDATE users SET device_id = NULL, device_public_key = NULL, updated_at = ? WHERE id = ?",
       ).bind(new Date().toISOString(), user.id).run();
     }
-    if (user.access_expires_at && Date.parse(user.access_expires_at) <= Date.now()) {
+    if (!userHasRole(user, "admin") && !userHasRole(user, "seller")
+      && user.access_expires_at && Date.parse(user.access_expires_at) <= Date.now()) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "access_expired", actorId: user.id });
       return Response.json({
         ok: false,
@@ -185,8 +186,8 @@ export async function POST(request: Request) {
       {
         user: safeUser({
           ...user,
-          device_id: user.role === "client" ? (user.device_id ?? deviceId) : null,
-          device_public_key: user.role === "client" ? user.device_public_key : null,
+          device_id: userHasRole(user, "client") ? (user.device_id ?? deviceId) : null,
+          device_public_key: userHasRole(user, "client") ? user.device_public_key : null,
         }),
       },
       { headers: { "cache-control": "no-store", "set-cookie": cookie } },

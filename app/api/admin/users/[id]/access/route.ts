@@ -22,7 +22,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     const database = dbBinding();
     const client = await database.prepare(
-      "SELECT id, display_name, status FROM users WHERE id = ? AND role = 'client' LIMIT 1",
+      `SELECT id, display_name, status FROM users
+       WHERE id = ? AND (role = 'client' OR EXISTS (
+         SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+       )) LIMIT 1`,
     ).bind(id).first<{ id: string; display_name: string; status: string }>();
     if (!client) return jsonError("Cliente no encontrado.", 404);
     if (client.status !== "active") return jsonError("Activa la cuenta antes de modificar su acceso.", 409);
@@ -32,7 +35,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const crmStatus = mode === "permanent" ? "vip" : "new";
     const results = await database.batch([
       database.prepare(
-        "UPDATE users SET access_expires_at = ?, updated_at = ? WHERE id = ? AND role = 'client'",
+        `UPDATE users SET access_expires_at = ?, updated_at = ?
+         WHERE id = ? AND (role = 'client' OR EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+         ))`,
       ).bind(accessExpiresAt, now, client.id),
       database.prepare(
         `INSERT INTO client_crm_profiles

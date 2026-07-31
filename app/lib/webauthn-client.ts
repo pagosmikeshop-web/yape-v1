@@ -14,6 +14,7 @@ import type {
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/browser";
+import { safeApiMessage, safeClientMessage } from "./client-error";
 
 export type WebAuthnClientErrorCode =
   | "UNSUPPORTED"
@@ -44,7 +45,7 @@ async function postJson<T>(path: string, body: Record<string, unknown> = {}): Pr
     code?: string;
   };
   if (!response.ok || data.ok === false) {
-    const message = String(data.error ?? "No se pudo completar la operación biométrica.");
+    const message = safeApiMessage(data.error, "No se pudo completar la operación biométrica.");
     if (data.code === "WEBAUTHN_NOT_REGISTERED" || response.status === 404) {
       throw new WebAuthnClientError(message, "NOT_REGISTERED");
     }
@@ -64,7 +65,7 @@ function mapBrowserError(error: unknown): WebAuthnClientError {
   }
   if (error instanceof Error && error.message) {
     return new WebAuthnClientError(
-      `${error.message} Puedes usar tu clave.`,
+      `${safeClientMessage(error, "No pudimos usar Face ID o huella.")} Puedes usar tu clave.`,
       "FAILED",
     );
   }
@@ -130,7 +131,7 @@ export async function fetchWebAuthnStatus() {
     error?: string;
   };
   if (!response.ok || data.ok === false) {
-    throw new Error(String(data.error ?? "No se pudo consultar la biometría."));
+    throw new Error(safeApiMessage(data.error, "No se pudo consultar la biometría."));
   }
   return Boolean(data.enabled);
 }
@@ -142,6 +143,6 @@ export async function disablePlatformBiometric() {
   });
   const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
   if (!response.ok || data.ok === false) {
-    throw new Error(String(data.error ?? "No se pudo desactivar la biometría."));
+    throw new Error(safeApiMessage(data.error, "No se pudo desactivar la biometría."));
   }
 }

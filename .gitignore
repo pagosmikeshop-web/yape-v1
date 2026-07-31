@@ -52,6 +52,10 @@ yarn-error.log*
 /artifacts/
 /tests/*
 !/tests/platform-contracts.test.ts
+!/tests/responsive-contracts.test.ts
+!/tests/auth-first-attempt.test.ts
+!/tests/security-contracts.test.ts
+!/tests/recipient-lookup.test.ts
 /.vinext/
 /.wrangler/
 fix.mjs

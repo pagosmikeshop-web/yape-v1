@@ -49,7 +49,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
               COALESCE(p.notes, '') AS notes
        FROM users u
        LEFT JOIN client_crm_profiles p ON p.user_id = u.id
-       WHERE u.id = ? AND u.role = 'client' AND u.deleted_at IS NULL LIMIT 1`,
+       WHERE u.id = ? AND (u.role = 'client' OR EXISTS (
+         SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
+       )) AND u.deleted_at IS NULL LIMIT 1`,
     ).bind(id).first<Record<string, unknown>>();
     if (!current) return jsonError("Cliente no encontrado.", 404);
 
@@ -175,7 +177,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         `UPDATE users
          SET display_name = ?, email = ?, status = ?, owner_id = ?, seller_code = ?,
              access_expires_at = ?, activated_at = ?, updated_at = ?
-         WHERE id = ? AND role = 'client' AND deleted_at IS NULL`,
+         WHERE id = ? AND (role = 'client' OR EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
+         )) AND deleted_at IS NULL`,
       ).bind(
         displayName,
         email,

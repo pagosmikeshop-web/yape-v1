@@ -86,7 +86,22 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+  // Messages are only accepted from the same-origin page (or from the
+  // registration API, which does not expose an origin/source in every
+  // browser). This keeps the update command narrow and avoids treating
+  // arbitrary cross-origin messages as control instructions.
+  if (event.origin && event.origin !== self.location.origin) return;
+  const source = event.source;
+  if (source && typeof source.url === "string") {
+    try {
+      if (new URL(source.url).origin !== self.location.origin) return;
+    } catch {
+      return;
+    }
+  }
+  const data = event.data;
+  if (!data || typeof data !== "object" || data.type !== "SKIP_WAITING") return;
+  self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {

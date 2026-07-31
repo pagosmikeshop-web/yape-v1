@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { copyText } from "../lib/platform-adapters";
+import { safeApiMessage, safeClientMessage } from "../lib/client-error";
 
 /** Debe coincidir con TELEGRAM_TRIAL_SELLER_ID en trial-activation.ts */
 const TELEGRAM_TRIAL_SELLER_ID = "system-telegram-trial";
@@ -59,7 +60,7 @@ const PAGE_SIZE = 20;
 
 async function responseData<T>(response: Response) {
   const data = await response.json() as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || "No se pudo completar la operación.");
+  if (!response.ok) throw new Error(safeApiMessage(data.error, "No se pudo completar la operación."));
   return data;
 }
 
@@ -97,14 +98,15 @@ export function ClientManager({ role }: { role: ManagerRole }) {
     fetch("/api/auth/me", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json().catch(() => ({})) as {
-          user?: { role?: string; unlocked?: boolean } | null;
+          user?: { role?: string; roles?: string[]; unlocked?: boolean } | null;
         };
         if (!response.ok || !data.user) throw new Error("unauthorized");
         return data.user;
       })
       .then((user) => {
         if (cancelled) return;
-        if (!user.unlocked || (role === "seller" && user.role !== "seller") || (role === "admin" && user.role !== "admin")) {
+        const userRoles = new Set([user.role, ...(user.roles ?? [])]);
+        if (!user.unlocked || !userRoles.has(role)) {
           sessionStorage.removeItem("yape-unlocked");
           router.replace("/");
           return;
@@ -154,7 +156,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
         sellersLoadedRef.current = true;
       }
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "No se pudo cargar la lista de clientes.";
+      const message = safeClientMessage(loadError, "No se pudo cargar la lista de clientes.");
       setError(message);
       if (/autorizado|sesión|session/iu.test(message)) router.replace("/");
     } finally {
@@ -200,13 +202,13 @@ export function ClientManager({ role }: { role: ManagerRole }) {
           phone: String(formData.get("phone") ?? ""),
         }),
       }));
-      setNotice(data.message || "Cliente creado correctamente.");
+      setNotice(safeApiMessage(data.message, "Cliente creado correctamente."));
       setInvitation(data.invitation ?? null);
       form.reset();
       setPage(1);
       await loadClients({ silent: true });
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "No se pudo crear el cliente.");
+      setError(safeClientMessage(createError, "No se pudo crear el cliente."));
     } finally {
       setBusyId("");
     }
@@ -231,13 +233,13 @@ export function ClientManager({ role }: { role: ManagerRole }) {
           email: String(formData.get("email") ?? ""),
         }),
       }));
-      setNotice(data.message || "Vendedor creado correctamente.");
+      setNotice(safeApiMessage(data.message, "Vendedor creado correctamente."));
       setInvitation(data.invitation ?? null);
       form.reset();
       sellersLoadedRef.current = false;
       await loadClients({ silent: true });
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "No se pudo crear el vendedor.");
+      setError(safeClientMessage(createError, "No se pudo crear el vendedor."));
     } finally {
       setBusyId("");
     }
@@ -256,7 +258,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
         headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify({ amount }),
       }));
-      setNotice(data.message || "Créditos asignados.");
+      setNotice(safeApiMessage(data.message, "Créditos asignados."));
       form.reset();
       setSellers((current) => current.map((entry) => (
         entry.id === seller.id
@@ -264,7 +266,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
           : entry
       )));
     } catch (creditError) {
-      setError(creditError instanceof Error ? creditError.message : "No se pudieron asignar los créditos.");
+      setError(safeClientMessage(creditError, "No se pudieron asignar los créditos."));
     } finally {
       setBusyId("");
     }
@@ -278,7 +280,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
       const data = await responseData<{ message?: string; credits?: number; accessExpiresAt?: string }>(await fetch(`/api/seller/clients/${client.id}/activate`, {
         method: "POST",
       }));
-      setNotice(data.message || "Cliente activado.");
+      setNotice(safeApiMessage(data.message, "Cliente activado."));
       if (typeof data.credits === "number") setCredits(data.credits);
       setClients((current) => current.map((entry) => (
         entry.id === client.id
@@ -291,7 +293,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
           : entry
       )));
     } catch (activateError) {
-      setError(activateError instanceof Error ? activateError.message : "No se pudo activar el cliente.");
+      setError(safeClientMessage(activateError, "No se pudo activar el cliente."));
     } finally {
       setBusyId("");
     }
@@ -310,12 +312,12 @@ export function ClientManager({ role }: { role: ManagerRole }) {
       }));
       setPermanentToken({ token: data.token, clientName: data.clientName });
       setCredits(Number(data.credits));
-      setNotice(data.message || "Token permanente creado.");
+      setNotice(safeApiMessage(data.message, "Token permanente creado."));
       setClients((current) => current.map((entry) => (
         entry.id === client.id ? { ...entry, access_expires_at: null } : entry
       )));
     } catch (tokenError) {
-      setError(tokenError instanceof Error ? tokenError.message : "No se pudo crear el token permanente.");
+      setError(safeClientMessage(tokenError, "No se pudo crear el token permanente."));
     } finally {
       setBusyId("");
     }
@@ -333,11 +335,11 @@ export function ClientManager({ role }: { role: ManagerRole }) {
       const data = await responseData<{ message?: string }>(await fetch(`/api/admin/users/${client.id}`, {
         method: "DELETE",
       }));
-      setNotice(data.message || "Cliente eliminado. Ya puede registrarse de nuevo.");
+      setNotice(safeApiMessage(data.message, "Cliente eliminado. Ya puede registrarse de nuevo."));
       setClients((current) => current.filter((entry) => entry.id !== client.id));
       setTotal((current) => Math.max(0, current - 1));
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar el cliente.");
+      setError(safeClientMessage(deleteError, "No se pudo eliminar el cliente."));
     } finally {
       setBusyId("");
     }
@@ -353,12 +355,12 @@ export function ClientManager({ role }: { role: ManagerRole }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({}),
       }));
-      setNotice(data.message || "Dispositivo restablecido.");
+      setNotice(safeApiMessage(data.message, "Dispositivo restablecido."));
       setClients((current) => current.map((entry) => (
         entry.id === client.id ? { ...entry, device_id: null } : entry
       )));
     } catch (resetError) {
-      setError(resetError instanceof Error ? resetError.message : "No se pudo restablecer el dispositivo.");
+      setError(safeClientMessage(resetError, "No se pudo restablecer el dispositivo."));
     } finally {
       setBusyId("");
     }
