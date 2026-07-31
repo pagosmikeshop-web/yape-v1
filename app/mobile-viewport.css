@@ -361,6 +361,19 @@ canvas {
     scroll-padding-block: 16px 24px;
   }
 
+  .mobile-bank-shell .transfer-recipient-name-slot {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: clamp(24px, 6vw, 32px);
+    margin-top: min(3vw, 12px);
+  }
+
+  .mobile-bank-shell .transfer-recipient-name-slot
+    .transfer-recipient-name-input {
+    margin-top: 0;
+  }
+
   .mobile-bank-shell .transfer-amount-content::-webkit-scrollbar {
     display: none;
   }

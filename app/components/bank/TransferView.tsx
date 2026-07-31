@@ -120,6 +120,7 @@ export function TransferView() {
   const transferSubmittingRef = useRef(false);
   const recipientLookupAbortRef = useRef<AbortController | null>(null);
   const recipientLookupSequenceRef = useRef(0);
+  const recipientLookupInFlightRef = useRef(false);
   const transferIdempotencyRef = useRef<{
     key: string;
     payload: string;
@@ -238,7 +239,101 @@ export function TransferView() {
   useEffect(() => () => {
     recipientLookupAbortRef.current?.abort();
     recipientLookupSequenceRef.current += 1;
+    recipientLookupInFlightRef.current = false;
   }, []);
+
+  useLayoutEffect(() => {
+    if (
+      stage !== "amount" ||
+      !recipientIsNewNumber ||
+      Boolean(recipientId) ||
+      manualRecipientMode
+    ) {
+      return;
+    }
+
+    const normalizedPhone = recipientPhone.replace(/\D/g, "");
+    if (!/^9\d{8}$/u.test(normalizedPhone)) return;
+    if (recipientLookupInFlightRef.current) return;
+
+    recipientLookupAbortRef.current?.abort();
+    const requestSequence = recipientLookupSequenceRef.current + 1;
+    recipientLookupSequenceRef.current = requestSequence;
+    const controller = new AbortController();
+    recipientLookupAbortRef.current = controller;
+    recipientLookupInFlightRef.current = true;
+    setRecipientLookupLoading(true);
+    setRecipientName("");
+    setNotice("");
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/payments/recipient-lookup", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ phone: normalizedPhone }),
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = (await response.json()) as {
+          recipient?: {
+            id?: string;
+            displayName?: string;
+            phone?: string;
+          };
+        };
+
+        if (
+          requestSequence !== recipientLookupSequenceRef.current ||
+          !response.ok
+        ) {
+          if (requestSequence === recipientLookupSequenceRef.current) {
+            enableManualRecipientFallback(normalizedPhone);
+          }
+          return;
+        }
+
+        if (!data.recipient?.displayName || !data.recipient.phone) {
+          enableManualRecipientFallback(normalizedPhone);
+          return;
+        }
+
+        setRecipientId(data.recipient.id || "");
+        setRecipientName(data.recipient.displayName);
+        setRecipientPhone(data.recipient.phone);
+        setManualRecipientMode(false);
+        setRecipientIsNewNumber(false);
+        setPhoneIsEditing(false);
+        setDestination("Yape");
+        setNotice("");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (requestSequence !== recipientLookupSequenceRef.current) return;
+        enableManualRecipientFallback(normalizedPhone);
+      } finally {
+        if (requestSequence === recipientLookupSequenceRef.current) {
+          setRecipientLookupLoading(false);
+          recipientLookupInFlightRef.current = false;
+          recipientLookupAbortRef.current = null;
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+      if (requestSequence === recipientLookupSequenceRef.current) {
+        recipientLookupSequenceRef.current += 1;
+        recipientLookupInFlightRef.current = false;
+        setRecipientLookupLoading(false);
+      }
+    };
+  }, [
+    manualRecipientMode,
+    recipientId,
+    recipientIsNewNumber,
+    recipientPhone,
+    stage,
+  ]);
 
   useEffect(() => {
     if (stage !== "success" || !voucher) return;
@@ -353,88 +448,31 @@ export function TransferView() {
     setPhoneIsEditing(false);
     setDestination("Yape");
     setNotice("");
+    // La consulta externa solo autocompleta el titular; el formulario manual
+    // queda disponible cuando el proveedor no responde o no entrega un nombre.
   }
 
-  async function submitNewNumber(event: FormEvent<HTMLFormElement>) {
+  function submitNewNumber(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedPhone = newNumber.replace(/\D/g, "");
     if (!/^9\d{8}$/u.test(normalizedPhone)) {
       setNotice("Ingresa un número de celular válido de 9 dígitos.");
       return;
     }
-    if (manualRecipientMode) {
-      setRecipientPhone(normalizedPhone);
-      setRecipientIsNewNumber(true);
-      setNotice("");
-      setStage("amount");
-      return;
-    }
     recipientLookupAbortRef.current?.abort();
-    const requestSequence = recipientLookupSequenceRef.current + 1;
-    recipientLookupSequenceRef.current = requestSequence;
-    const controller = new AbortController();
-    recipientLookupAbortRef.current = controller;
-    setRecipientLookupLoading(true);
+    recipientLookupSequenceRef.current += 1;
+    recipientLookupInFlightRef.current = false;
+    setRecipientLookupLoading(false);
     setNotice("");
     setRecipientId("");
     setRecipientName("");
-    setRecipientPhone("");
+    setRecipientPhone(normalizedPhone);
     setManualRecipientMode(false);
-    try {
-      const response = await fetch("/api/payments/recipient-lookup", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ phone: normalizedPhone }),
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      const data = (await response.json()) as {
-        recipient?: {
-          id?: string;
-          displayName?: string;
-          phone?: string;
-        };
-        error?: string;
-      };
-      if (!response.ok) {
-        if ([404, 429, 500, 502, 503, 504].includes(response.status)) {
-          enableManualRecipientFallback(normalizedPhone);
-          return;
-        }
-        throw new Error(safeApiMessage(data.error, "No pudimos verificar el titular en este momento."));
-      }
-      if (requestSequence !== recipientLookupSequenceRef.current) return;
-      if (!data.recipient?.displayName || !data.recipient.phone) {
-        enableManualRecipientFallback(normalizedPhone);
-        return;
-      }
-      setRecipientId(data.recipient.id || "");
-      setRecipientName(data.recipient.displayName);
-      setRecipientPhone(data.recipient.phone);
-      setManualRecipientMode(false);
-      setRecipientIsNewNumber(false);
-      setPhoneIsEditing(false);
-      setDestination("Yape");
-      setNotice("");
-      setStage("amount");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (requestSequence !== recipientLookupSequenceRef.current) return;
-      if (error instanceof TypeError || error instanceof SyntaxError) {
-        enableManualRecipientFallback(normalizedPhone);
-        return;
-      }
-      setRecipientId("");
-      setRecipientName("");
-      setRecipientPhone("");
-      setManualRecipientMode(false);
-      setNotice(safeClientMessage(error, "No pudimos verificar el titular en este momento."));
-    } finally {
-      if (requestSequence === recipientLookupSequenceRef.current) {
-        setRecipientLookupLoading(false);
-        recipientLookupAbortRef.current = null;
-      }
-    }
+    setRecipientIsNewNumber(true);
+    setPhoneIsEditing(false);
+    setDestination("Yape");
+    // La consulta del titular se inicia al montar la pantalla de monto.
+    setStage("amount");
   }
 
   function showInsufficientBalance() {
@@ -793,6 +831,7 @@ export function TransferView() {
                     onChange={(event) => {
                       recipientLookupAbortRef.current?.abort();
                       recipientLookupSequenceRef.current += 1;
+                      recipientLookupInFlightRef.current = false;
                       setRecipientLookupLoading(false);
                       setRecipientId("");
                       setRecipientName("");
@@ -809,6 +848,7 @@ export function TransferView() {
                       onClick={() => {
                         recipientLookupAbortRef.current?.abort();
                         recipientLookupSequenceRef.current += 1;
+                        recipientLookupInFlightRef.current = false;
                         setRecipientLookupLoading(false);
                         setRecipientId("");
                         setRecipientName("");
@@ -865,18 +905,38 @@ export function TransferView() {
               <AssetIcon name="ic_close_yape" />
             </Link>
           </header>
-          <div className="transfer-flow-content transfer-amount-content">
-            <div className="transfer-recipient-editor">
-              <input
-                className="transfer-recipient-name-input"
-                aria-label="Nombre del destinatario"
-                placeholder="Nombre del destinatario"
-                value={recipientName}
-                readOnly={Boolean(recipientId)}
-                onChange={(event) =>
-                  setRecipientName(event.target.value.slice(0, 48))
-                }
-              />
+          <div
+            className="transfer-flow-content transfer-amount-content"
+            aria-busy={recipientLookupLoading}
+          >
+            <div
+              className="transfer-recipient-editor"
+              aria-busy={recipientLookupLoading}
+            >
+              <div className="transfer-recipient-name-slot">
+                {recipientLookupLoading ? (
+                  <div
+                    className="recipient-name-skeleton"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span className="sr-only">
+                      Consultando el titular del destinatario.
+                    </span>
+                  </div>
+                ) : (
+                  <input
+                    className="transfer-recipient-name-input"
+                    aria-label="Nombre del destinatario"
+                    placeholder="Nombre del destinatario"
+                    value={recipientName}
+                    readOnly={Boolean(recipientId)}
+                    onChange={(event) =>
+                      setRecipientName(event.target.value.slice(0, 48))
+                    }
+                  />
+                )}
+              </div>
               <input
                 className="transfer-recipient-phone-input"
                 aria-label="Número del destinatario"
@@ -895,9 +955,17 @@ export function TransferView() {
                   event.currentTarget.select();
                 }}
                 onBlur={() => setPhoneIsEditing(false)}
-                onChange={(event) =>
-                  setRecipientPhone(formatEditablePhone(event.target.value))
-                }
+                onChange={(event) => {
+                  recipientLookupAbortRef.current?.abort();
+                  recipientLookupSequenceRef.current += 1;
+                  recipientLookupInFlightRef.current = false;
+                  setRecipientLookupLoading(false);
+                  setRecipientId("");
+                  setRecipientName("");
+                  setManualRecipientMode(false);
+                  setRecipientIsNewNumber(true);
+                  setRecipientPhone(formatEditablePhone(event.target.value));
+                }}
               />
             </div>
             {notice ? (
