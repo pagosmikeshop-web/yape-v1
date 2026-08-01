@@ -12,6 +12,7 @@ import {
 } from "@/app/lib/auth-server";
 import { requireManagedAccount } from "@/app/lib/management-server";
 import { hasPermission, requirePermission } from "@/app/lib/rbac";
+import { decryptIssuedToken, encryptIssuedToken } from "@/app/lib/token-vault";
 
 const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -174,14 +175,15 @@ export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
   const raw = `YAPE${randomTokenPart(12)}`;
   const formattedToken = formatPermanentAccessToken(raw);
   const tokenHash = await permanentTokenHash(raw);
+  const tokenCiphertext = encryptIssuedToken(formattedToken);
   const tokenId = crypto.randomUUID();
   const now = new Date().toISOString();
   const database = dbBinding();
   const result = await database.prepare(
     `INSERT INTO global_permanent_access_tokens (
-       id, token_hash, token_hint, created_by, created_at, redeemed_at, redeemed_by_user_id
-     ) VALUES (?, ?, ?, ?, ?, NULL, NULL)`,
-  ).bind(tokenId, tokenHash, raw.slice(-4), actor.id, now).run();
+       id, token_hash, token_hint, created_by, created_at, redeemed_at, redeemed_by_user_id, token_ciphertext
+     ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)`,
+  ).bind(tokenId, tokenHash, raw.slice(-4), actor.id, now, tokenCiphertext).run();
   if (Number(result.meta.changes ?? 0) !== 1) {
     throw Response.json({ ok: false, error: "No se pudo generar la key global." }, { status: 409 });
   }
@@ -209,7 +211,7 @@ export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
 export async function listGlobalPermanentAccessTokens(actor: AuthUser) {
   await requirePermission(actor, "keys:view");
   const database = dbBinding();
-  const select = `SELECT t.id, t.token_hint, t.created_at, t.redeemed_at,
+  const select = `SELECT t.id, t.token_hint, t.token_ciphertext, t.created_at, t.redeemed_at,
                          issuer.display_name AS created_by_name,
                          redeemer.display_name AS redeemed_by_name,
                          CASE WHEN issuer.is_owner = 1 THEN 'owner' ELSE issuer.role END AS issuer_role
@@ -222,7 +224,10 @@ export async function listGlobalPermanentAccessTokens(actor: AuthUser) {
     : await database.prepare(
       `${select} WHERE t.created_by = ? ORDER BY t.created_at DESC LIMIT 100`,
     ).bind(actor.id).all();
-  return result.results ?? [];
+  return (result.results ?? []).map((key) => ({
+    ...key,
+    token: decryptIssuedToken((key as { token_ciphertext?: string | null }).token_ciphertext),
+  }));
 }
 
 export async function redeemPermanentAccessToken(userId: string, token: string) {

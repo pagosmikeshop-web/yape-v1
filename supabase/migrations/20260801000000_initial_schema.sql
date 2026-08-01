@@ -153,7 +153,8 @@ create table if not exists public.autocomplete_keys (
   credits_remaining integer not null check (credits_remaining >= 0),
   created_by text not null references public.users(id),
   created_at text not null,
-  revoked_at text
+  revoked_at text,
+  token_ciphertext text
 );
 create index if not exists autocomplete_keys_created_idx on public.autocomplete_keys (created_at);
 
@@ -204,7 +205,8 @@ create table if not exists public.global_permanent_access_tokens (
   created_by text not null references public.users(id),
   created_at text not null,
   redeemed_at text,
-  redeemed_by_user_id text
+  redeemed_by_user_id text,
+  token_ciphertext text
 );
 create index if not exists global_permanent_access_tokens_created_idx on public.global_permanent_access_tokens (created_at);
 create index if not exists global_permanent_access_tokens_redeemed_idx on public.global_permanent_access_tokens (redeemed_at);

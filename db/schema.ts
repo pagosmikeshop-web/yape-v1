@@ -175,6 +175,7 @@ export const autocompleteKeys = pgTable("autocomplete_keys", {
   createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull(),
   revokedAt: text("revoked_at"),
+  tokenCiphertext: text("token_ciphertext"),
 }, (table) => [
   uniqueIndex("autocomplete_keys_hash_unique").on(table.tokenHash),
   index("autocomplete_keys_created_idx").on(table.createdAt),
@@ -238,6 +239,7 @@ export const globalPermanentAccessTokens = pgTable("global_permanent_access_toke
   createdAt: text("created_at").notNull(),
   redeemedAt: text("redeemed_at"),
   redeemedByUserId: text("redeemed_by_user_id"),
+  tokenCiphertext: text("token_ciphertext"),
 }, (table) => [
   uniqueIndex("global_permanent_access_tokens_hash_unique").on(table.tokenHash),
   index("global_permanent_access_tokens_created_idx").on(table.createdAt),

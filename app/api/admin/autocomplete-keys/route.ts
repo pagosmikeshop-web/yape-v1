@@ -3,6 +3,7 @@ import { createAutocompleteKey } from "@/app/lib/autocomplete-credits";
 import { autocompleteKeyHash } from "@/app/lib/autocomplete-credits-server";
 import { dbBinding, enforceAuthRateLimits, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
 import { requirePermission } from "@/app/lib/rbac";
+import { decryptIssuedToken, encryptIssuedToken } from "@/app/lib/token-vault";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +13,18 @@ export async function GET(request: Request) {
     await requirePermission(user, "keys:view");
     const result = await dbBinding().prepare(
       `SELECT k.id, k.token_hint, k.credits_total, k.credits_remaining,
-              k.created_at, k.revoked_at, u.display_name AS created_by_name,
+              k.created_at, k.revoked_at, k.token_ciphertext,
+              u.display_name AS created_by_name,
               (SELECT COUNT(*) FROM autocomplete_key_claims c WHERE c.key_id = k.id) AS claims
        FROM autocomplete_keys k
        JOIN users u ON u.id = k.created_by
        ORDER BY k.created_at DESC LIMIT 100`,
     ).all();
-    return jsonOk({ keys: result.results ?? [] }, { headers: { "cache-control": "no-store" } });
+    const keys = (result.results ?? []).map((key) => ({
+      ...key,
+      token: decryptIssuedToken((key as { token_ciphertext?: string | null }).token_ciphertext),
+    }));
+    return jsonOk({ keys }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return routeError(error);
   }
@@ -47,11 +53,12 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
     const tokenHash = await autocompleteKeyHash(generated.raw);
+    const tokenCiphertext = encryptIssuedToken(generated.formatted);
     const result = await dbBinding().prepare(
       `INSERT INTO autocomplete_keys (
         id, token_hash, token_hint, credits_total, credits_remaining,
-        created_by, created_at, revoked_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+        created_by, created_at, revoked_at, token_ciphertext
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
     ).bind(
       id,
       tokenHash,
@@ -60,6 +67,7 @@ export async function POST(request: Request) {
       credits,
       user.id,
       now,
+      tokenCiphertext,
     ).run();
     if (Number(result.meta.changes ?? 0) !== 1) {
       return jsonError("No se pudo generar la key de autocompletado.", 409);

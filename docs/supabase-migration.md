@@ -55,12 +55,19 @@ transferencias.
 
 ## Activar el backend
 
+Para que el panel pueda volver a consultar las keys nuevas sin guardar tokens
+en texto plano, aplica tambien la migracion
+20260801224356_key_token_recovery.sql y configura TOKEN_ENCRYPTION_SECRET como
+un secreto estable del backend. Las keys creadas antes de esa migracion
+conservan solo el hash y no pueden recuperarse desde el historial.
+
 En Vercel, solo en el proyecto backend, configura:
 
 ```text
 APP_ENV=production
 DATABASE_PROVIDER=supabase
 SUPABASE_DATABASE_URL=<cadena privada de conexion Postgres>
+TOKEN_ENCRYPTION_SECRET=<secreto aleatorio estable>
 ```
 
 No agregues `SUPABASE_DATABASE_URL` al panel admin ni a ninguna variable

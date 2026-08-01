@@ -10,6 +10,7 @@ type AuthEnv = {
   APP_ENV?: string;
   ADMIN_WEB_URL?: string;
   ADMIN_PROXY_SECRET?: string;
+  TOKEN_ENCRYPTION_SECRET?: string;
   PUBLIC_APP_URL?: string;
   AUTH_BOOTSTRAP_ENABLED?: string;
   AUTH_BOOTSTRAP_SECRET?: string;
