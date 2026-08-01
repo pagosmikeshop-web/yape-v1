@@ -1,14 +1,14 @@
-import { sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+﻿import { sql } from "drizzle-orm";
+import { check, index, integer, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
-export const users = sqliteTable("users", {
+export const users = pgTable("users", {
   id: text("id").primaryKey(),
   sellerCode: text("seller_code").notNull(),
   username: text("username").notNull(),
   displayName: text("display_name").notNull(),
   email: text("email").notNull().default(""),
   role: text("role").notNull(),
-  isOwner: integer("is_owner", { mode: "boolean" }).notNull().default(false),
+  isOwner: integer("is_owner").notNull().default(0),
   ownerId: text("owner_id"),
   status: text("status").notNull().default("pending"),
   passwordHash: text("password_hash").notNull(),
@@ -23,8 +23,8 @@ export const users = sqliteTable("users", {
   referralCode: text("referral_code"),
   referredByUserId: text("referred_by_user_id"),
   accessExpiresAt: text("access_expires_at"),
-  mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
-  mustSetPin: integer("must_set_pin", { mode: "boolean" }).notNull().default(true),
+  mustChangePassword: integer("must_change_password").notNull().default(0),
+  mustSetPin: integer("must_set_pin").notNull().default(1),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   activatedAt: text("activated_at"),
@@ -37,10 +37,9 @@ export const users = sqliteTable("users", {
   uniqueIndex("users_referral_code_unique").on(table.referralCode),
   index("users_owner_role_idx").on(table.ownerId, table.role, table.deletedAt),
 ]);
-
 /** Roles adicionales de una misma cuenta. `users.role` conserva el rol
  * operativo principal para compatibilidad con las consultas existentes. */
-export const userRoles = sqliteTable("user_roles", {
+export const userRoles = pgTable("user_roles", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -53,7 +52,7 @@ export const userRoles = sqliteTable("user_roles", {
   check("user_roles_role_check", sql`${table.role} in ('admin', 'seller', 'client')`),
 ]);
 
-export const sessions = sqliteTable("sessions", {
+export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   tokenHash: text("token_hash").notNull().unique(),
@@ -64,7 +63,7 @@ export const sessions = sqliteTable("sessions", {
   unlockedUntil: text("unlocked_until"),
 });
 
-export const authRateLimits = sqliteTable("auth_rate_limits", {
+export const authRateLimits = pgTable("auth_rate_limits", {
   bucket: text("bucket").notNull(),
   subjectHash: text("subject_hash").notNull(),
   windowStartedAt: integer("window_started_at").notNull(),
@@ -75,11 +74,11 @@ export const authRateLimits = sqliteTable("auth_rate_limits", {
   index("auth_rate_limits_updated_idx").on(table.updatedAt),
 ]);
 
-export const paymentDirectory = sqliteTable("payment_directory", {
+export const paymentDirectory = pgTable("payment_directory", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   phoneE164: text("phone_e164").notNull(),
-  discoverable: integer("discoverable", { mode: "boolean" }).notNull().default(true),
+  discoverable: integer("discoverable").notNull().default(1),
   verifiedAt: text("verified_at").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -88,19 +87,19 @@ export const paymentDirectory = sqliteTable("payment_directory", {
   uniqueIndex("payment_directory_phone_unique").on(table.phoneE164),
 ]);
 
-export const recipientLookupAttempts = sqliteTable("recipient_lookup_attempts", {
+export const recipientLookupAttempts = pgTable("recipient_lookup_attempts", {
   id: text("id").primaryKey(),
   requesterUserId: text("requester_user_id").notNull(),
   createdAt: text("created_at").notNull(),
 }, (table) => [index("recipient_lookup_requester_idx").on(table.requesterUserId, table.createdAt)]);
 
-export const savedPaymentRecipients = sqliteTable("saved_payment_recipients", {
+export const savedPaymentRecipients = pgTable("saved_payment_recipients", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   phoneE164: text("phone_e164").notNull(),
-  displayName: text("display_name").notNull().default("Número nuevo"),
+  displayName: text("display_name").notNull().default("NÃºmero nuevo"),
   source: text("source").notNull().default("manual"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -109,7 +108,7 @@ export const savedPaymentRecipients = sqliteTable("saved_payment_recipients", {
   index("saved_payment_recipients_user_updated_idx").on(table.userId, table.updatedAt),
 ]);
 
-export const accountBalances = sqliteTable("account_balances", {
+export const accountBalances = pgTable("account_balances", {
   userId: text("user_id")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -121,7 +120,7 @@ export const accountBalances = sqliteTable("account_balances", {
   check("account_balances_maximum_check", sql`${table.balanceCents} <= 99999999999`),
 ]);
 
-export const accountMovements = sqliteTable("account_movements", {
+export const accountMovements = pgTable("account_movements", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
@@ -145,14 +144,14 @@ export const accountMovements = sqliteTable("account_movements", {
   check("account_movements_positive_amount_check", sql`${table.amountCents} > 0`),
 ]);
 
-export const accountHistoryState = sqliteTable("account_history_state", {
+export const accountHistoryState = pgTable("account_history_state", {
   userId: text("user_id")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
   clearedAt: text("cleared_at").notNull(),
 });
 
-export const accountFeatureEntitlements = sqliteTable("account_feature_entitlements", {
+export const accountFeatureEntitlements = pgTable("account_feature_entitlements", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -167,7 +166,7 @@ export const accountFeatureEntitlements = sqliteTable("account_feature_entitleme
 ]);
 
 /** Claves emitidas desde el panel que financian el autocompletado de una cuenta. */
-export const autocompleteKeys = sqliteTable("autocomplete_keys", {
+export const autocompleteKeys = pgTable("autocomplete_keys", {
   id: text("id").primaryKey(),
   tokenHash: text("token_hash").notNull(),
   tokenHint: text("token_hint").notNull(),
@@ -184,7 +183,7 @@ export const autocompleteKeys = sqliteTable("autocomplete_keys", {
 
 /** A claim binds a generated key to exactly one account. The first account
  * receives the full credit balance, and no other account can claim it. */
-export const autocompleteKeyClaims = sqliteTable("autocomplete_key_claims", {
+export const autocompleteKeyClaims = pgTable("autocomplete_key_claims", {
   keyId: text("key_id")
     .notNull()
     .primaryKey()
@@ -197,7 +196,7 @@ export const autocompleteKeyClaims = sqliteTable("autocomplete_key_claims", {
   index("autocomplete_key_claims_user_idx").on(table.userId, table.claimedAt),
 ]);
 
-export const creditLedger = sqliteTable("credit_ledger", {
+export const creditLedger = pgTable("credit_ledger", {
   id: text("id").primaryKey(),
   sellerId: text("seller_id").notNull(),
   delta: integer("delta").notNull(),
@@ -208,7 +207,7 @@ export const creditLedger = sqliteTable("credit_ledger", {
   createdAt: text("created_at").notNull(),
 }, (table) => [uniqueIndex("credit_ledger_reference_unique").on(table.reason, table.referenceId)]);
 
-export const activations = sqliteTable("activations", {
+export const activations = pgTable("activations", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().unique(),
   sellerId: text("seller_id").notNull(),
@@ -216,7 +215,7 @@ export const activations = sqliteTable("activations", {
   createdAt: text("created_at").notNull(),
 });
 
-export const permanentAccessTokens = sqliteTable("permanent_access_tokens", {
+export const permanentAccessTokens = pgTable("permanent_access_tokens", {
   id: text("id").primaryKey(),
   tokenHash: text("token_hash").notNull(),
   tokenHint: text("token_hint").notNull(),
@@ -231,7 +230,7 @@ export const permanentAccessTokens = sqliteTable("permanent_access_tokens", {
   index("permanent_access_tokens_user_idx").on(table.userId, table.createdAt),
 ]);
 
-export const globalPermanentAccessTokens = sqliteTable("global_permanent_access_tokens", {
+export const globalPermanentAccessTokens = pgTable("global_permanent_access_tokens", {
   id: text("id").primaryKey(),
   tokenHash: text("token_hash").notNull(),
   tokenHint: text("token_hint").notNull(),
@@ -245,7 +244,7 @@ export const globalPermanentAccessTokens = sqliteTable("global_permanent_access_
   index("global_permanent_access_tokens_redeemed_idx").on(table.redeemedAt),
 ]);
 
-export const passwordResetRequests = sqliteTable("password_reset_requests", {
+export const passwordResetRequests = pgTable("password_reset_requests", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   sellerId: text("seller_id").notNull(),
@@ -256,7 +255,7 @@ export const passwordResetRequests = sqliteTable("password_reset_requests", {
   approvedBy: text("approved_by"),
 }, (table) => [index("password_reset_seller_idx").on(table.sellerId, table.status)]);
 
-export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   tokenHash: text("token_hash").notNull(),
@@ -271,7 +270,7 @@ export const passwordResetTokens = sqliteTable("password_reset_tokens", {
   index("password_reset_tokens_expiry_idx").on(table.expiresAt),
 ]);
 
-export const accountInvitations = sqliteTable("account_invitations", {
+export const accountInvitations = pgTable("account_invitations", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
@@ -287,7 +286,7 @@ export const accountInvitations = sqliteTable("account_invitations", {
   index("account_invitations_expiry_idx").on(table.expiresAt),
 ]);
 
-export const qrContacts = sqliteTable("qr_contacts", {
+export const qrContacts = pgTable("qr_contacts", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
@@ -311,18 +310,18 @@ export const qrContacts = sqliteTable("qr_contacts", {
   check("qr_contacts_encryption_version_check", sql`${table.encryptionVersion} = 1`),
 ]);
 
-export const telegramIdentities = sqliteTable("telegram_identities", {
+export const telegramIdentities = pgTable("telegram_identities", {
   telegramUserId: text("telegram_user_id").primaryKey(),
   userId: text("user_id").notNull().unique(),
   createdAt: text("created_at").notNull(),
 }, (table) => [index("telegram_identity_user_idx").on(table.userId)]);
 
-export const telegramUpdates = sqliteTable("telegram_updates", {
+export const telegramUpdates = pgTable("telegram_updates", {
   updateId: text("update_id").primaryKey(),
   receivedAt: text("received_at").notNull(),
 });
 
-export const telegramRegistrationChallenges = sqliteTable("telegram_registration_challenges", {
+export const telegramRegistrationChallenges = pgTable("telegram_registration_challenges", {
   id: text("id").primaryKey(),
   codeHash: text("code_hash").notNull().unique(),
   telegramUserId: text("telegram_user_id").notNull(),
@@ -340,7 +339,7 @@ export const telegramRegistrationChallenges = sqliteTable("telegram_registration
   index("telegram_registration_challenges_expiry_idx").on(table.expiresAt),
 ]);
 
-export const telegramGroupMembers = sqliteTable("telegram_group_members", {
+export const telegramGroupMembers = pgTable("telegram_group_members", {
   telegramUserId: text("telegram_user_id").primaryKey(),
   chatId: text("chat_id").notNull(),
   username: text("username"),
@@ -351,7 +350,7 @@ export const telegramGroupMembers = sqliteTable("telegram_group_members", {
   index("telegram_group_members_chat_idx").on(table.chatId, table.lastSeenAt),
 ]);
 
-export const referralRedemptions = sqliteTable("referral_redemptions", {
+export const referralRedemptions = pgTable("referral_redemptions", {
   id: text("id").primaryKey(),
   referrerUserId: text("referrer_user_id").notNull(),
   redeemerTelegramUserId: text("redeemer_telegram_user_id").notNull(),
@@ -363,7 +362,7 @@ export const referralRedemptions = sqliteTable("referral_redemptions", {
   index("referral_redemptions_referrer_month_idx").on(table.referrerUserId, table.monthKey),
 ]);
 
-export const managerAuditLog = sqliteTable("manager_audit_log", {
+export const managerAuditLog = pgTable("manager_audit_log", {
   id: text("id").primaryKey(),
   telegramUserId: text("telegram_user_id").notNull(),
   command: text("command").notNull(),
@@ -371,7 +370,7 @@ export const managerAuditLog = sqliteTable("manager_audit_log", {
   createdAt: text("created_at").notNull(),
 });
 
-export const rbacPermissionOverrides = sqliteTable("rbac_permission_overrides", {
+export const rbacPermissionOverrides = pgTable("rbac_permission_overrides", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -384,7 +383,7 @@ export const rbacPermissionOverrides = sqliteTable("rbac_permission_overrides", 
   index("rbac_permission_overrides_user_idx").on(table.userId),
 ]);
 
-export const clientCrmProfiles = sqliteTable("client_crm_profiles", {
+export const clientCrmProfiles = pgTable("client_crm_profiles", {
   userId: text("user_id")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -401,7 +400,7 @@ export const clientCrmProfiles = sqliteTable("client_crm_profiles", {
   index("client_crm_profiles_activity_idx").on(table.lastActivityAt),
 ]);
 
-export const clientCrmActivities = sqliteTable("client_crm_activities", {
+export const clientCrmActivities = pgTable("client_crm_activities", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
@@ -417,7 +416,7 @@ export const clientCrmActivities = sqliteTable("client_crm_activities", {
   index("client_crm_activities_type_idx").on(table.activityType, table.createdAt),
 ]);
 
-export const webauthnCredentials = sqliteTable("webauthn_credentials", {
+export const webauthnCredentials = pgTable("webauthn_credentials", {
   credentialId: text("credential_id").primaryKey(),
   userId: text("user_id")
     .notNull()
@@ -426,14 +425,14 @@ export const webauthnCredentials = sqliteTable("webauthn_credentials", {
   counter: integer("counter").notNull().default(0),
   transports: text("transports"),
   deviceType: text("device_type"),
-  backedUp: integer("backed_up", { mode: "boolean" }).notNull().default(false),
+  backedUp: integer("backed_up").notNull().default(0),
   createdAt: text("created_at").notNull(),
   lastUsedAt: text("last_used_at"),
 }, (table) => [
   index("webauthn_credentials_user_idx").on(table.userId),
 ]);
 
-export const webauthnChallenges = sqliteTable("webauthn_challenges", {
+export const webauthnChallenges = pgTable("webauthn_challenges", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()

@@ -15,9 +15,9 @@
     "security:scan": "node scripts/security-scan.mjs",
     "security:audit": "npm audit --audit-level=high",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:supabase": "node scripts/migrate-turso-to-supabase.mjs --apply",
-    "db:migrate:supabase:dry-run": "node scripts/migrate-turso-to-supabase.mjs",
-    "db:verify:supabase": "node scripts/migrate-turso-to-supabase.mjs --verify-only",
+    "db:migrate:supabase": "node scripts/import-sqlite-to-supabase.mjs --apply",
+    "db:migrate:supabase:dry-run": "node scripts/import-sqlite-to-supabase.mjs",
+    "db:verify:supabase": "node scripts/import-sqlite-to-supabase.mjs --verify-only",
     "cap:check:webdir": "node scripts/verify-capacitor-webdir.mjs out"
   },
   "dependencies": {
@@ -25,7 +25,6 @@
     "@fingerprintjs/fingerprintjs": "5.2.0",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
-    "@tursodatabase/serverless": "1.4.0",
     "@vercel/speed-insights": "^2.0.0",
     "@zxing/browser": "^0.2.1",
     "drizzle-orm": "0.45.2",

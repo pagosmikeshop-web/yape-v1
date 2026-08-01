@@ -2,7 +2,6 @@ import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs/promises";
 import path from "node:path";
 import postgres from "postgres";
-import { createClient } from "@tursodatabase/serverless/compat";
 
 try {
   process.loadEnvFile?.();
@@ -57,13 +56,9 @@ if (tableArg && tables.length === 0) {
   throw new Error(`Tabla no permitida: ${tableArg}`);
 }
 
-const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
-const tursoToken = process.env.TURSO_AUTH_TOKEN?.trim();
 const supabaseUrl = process.env.SUPABASE_DATABASE_URL?.trim();
 
-if (!sqliteFile && (!tursoUrl || !tursoToken)) {
-  throw new Error("Faltan TURSO_DATABASE_URL y TURSO_AUTH_TOKEN.");
-}
+if (!sqliteFile) throw new Error("Falta SOURCE_SQLITE_FILE.");
 if (apply || verifyOnly) {
   if (!supabaseUrl) throw new Error("Falta SUPABASE_DATABASE_URL.");
   if (!/^postgres(?:ql)?:\/\//u.test(supabaseUrl)) {
@@ -71,46 +66,34 @@ if (apply || verifyOnly) {
   }
 }
 
-const source = sqliteFile
-  ? new DatabaseSync(path.resolve(sqliteFile), { readOnly: true })
-  : createClient({ url: tursoUrl, authToken: tursoToken });
+const source = new DatabaseSync(path.resolve(sqliteFile), { readOnly: true });
 const target = apply || verifyOnly
-  ? postgres(supabaseUrl, { prepare: false, max: 2, connect_timeout: 10, onnotice: () => undefined })
+  ? postgres(supabaseUrl, { ssl: "require", prepare: false, max: 2, connect_timeout: 10, onnotice: () => undefined })
   : null;
 
-let sqliteTables = null;
-if (sqliteFile) {
-  await fs.access(path.resolve(sqliteFile));
-  sqliteTables = new Set(
-    source
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
-      .all()
-      .map((row) => row.name),
-  );
-}
+await fs.access(path.resolve(sqliteFile));
+const sqliteTables = new Set(
+  source
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .all()
+    .map((row) => row.name),
+);
 
 function quoteIdentifier(value) {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
 async function sourceRows(table) {
-  if (sqliteFile) {
-    if (!sqliteTables.has(table)) return null;
-    const columns = source
-      .prepare(`PRAGMA table_info(${quoteIdentifier(table)})`)
-      .all()
-      .map((row) => row.name);
-    const rows = source
-      .prepare(`SELECT * FROM ${quoteIdentifier(table)}`)
-      .all()
-      .map((row) => columns.map((column) => row[column] ?? null));
-    return { columns, rows };
-  }
-  const result = await source.execute(`SELECT * FROM ${quoteIdentifier(table)}`);
-  return {
-    columns: result.columns,
-    rows: result.rows.map((row) => (Array.isArray(row) ? row : result.columns.map((column) => row[column]))),
-  };
+  if (!sqliteTables.has(table)) return null;
+  const columns = source
+    .prepare(`PRAGMA table_info(${quoteIdentifier(table)})`)
+    .all()
+    .map((row) => row.name);
+  const rows = source
+    .prepare(`SELECT * FROM ${quoteIdentifier(table)}`)
+    .all()
+    .map((row) => columns.map((column) => row[column] ?? null));
+  return { columns, rows };
 }
 
 async function targetCount(table) {
@@ -137,7 +120,7 @@ async function importTable(table, columns, rows) {
   return rows.length;
 }
 
-const sourceLabel = sqliteFile ? "SQLite" : "Turso";
+const sourceLabel = "SQLite";
 console.log(`${apply ? "Aplicando" : "Simulando"} migración ${sourceLabel} → Supabase (${tables.length} tablas).`);
 if (!apply) console.log("Modo seguro: no se escribirá en Supabase. Usa --apply solo después de revisar el resumen.");
 
@@ -166,5 +149,5 @@ for (const table of tables) {
 }
 
 if (target) await target.end({ timeout: 5 });
-if (sqliteFile) source.close();
+source.close();
 await fs.access(new URL("../supabase/migrations/20260801000000_initial_schema.sql", import.meta.url));

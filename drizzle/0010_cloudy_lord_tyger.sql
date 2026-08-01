@@ -1,1 +1,0 @@
-ALTER TABLE `account_balances` ADD `is_configured` integer DEFAULT 0 NOT NULL;

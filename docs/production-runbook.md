@@ -11,7 +11,7 @@
 
 ## Base de datos y copias de seguridad
 
-- Crear una copia o rama de la base Turso antes de cada migración.
+- Crear una copia o punto de restauracion de Supabase antes de cada migracion.
 - Conservar al menos una copia diaria y una copia mensual según la política del negocio.
 - Probar la restauración en un proyecto aislado al menos una vez al mes.
 - No ejecutar migraciones desde una función de Vercel durante una solicitud de usuario.
@@ -37,4 +37,4 @@
 
 - Rotar `ADMIN_PROXY_SECRET`, `AUTH_RATE_LIMIT_PEPPER`, claves de QR y tokens de validación de forma programada.
 - Rotar inmediatamente `TELEGRAM_BOT_TOKEN` y `TELEGRAM_WEBHOOK_SECRET` ante cualquier exposición.
-- Guardar secretos únicamente en Vercel/Turso; nunca en Git.
+- Guardar secretos unicamente en Vercel/Supabase; nunca en Git.

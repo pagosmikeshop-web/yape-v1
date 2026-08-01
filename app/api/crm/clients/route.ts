@@ -155,17 +155,23 @@ export async function GET(request: Request) {
               COALESCE(p.notes, '') AS notes,
               p.last_activity_at,
               s.display_name AS seller_name,
-              COALESCE(SUM(CASE WHEN a.activity_type = 'purchase' THEN a.amount_cents ELSE 0 END), 0) AS total_sales_cents,
-              COUNT(a.id) AS activity_count
+              COALESCE(a.total_sales_cents, 0) AS total_sales_cents,
+              COALESCE(a.activity_count, 0) AS activity_count
        FROM users u
        LEFT JOIN payment_directory d ON d.user_id = u.id
        LEFT JOIN client_crm_profiles p ON p.user_id = u.id
        LEFT JOIN users s ON s.id = u.owner_id AND (s.role = 'seller' OR EXISTS (
          SELECT 1 FROM user_roles sr WHERE sr.user_id = s.id AND sr.role = 'seller'
        )) AND s.deleted_at IS NULL
-       LEFT JOIN client_crm_activities a ON a.user_id = u.id
+       LEFT JOIN (
+         SELECT
+           user_id,
+           COALESCE(SUM(CASE WHEN activity_type = 'purchase' THEN amount_cents ELSE 0 END), 0) AS total_sales_cents,
+           COUNT(id) AS activity_count
+         FROM client_crm_activities
+         GROUP BY user_id
+       ) a ON a.user_id = u.id
        ${where}
-       GROUP BY u.id
        ORDER BY ${sortColumn} ${sortDirection}, u.id DESC
        LIMIT ? OFFSET ?`,
     ).bind(...values, pageSize, (page - 1) * pageSize).all<Record<string, unknown>>();

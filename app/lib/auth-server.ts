@@ -7,8 +7,6 @@ type AuthEnv = {
   DB?: D1Database;
   DATABASE_PROVIDER?: string;
   SUPABASE_DATABASE_URL?: string;
-  TURSO_DATABASE_URL?: string;
-  TURSO_AUTH_TOKEN?: string;
   APP_ENV?: string;
   ADMIN_WEB_URL?: string;
   ADMIN_PROXY_SECRET?: string;

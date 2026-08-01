@@ -34,7 +34,7 @@ El mecanismo distintivo es el control de acceso por días, tokens permanentes, c
 
 ## Operating Context
 
-La aplicación se despliega como web/PWA en Vercel y utiliza Turso como base de datos según la configuración del proyecto.
+La aplicación se despliega como web/PWA en Vercel y utiliza Supabase Postgres como base de datos.
 
 Telegram se utiliza como integración de validación: grupo requerido, bot/webhook, ID de Telegram, comandos de activación como `/redeem` y rutas de soporte.
 
@@ -62,7 +62,7 @@ Capacidades confirmadas por código y contexto del proyecto:
 - Saldo configurable y deducción por yapeos.
 - PWA con manifest, iconos y runtime de instalación.
 - Backend en rutas API de Next.js.
-- Base de datos con Drizzle/Turso.
+- Base de datos con Drizzle sobre Supabase Postgres.
 
 Restricciones:
 
@@ -91,7 +91,7 @@ Las mejoras visuales deben ser refinamientos cuidadosos salvo instrucción expl�
 
 Evidencia local revisada:
 
-- `package.json`: Next.js, React, Turso, Drizzle, QR, WebAuthn y PWA.
+- `package.json`: Next.js, React, Supabase Postgres, Drizzle, QR, WebAuthn y PWA.
 - `public/manifest.webmanifest`: nombre e iconos de la PWA.
 - `app/components/BankApp.tsx`: aplicación principal y flujos móviles.
 - `app/components/bank/MovementVoucher.tsx`: voucher/comprobante.
@@ -102,7 +102,7 @@ Evidencia local revisada:
 - `app/api/auth/*`: autenticación, login, bootstrap y recuperación.
 - `app/api/crm/*`: clientes/CRM.
 - `app/api/admin/*`: administración interna.
-- `docs/production-runbook.md`: notas de producción, Turso, Telegram y seguridad.
+- `docs/production-runbook.md`: notas de producción, Supabase, Telegram y seguridad.
 - `docs/frontend-hardening.md`: criterios de hardening frontend.
 
 No hay evidencia suficiente para fabricar testimonios, métricas comerciales, garantías externas o claims públicos no confirmados.

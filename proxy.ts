@@ -36,14 +36,11 @@ function validHttpsOrigin(value: string | undefined) {
 function hostedConfigurationErrors() {
   if (!HOSTED_ENVIRONMENTS.has(process.env.APP_ENV ?? "")) return [];
   const missing: string[] = [];
-  const databaseProvider = process.env.DATABASE_PROVIDER?.trim().toLowerCase() || "turso";
-  if (databaseProvider !== "turso" && databaseProvider !== "supabase") {
-    missing.push("DATABASE_PROVIDER (turso o supabase)");
-  } else if (databaseProvider === "supabase") {
-    if (!process.env.SUPABASE_DATABASE_URL?.trim()) missing.push("SUPABASE_DATABASE_URL");
-  } else {
-    if (!process.env.TURSO_DATABASE_URL?.trim()) missing.push("TURSO_DATABASE_URL");
-    if (!process.env.TURSO_AUTH_TOKEN?.trim()) missing.push("TURSO_AUTH_TOKEN");
+  const databaseProvider = process.env.DATABASE_PROVIDER?.trim().toLowerCase();
+  if (databaseProvider !== "supabase") {
+    missing.push("DATABASE_PROVIDER=supabase");
+  } else if (!process.env.SUPABASE_DATABASE_URL?.trim()) {
+    missing.push("SUPABASE_DATABASE_URL");
   }
   if (!validHttpsOrigin(process.env.PUBLIC_APP_URL)) missing.push("PUBLIC_APP_URL");
   if (!validHttpsOrigin(process.env.ADMIN_WEB_URL)) missing.push("ADMIN_WEB_URL");

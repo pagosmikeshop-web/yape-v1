@@ -1,7 +1,7 @@
 -- Supabase/Postgres schema for banco-web.
 -- Apply this migration before setting DATABASE_PROVIDER=supabase.
 -- The application keeps identifiers and timestamps as text to preserve the
--- existing Turso contract during the cutover.
+-- existing application contract during the Postgres migration.
 
 create table if not exists public.users (
   id text primary key,
@@ -380,7 +380,7 @@ create table if not exists public.webauthn_challenges (
 create index if not exists webauthn_challenges_user_type_idx on public.webauthn_challenges (user_id, type);
 create index if not exists webauthn_challenges_expiry_idx on public.webauthn_challenges (expires_at);
 
--- Preserve the balance and daily transfer invariants enforced by the Turso
+-- Preserve the balance and daily transfer invariants enforced by the
 -- triggers. These functions run inside the same Postgres transaction as the
 -- movement insert.
 create or replace function public.yape_deduct_balance_before_movement()
