@@ -1,5 +1,9 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
+  claimAutocompleteKey,
+  getAutocompleteStatus,
+} from "@/app/lib/autocomplete-credits-server";
+import {
   authEnv,
   clearAuthRateLimit,
   dbBinding,
@@ -58,6 +62,7 @@ export async function GET(request: Request) {
         enabled: Boolean(row.enabled),
         validatedAt: row.validated_at,
       })),
+      autocomplete: await getAutocompleteStatus(user.id),
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return routeError(error);
@@ -77,9 +82,6 @@ export async function POST(request: Request) {
     const master = (kind === "sms"
       ? authEnv().ACCOUNT_SMS_VALIDATION_TOKEN
       : authEnv().ACCOUNT_AUTO_VALIDATION_TOKEN)?.trim() ?? "";
-    if (master.length < 32) {
-      return jsonError("La validación de esta opción no está configurada.", 503);
-    }
 
     const rateLimitSubject = `${user.id}:${kind}`;
     await enforceAuthRateLimits([{
@@ -88,6 +90,38 @@ export async function POST(request: Request) {
       limit: 8,
       windowSeconds: 10 * 60,
     }]);
+
+    if (kind === "auto") {
+      try {
+        const keyStatus = await claimAutocompleteKey(user.id, token);
+        if (keyStatus) {
+          await clearAuthRateLimit("account-token", rateLimitSubject);
+          return jsonOk(
+            {
+              kind,
+              validated: true,
+              enabled: true,
+              credits: keyStatus.credits,
+              keyClaimed: true,
+              validatedAt: new Date().toISOString(),
+            },
+            { headers: { "cache-control": "no-store" } },
+          );
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message === "AUTOCOMPLETE_KEY_EXHAUSTED") {
+          return jsonError("Esta key de autocompletado ya no tiene créditos.", 409);
+        }
+        if (error instanceof Error && error.message === "AUTOCOMPLETE_KEY_CLAIMED") {
+          return jsonError("Esta key ya fue vinculada a otra cuenta.", 409);
+        }
+        throw error;
+      }
+    }
+
+    if (master.length < 32) {
+      return jsonError("La validación de esta opción no está configurada.", 503);
+    }
 
     const expected = await userBoundToken(master, user.id, kind);
     if (!(await tokensMatch(token, expected))) return jsonError("El token no es válido.", 401);

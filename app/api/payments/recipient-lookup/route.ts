@@ -1,5 +1,9 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
+  refundAutocompleteCredit,
+  reserveAutocompleteCredit,
+} from "@/app/lib/autocomplete-credits-server";
+import {
   dbBinding,
   enforceAuthRateLimits,
   requireUnlockedSession,
@@ -121,27 +125,36 @@ export async function POST(request: Request) {
     ).bind(normalized.e164, user.id).first<{ id: string }>();
     if (ownRecipient) return jsonError("No puedes transferirte a tu propia cuenta.", 409);
 
-    const result = await lookupRecipientPhone({
-      rawPhone,
-    });
-    const internal = await dbBinding().prepare(
-      `SELECT u.id
-       FROM payment_directory d
-       JOIN users u ON u.id = d.user_id
-       WHERE d.phone_e164 = ? AND d.discoverable = 1
-         AND (u.role = 'client' OR EXISTS (
-           SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
-         )) AND u.status = 'active' AND u.deleted_at IS NULL
-       LIMIT 1`,
-    ).bind(normalized.e164).first<{ id: string }>();
+    const reservation = await reserveAutocompleteCredit(user.id);
+    if (!reservation) {
+      return jsonError("El autocompletado no tiene créditos disponibles.", 403);
+    }
+    try {
+      const result = await lookupRecipientPhone({
+        rawPhone,
+      });
+      const internal = await dbBinding().prepare(
+        `SELECT u.id
+         FROM payment_directory d
+         JOIN users u ON u.id = d.user_id
+         WHERE d.phone_e164 = ? AND d.discoverable = 1
+           AND (u.role = 'client' OR EXISTS (
+             SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
+           )) AND u.status = 'active' AND u.deleted_at IS NULL
+         LIMIT 1`,
+      ).bind(normalized.e164).first<{ id: string }>();
 
-    if (!internal) await saveExternalRecipient(user.id, normalized.e164, result.displayName);
-    return jsonOk({
-      recipient: {
-        displayName: result.displayName,
-        phone: result.phone,
-      },
-    });
+      if (!internal) await saveExternalRecipient(user.id, normalized.e164, result.displayName);
+      return jsonOk({
+        recipient: {
+          displayName: result.displayName,
+          phone: result.phone,
+        },
+      });
+    } catch (error) {
+      await refundAutocompleteCredit(reservation);
+      throw error;
+    }
   } catch (error) {
     if (error instanceof RecipientLookupError) return lookupErrorResponse(error);
     return routeError(error);

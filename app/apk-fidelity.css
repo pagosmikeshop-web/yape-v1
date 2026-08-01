@@ -2230,9 +2230,9 @@
 .mobile-bank-shell .recipient-name-skeleton {
   width: clamp(55%, 60%, 65%);
   max-width: 260px;
-  height: 15px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #e4dce8 0%, #f2edf4 50%, #e4dce8 100%);
+  height: 23px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #dedee4 0%, #eeeef1 50%, #dedee4 100%);
   background-size: 200% 100%;
   animation: recipient-name-shimmer 1.8s ease-in-out infinite;
 }

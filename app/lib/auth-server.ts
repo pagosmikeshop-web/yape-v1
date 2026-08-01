@@ -545,6 +545,28 @@ export async function ensureAuthSchema() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )`,
       "CREATE INDEX IF NOT EXISTS account_feature_entitlements_user_idx ON account_feature_entitlements(user_id, kind)",
+      `CREATE TABLE IF NOT EXISTS autocomplete_keys (
+        id TEXT PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        token_hint TEXT NOT NULL,
+        credits_total INTEGER NOT NULL CHECK (credits_total > 0),
+        credits_remaining INTEGER NOT NULL CHECK (credits_remaining >= 0),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        revoked_at TEXT,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      )`,
+      "CREATE INDEX IF NOT EXISTS autocomplete_keys_created_idx ON autocomplete_keys(created_at)",
+      `CREATE TABLE IF NOT EXISTS autocomplete_key_claims (
+        key_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        claimed_at TEXT NOT NULL,
+        FOREIGN KEY (key_id) REFERENCES autocomplete_keys(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE INDEX IF NOT EXISTS autocomplete_key_claims_user_idx ON autocomplete_key_claims(user_id, claimed_at)",
+      "DELETE FROM autocomplete_key_claims WHERE rowid NOT IN (SELECT MIN(rowid) FROM autocomplete_key_claims GROUP BY key_id)",
+      "CREATE UNIQUE INDEX IF NOT EXISTS autocomplete_key_claims_key_unique ON autocomplete_key_claims(key_id)",
       `CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,

@@ -88,3 +88,18 @@ npm test
 No se guardan contraseñas, tokens permanentes, keystores ni claves privadas en
 el repositorio. Capacitor no sustituye la autorización del backend ni convierte
 una PWA en una aplicación nativa segura por sí solo.
+# Autocompletado por créditos
+
+El panel administrativo puede crear una **key de autocompletado** desde la sección Keys.
+La key se muestra una sola vez y solo puede reclamarse por una cuenta desde
+`Perfil → Mis datos → Datos de mi cuenta → Autocompletado`. Al reclamarla, el saldo
+completo queda vinculado a esa cuenta; otra cuenta no puede reutilizar la misma key.
+Cada titular que el proveedor externo devuelve correctamente consume un crédito del
+saldo de esa cuenta. Las respuestas fallidas devuelven el crédito reservado y nunca
+se guardan en el navegador ni en el Service Worker.
+
+Las claves se almacenan únicamente como hashes en la base de datos. El backend
+valida la sesión, limita la frecuencia, reserva el crédito de forma atómica y
+solo envía al cliente el nombre protegido. Si una cuenta no tiene una key activa
+o el saldo de esa cuenta se agotó, la pantalla de transferencia muestra el skeleton de
+transición y habilita el ingreso manual del titular.

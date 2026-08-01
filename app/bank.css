@@ -1825,7 +1825,11 @@ input:focus-visible {
 
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field b,
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field input {
+  font-family: inherit;
   font-size: clamp(18px, 5vw, 21px);
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field b {
@@ -1839,7 +1843,6 @@ input:focus-visible {
   height: 100%;
   padding: 0;
   color: #302846;
-  font-weight: 500;
 }
 
 .mobile-bank-shell .transfer-new-number-screen .phone-prefix-field input::placeholder {

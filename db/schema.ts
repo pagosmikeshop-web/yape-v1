@@ -166,6 +166,37 @@ export const accountFeatureEntitlements = sqliteTable("account_feature_entitleme
   check("account_feature_entitlements_enabled_check", sql`${table.enabled} in (0, 1)`),
 ]);
 
+/** Claves emitidas desde el panel que financian el autocompletado de una cuenta. */
+export const autocompleteKeys = sqliteTable("autocomplete_keys", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull(),
+  tokenHint: text("token_hint").notNull(),
+  creditsTotal: integer("credits_total").notNull(),
+  creditsRemaining: integer("credits_remaining").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  revokedAt: text("revoked_at"),
+}, (table) => [
+  uniqueIndex("autocomplete_keys_hash_unique").on(table.tokenHash),
+  index("autocomplete_keys_created_idx").on(table.createdAt),
+  check("autocomplete_keys_credits_check", sql`${table.creditsTotal} > 0 AND ${table.creditsRemaining} >= 0`),
+]);
+
+/** A claim binds a generated key to exactly one account. The first account
+ * receives the full credit balance, and no other account can claim it. */
+export const autocompleteKeyClaims = sqliteTable("autocomplete_key_claims", {
+  keyId: text("key_id")
+    .notNull()
+    .primaryKey()
+    .references(() => autocompleteKeys.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  claimedAt: text("claimed_at").notNull(),
+}, (table) => [
+  index("autocomplete_key_claims_user_idx").on(table.userId, table.claimedAt),
+]);
+
 export const creditLedger = sqliteTable("credit_ledger", {
   id: text("id").primaryKey(),
   sellerId: text("seller_id").notNull(),

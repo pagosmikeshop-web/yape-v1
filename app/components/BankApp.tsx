@@ -2175,6 +2175,7 @@ function AccountDetailsView() {
   const [autoToken, setAutoToken] = useState("");
   const [smsValidated, setSmsValidated] = useState(false);
   const [autoValidated, setAutoValidated] = useState(false);
+  const [autoCredits, setAutoCredits] = useState<number | null>(null);
   const [validatingToken, setValidatingToken] = useState<"sms" | "auto" | null>(
     null,
   );
@@ -2235,7 +2236,19 @@ function AccountDetailsView() {
         setSmsValidated(Boolean(sms));
         setSmsActive(Boolean(sms?.enabled));
         setAutocomplete(Boolean(auto?.enabled));
-        setAutoValidated(Boolean(auto));
+        setAutoValidated(Boolean(auto?.enabled));
+        const autocompleteStatus = data.autocomplete as
+          | { enabled?: boolean; credits?: number | null; keyClaimed?: boolean }
+          | undefined;
+        if (autocompleteStatus) {
+          setAutocomplete(Boolean(autocompleteStatus.enabled));
+          setAutoCredits(
+            typeof autocompleteStatus.credits === "number"
+              ? autocompleteStatus.credits
+              : null,
+          );
+          setAutoValidated(Boolean(auto?.enabled || autocompleteStatus.enabled));
+        }
       })
       .catch(() => undefined);
     return () => {
@@ -2311,6 +2324,9 @@ function AccountDetailsView() {
       } else {
         setAutoValidated(true);
         setAutocomplete(true);
+        setAutoCredits(
+          typeof data?.credits === "number" ? data.credits : null,
+        );
         setAutoTokenMessage("Token validado. Autocompletado activado.");
       }
     } catch (error) {
@@ -2340,6 +2356,7 @@ function AccountDetailsView() {
     setAutoToken(value);
     setAutoValidated(false);
     setAutocomplete(false);
+    setAutoCredits(null);
     setAutoTokenMessage("");
   }
 
@@ -2636,7 +2653,7 @@ function AccountDetailsView() {
               </span>
               <span className="account-setting-copy">
                 <strong>Autocompletado</strong>
-                <small>Valida un token temporal para activarlo</small>
+                <small>Actívalo con una key de créditos vinculada a tu cuenta</small>
               </span>
               <SwitchControl
                 checked={autocomplete}
@@ -2647,7 +2664,7 @@ function AccountDetailsView() {
             </div>
             <div className="account-token-entry">
               <label className="account-details-field">
-                <span>Token Auto</span>
+                <span>Key de autocompletado</span>
                 <div>
                   <AssetIcon name="ic_lock_outline_yape_primary" />
                   <input
@@ -2677,13 +2694,19 @@ function AccountDetailsView() {
                 className={`account-detail-pill${autoValidated ? " is-validated" : ""}`}
               >
                 <AssetIcon name="ic_clock_outline_yape" />
-                {autoValidated ? "Token válido" : "Caduca en 0 días"}
+                {autoCredits === null
+                  ? autoValidated
+                    ? "Autocompletado activo"
+                    : "Sin créditos"
+                  : `${autoCredits} créditos`}
               </span>
               <small
                 className={autoTokenMessage && !autoValidated ? "is-error" : ""}
               >
                 {autoTokenMessage ||
-                  "El interruptor se activará automáticamente."}
+                  (autoCredits === null
+                    ? "El token maestro mantiene el acceso activo."
+                    : `${autoCredits} créditos disponibles para esta cuenta.`)}
               </small>
             </div>
           </article>

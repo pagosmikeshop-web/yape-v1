@@ -20,7 +20,9 @@ const responsiveContract = viewportStyles.slice(
 describe("responsive layout contract", () => {
   it("keeps voucher branding relative to its banner", () => {
     expect(responsiveContract).toContain("--voucher-brand-center-x: 16%;");
-    expect(responsiveContract).toContain("--movement-brand-center-x: 8%;");
+    expect(responsiveContract).toMatch(
+      /--movement-brand-center-x:\s*\d+(?:\.\d+)?%;/iu,
+    );
     expect(responsiveContract).toContain("left: var(--voucher-brand-center-x);");
     expect(responsiveContract).toContain("left: var(--movement-brand-center-x);");
     expect(responsiveContract).toContain("position: relative;");

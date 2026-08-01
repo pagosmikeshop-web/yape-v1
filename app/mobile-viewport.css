@@ -369,7 +369,8 @@ canvas {
     margin-top: min(3vw, 12px);
   }
 
-  .mobile-bank-shell .transfer-recipient-name-slot
+  .mobile-bank-shell
+    .transfer-recipient-name-slot
     .transfer-recipient-name-input {
     margin-top: 0;
   }
@@ -935,9 +936,9 @@ canvas {
   --voucher-brand-center-x: 16%;
   --voucher-brand-center-y: 50%;
   --voucher-brand-size: clamp(60px, 17%, 78px);
-  --movement-brand-center-x: 8%;
-  --movement-brand-center-y: 34%;
-  --movement-brand-size: clamp(52px, 14%, 58px);
+  --movement-brand-center-x: 16%;
+  --movement-brand-center-y: 48%;
+  --movement-brand-size: clamp(52px, 10.5%, 58px);
 }
 
 .mobile-bank-shell {
@@ -1017,9 +1018,7 @@ canvas {
   transform: translate(-50%, -52%);
 }
 
-.mobile-bank-shell
-  .movement-voucher.yape-success-voucher
-  .voucher-logo-badge {
+.mobile-bank-shell .movement-voucher.yape-success-voucher .voucher-logo-badge {
   top: var(--movement-brand-center-y);
   left: var(--movement-brand-center-x);
   inline-size: var(--movement-brand-size);
@@ -1030,12 +1029,8 @@ canvas {
   transform: translate(-50%, -50%);
 }
 
-.mobile-bank-shell
-  .movement-voucher.yape-success-voucher
-  .voucher-logo-static,
-.mobile-bank-shell
-  .movement-voucher.yape-success-voucher
-  .voucher-logo-lottie {
+.mobile-bank-shell .movement-voucher.yape-success-voucher .voucher-logo-static,
+.mobile-bank-shell .movement-voucher.yape-success-voucher .voucher-logo-lottie {
   display: block;
   inline-size: 100%;
   block-size: 100%;
