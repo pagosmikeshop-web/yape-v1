@@ -11,7 +11,7 @@ import {
   verifySecret,
 } from "@/app/lib/auth-server";
 import { requireManagedAccount } from "@/app/lib/management-server";
-import { requirePermission } from "@/app/lib/rbac";
+import { hasPermission, requirePermission } from "@/app/lib/rbac";
 
 const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -159,6 +159,72 @@ export async function issuePermanentAccessToken(actor: AuthUser, clientId: strin
   };
 }
 
+/**
+ * Creates a single-use key that is intentionally not assigned to a client.
+ * The first authenticated client account that redeems it becomes permanent.
+ * Sellers cannot issue these keys because they bypass the seller/client
+ * relationship used by the regular key flow.
+ */
+export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
+  await requirePermission(actor, "keys:create");
+  if (actor.role === "seller") {
+    throw Response.json({ ok: false, error: "Solo un administrador puede generar una key global." }, { status: 403 });
+  }
+
+  const raw = `YAPE${randomTokenPart(12)}`;
+  const formattedToken = formatPermanentAccessToken(raw);
+  const tokenHash = await permanentTokenHash(raw);
+  const tokenId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const database = dbBinding();
+  const result = await database.prepare(
+    `INSERT INTO global_permanent_access_tokens (
+       id, token_hash, token_hint, created_by, created_at, redeemed_at, redeemed_by_user_id
+     ) VALUES (?, ?, ?, ?, ?, NULL, NULL)`,
+  ).bind(tokenId, tokenHash, raw.slice(-4), actor.id, now).run();
+  if (Number(result.meta.changes ?? 0) !== 1) {
+    throw Response.json({ ok: false, error: "No se pudo generar la key global." }, { status: 409 });
+  }
+
+  const issuer = await database.prepare("SELECT credits FROM users WHERE id = ? LIMIT 1")
+    .bind(actor.id).first<{ credits: number }>();
+  await database.prepare(
+    `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
+     VALUES (?, ?, 'web_global_key_create', ?, ?)`,
+  ).bind(
+    crypto.randomUUID(),
+    actor.telegramUserId ?? actor.id,
+    `${tokenId}:${actor.isOwner ? "owner" : "admin"}`,
+    now,
+  ).run();
+
+  return {
+    token: formattedToken,
+    credits: Number(issuer?.credits ?? 0),
+    chargedCredits: 0,
+    issuerRole: actor.isOwner ? "owner" : actor.role,
+  };
+}
+
+export async function listGlobalPermanentAccessTokens(actor: AuthUser) {
+  await requirePermission(actor, "keys:view");
+  const database = dbBinding();
+  const select = `SELECT t.id, t.token_hint, t.created_at, t.redeemed_at,
+                         issuer.display_name AS created_by_name,
+                         redeemer.display_name AS redeemed_by_name,
+                         CASE WHEN issuer.is_owner = 1 THEN 'owner' ELSE issuer.role END AS issuer_role
+                  FROM global_permanent_access_tokens t
+                  JOIN users issuer ON issuer.id = t.created_by
+                  LEFT JOIN users redeemer ON redeemer.id = t.redeemed_by_user_id`;
+  const canViewAll = actor.isOwner || await hasPermission(actor, "keys:view_all");
+  const result = canViewAll
+    ? await database.prepare(`${select} ORDER BY t.created_at DESC LIMIT 100`).all()
+    : await database.prepare(
+      `${select} WHERE t.created_by = ? ORDER BY t.created_at DESC LIMIT 100`,
+    ).bind(actor.id).all();
+  return result.results ?? [];
+}
+
 export async function redeemPermanentAccessToken(userId: string, token: string) {
   const normalized = normalizePermanentAccessToken(token);
   if (!/^YAPE[A-Z0-9]{12}$/u.test(normalized)) {
@@ -178,46 +244,97 @@ export async function redeemPermanentAccessToken(userId: string, token: string) 
     access_expires_at: string | null;
   }>();
 
-  if (!row || row.user_id !== userId || row.redeemed_at) {
+  if (row) {
+    if (row.user_id !== userId || row.redeemed_at) {
+      throw Response.json({ ok: false, error: "El token no corresponde a esta cuenta o ya fue utilizado." }, { status: 403 });
+    }
+    if (!row.access_expires_at) {
+      const now = new Date().toISOString();
+      await database.prepare(
+        `INSERT INTO client_crm_profiles
+           (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
+         VALUES (?, 'vip', 'individual', 'general', '[]', '', ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           crm_status = 'vip',
+           updated_by = excluded.updated_by,
+           updated_at = excluded.updated_at`,
+      ).bind(userId, now, userId, now).run();
+      return { alreadyPermanent: true };
+    }
+
+    const now = new Date().toISOString();
+    const results = await database.batch([
+      database.prepare(
+        "UPDATE permanent_access_tokens SET redeemed_at = ? WHERE id = ? AND user_id = ? AND redeemed_at IS NULL",
+      ).bind(now, row.id, userId),
+      database.prepare(
+        `UPDATE users SET access_expires_at = NULL, updated_at = ?
+         WHERE id = ? AND EXISTS (
+           SELECT 1 FROM permanent_access_tokens WHERE id = ? AND user_id = ? AND redeemed_at = ?
+         )`,
+      ).bind(now, userId, row.id, userId, now),
+      database.prepare(
+        `INSERT INTO client_crm_profiles
+           (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
+         VALUES (?, 'vip', 'individual', 'general', '[]', '', ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           crm_status = 'vip',
+           updated_by = excluded.updated_by,
+           updated_at = excluded.updated_at`,
+      ).bind(userId, now, userId, now),
+    ]);
+    if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {
+      throw Response.json({ ok: false, error: "El token ya fue utilizado." }, { status: 409 });
+    }
+    return { alreadyPermanent: false };
+  }
+
+  const global = await database.prepare(
+    `SELECT id, redeemed_at
+     FROM global_permanent_access_tokens
+     WHERE token_hash = ? LIMIT 1`,
+  ).bind(tokenHash).first<{ id: string; redeemed_at: string | null }>();
+  if (!global || global.redeemed_at) {
     throw Response.json({ ok: false, error: "El token no corresponde a esta cuenta o ya fue utilizado." }, { status: 403 });
   }
-  if (!row.access_expires_at) {
-    const now = new Date().toISOString();
-    await database.prepare(
-      `INSERT INTO client_crm_profiles
-         (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
-       VALUES (?, 'vip', 'individual', 'general', '[]', '', ?, ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET
-         crm_status = 'vip',
-         updated_by = excluded.updated_by,
-         updated_at = excluded.updated_at`,
-    ).bind(userId, now, userId, now).run();
-    return { alreadyPermanent: true };
+
+  const currentUser = await database.prepare(
+    "SELECT access_expires_at FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+  ).bind(userId).first<{ access_expires_at: string | null }>();
+  if (!currentUser) {
+    throw Response.json({ ok: false, error: "No se pudo validar la cuenta." }, { status: 403 });
   }
 
   const now = new Date().toISOString();
-  const results = await database.batch([
+  const globalResults = await database.batch([
     database.prepare(
-      "UPDATE permanent_access_tokens SET redeemed_at = ? WHERE id = ? AND user_id = ? AND redeemed_at IS NULL",
-    ).bind(now, row.id, userId),
+      `UPDATE global_permanent_access_tokens
+       SET redeemed_at = ?, redeemed_by_user_id = ?
+       WHERE id = ? AND redeemed_at IS NULL`,
+    ).bind(now, userId, global.id),
     database.prepare(
       `UPDATE users SET access_expires_at = NULL, updated_at = ?
        WHERE id = ? AND EXISTS (
-         SELECT 1 FROM permanent_access_tokens WHERE id = ? AND user_id = ? AND redeemed_at = ?
+         SELECT 1 FROM global_permanent_access_tokens
+         WHERE id = ? AND redeemed_by_user_id = ? AND redeemed_at = ?
        )`,
-    ).bind(now, userId, row.id, userId, now),
+    ).bind(now, userId, global.id, userId, now),
     database.prepare(
       `INSERT INTO client_crm_profiles
          (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
-       VALUES (?, 'vip', 'individual', 'general', '[]', '', ?, ?, ?)
+       SELECT ?, 'vip', 'individual', 'general', '[]', '', ?, ?, ?
+       WHERE EXISTS (
+         SELECT 1 FROM global_permanent_access_tokens
+         WHERE id = ? AND redeemed_by_user_id = ? AND redeemed_at = ?
+       )
        ON CONFLICT(user_id) DO UPDATE SET
          crm_status = 'vip',
          updated_by = excluded.updated_by,
          updated_at = excluded.updated_at`,
-    ).bind(userId, now, userId, now),
+    ).bind(userId, now, userId, now, global.id, userId, now),
   ]);
-  if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {
+  if (Number(globalResults[0]?.meta.changes ?? 0) !== 1 || Number(globalResults[1]?.meta.changes ?? 0) !== 1) {
     throw Response.json({ ok: false, error: "El token ya fue utilizado." }, { status: 409 });
   }
-  return { alreadyPermanent: false };
+  return { alreadyPermanent: !currentUser.access_expires_at };
 }

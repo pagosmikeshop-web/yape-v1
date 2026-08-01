@@ -15,6 +15,9 @@
     "security:scan": "node scripts/security-scan.mjs",
     "security:audit": "npm audit --audit-level=high",
     "db:generate": "drizzle-kit generate",
+    "db:migrate:supabase": "node scripts/migrate-turso-to-supabase.mjs --apply",
+    "db:migrate:supabase:dry-run": "node scripts/migrate-turso-to-supabase.mjs",
+    "db:verify:supabase": "node scripts/migrate-turso-to-supabase.mjs --verify-only",
     "cap:check:webdir": "node scripts/verify-capacitor-webdir.mjs out"
   },
   "dependencies": {
@@ -29,6 +32,7 @@
     "html-to-image": "1.11.13",
     "lottie-web": "^5.13.0",
     "next": "16.2.12",
+    "postgres": "^3.4.7",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"

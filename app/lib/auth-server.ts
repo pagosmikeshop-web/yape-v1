@@ -1,10 +1,12 @@
 import { assertTrustedMutation } from "@/app/lib/api-utils";
-import { databaseForEnvironment } from "@/app/lib/database-server";
+import { databaseForEnvironment, isSupabaseDatabase } from "@/app/lib/database-server";
 
 export type AppRole = "admin" | "seller" | "client";
 
 type AuthEnv = {
   DB?: D1Database;
+  DATABASE_PROVIDER?: string;
+  SUPABASE_DATABASE_URL?: string;
   TURSO_DATABASE_URL?: string;
   TURSO_AUTH_TOKEN?: string;
   APP_ENV?: string;
@@ -121,6 +123,11 @@ export const REFERRAL_MONTHLY_LIMIT = 4;
 const MIN_RATE_LIMIT_PEPPER_LENGTH = 32;
 const DEVICE_PROOF_WINDOW_MS = 5 * 60 * 1000;
 let schemaReady: Promise<void> | null = null;
+
+export function isUniqueConstraintError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /UNIQUE constraint failed|duplicate key value violates unique constraint|\b23505\b/iu.test(message);
+}
 
 function database() {
   const env = authEnv();
@@ -428,6 +435,23 @@ export function secretHashNeedsUpgrade(expected: string) {
 export async function ensureAuthSchema() {
   if (schemaReady) return schemaReady;
   const db = database();
+  if (isSupabaseDatabase(authEnv())) {
+    schemaReady = (async () => {
+      const requiredTables = ["users", "sessions", "account_balances", "account_movements"];
+      const missing: string[] = [];
+      for (const table of requiredTables) {
+        const row = await db.prepare("SELECT to_regclass(?) AS table_name").bind(`public.${table}`).first<{ table_name: string | null }>();
+        if (!row?.table_name) missing.push(table);
+      }
+      if (missing.length) {
+        throw new Error(`El esquema de Supabase no estÃ¡ aplicado. Faltan tablas: ${missing.join(", ")}. Ejecuta la migraciÃ³n SQL antes de cambiar DATABASE_PROVIDER.`);
+      }
+    })().catch((error) => {
+      schemaReady = null;
+      throw error;
+    });
+    return schemaReady;
+  }
   schemaReady = (async () => {
     await db.exec("PRAGMA foreign_keys = ON");
     const statements = [
@@ -626,6 +650,18 @@ export async function ensureAuthSchema() {
       )`,
       "CREATE INDEX IF NOT EXISTS permanent_access_tokens_seller_idx ON permanent_access_tokens(seller_id, created_at)",
       "CREATE INDEX IF NOT EXISTS permanent_access_tokens_user_idx ON permanent_access_tokens(user_id, created_at)",
+      `CREATE TABLE IF NOT EXISTS global_permanent_access_tokens (
+        id TEXT PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        token_hint TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        redeemed_at TEXT,
+        redeemed_by_user_id TEXT,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      )`,
+      "CREATE INDEX IF NOT EXISTS global_permanent_access_tokens_created_idx ON global_permanent_access_tokens(created_at)",
+      "CREATE INDEX IF NOT EXISTS global_permanent_access_tokens_redeemed_idx ON global_permanent_access_tokens(redeemed_at)",
       `CREATE TABLE IF NOT EXISTS password_reset_requests (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -1196,7 +1232,7 @@ export async function ensureReferralCodeForUser(userId: string) {
       ).bind(code, new Date().toISOString(), userId).run();
       if (Number(result.meta.changes ?? 0) === 1) return code;
     } catch (error) {
-      if (!/UNIQUE constraint failed/iu.test(error instanceof Error ? error.message : "")) throw error;
+      if (!isUniqueConstraintError(error)) throw error;
     }
     const assigned = await database().prepare(
       `SELECT referral_code FROM users
@@ -1561,7 +1597,7 @@ export function dbBinding() {
 export function routeError(error: unknown) {
   if (error instanceof Response) return error;
   const message = error instanceof Error ? error.message : "No se pudo completar la operaciÃ³n.";
-  const duplicate = /UNIQUE constraint failed/i.test(message);
+  const duplicate = isUniqueConstraintError(message);
   console.error("[auth] Error interno de ruta", {
     name: error instanceof Error ? error.name : typeof error,
     duplicate,

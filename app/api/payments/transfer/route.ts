@@ -2,6 +2,7 @@ import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   dbBinding,
   enforceAuthRateLimits,
+  isUniqueConstraintError,
   normalizePeruvianMobile,
   requestIpRateLimitSubject,
   requireUnlockedSession,
@@ -130,7 +131,7 @@ async function resolveRecipient(
       ).bind(id, requesterUserId, phoneE164, displayName, recipientSource, now, now).run();
       saved = { id, display_name: displayName };
     } catch (error) {
-      if (!/UNIQUE constraint failed/iu.test(error instanceof Error ? error.message : "")) throw error;
+      if (!isUniqueConstraintError(error)) throw error;
       saved = await database.prepare(
         `SELECT id, display_name FROM saved_payment_recipients
          WHERE user_id = ? AND phone_e164 = ? LIMIT 1`,
@@ -310,7 +311,7 @@ export async function POST(request: Request) {
             `INSERT INTO account_balances (user_id, balance_cents, is_configured, updated_at)
              VALUES (?, ?, 1, ?)
              ON CONFLICT(user_id) DO UPDATE SET
-               balance_cents = account_balances.balance_cents + excluded.balance_cents,
+               balance_cents = balance_cents + excluded.balance_cents,
                is_configured = 1,
                updated_at = excluded.updated_at`,
           ).bind(recipient.recipientUserId, amountCents, createdAt));

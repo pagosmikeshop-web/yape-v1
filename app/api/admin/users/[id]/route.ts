@@ -251,6 +251,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       database.prepare("DELETE FROM referral_redemptions WHERE referrer_user_id = ?").bind(id),
       database.prepare("UPDATE referral_redemptions SET redeemed_by_user_id = NULL WHERE redeemed_by_user_id = ?").bind(id),
       database.prepare("DELETE FROM permanent_access_tokens WHERE user_id = ? OR seller_id = ?").bind(id, id),
+      database.prepare(
+        "DELETE FROM global_permanent_access_tokens WHERE created_by = ? OR redeemed_by_user_id = ?",
+      ).bind(id, id),
       database.prepare("DELETE FROM password_reset_requests WHERE user_id = ? OR seller_id = ?").bind(id, id),
       database.prepare("DELETE FROM activations WHERE user_id = ? OR seller_id = ?").bind(id, id),
       database.prepare("DELETE FROM credit_ledger WHERE seller_id = ?").bind(id),

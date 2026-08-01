@@ -231,6 +231,20 @@ export const permanentAccessTokens = sqliteTable("permanent_access_tokens", {
   index("permanent_access_tokens_user_idx").on(table.userId, table.createdAt),
 ]);
 
+export const globalPermanentAccessTokens = sqliteTable("global_permanent_access_tokens", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull(),
+  tokenHint: text("token_hint").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  redeemedAt: text("redeemed_at"),
+  redeemedByUserId: text("redeemed_by_user_id"),
+}, (table) => [
+  uniqueIndex("global_permanent_access_tokens_hash_unique").on(table.tokenHash),
+  index("global_permanent_access_tokens_created_idx").on(table.createdAt),
+  index("global_permanent_access_tokens_redeemed_idx").on(table.redeemedAt),
+]);
+
 export const passwordResetRequests = sqliteTable("password_reset_requests", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
