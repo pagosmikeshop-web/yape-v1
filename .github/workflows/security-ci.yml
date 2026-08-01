@@ -62,7 +62,7 @@ jobs:
         run: npm sbom --package-lock-only --omit=optional --sbom-format cyclonedx > sbom.cdx.json
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-cyclonedx
           path: sbom.cdx.json
