@@ -665,7 +665,7 @@ function QrView() {
             <AssetIcon name="ic_qrcode_r_yape" />
           </Link>
           <div>
-            <h1 className="qrc-header-title">Publicar QR global</h1>
+            <h1 className="qrc-header-title">Registrar QR</h1>
             <p className="qrc-header-sub">Sube una imagen con código QR</p>
           </div>
         </div>
@@ -799,7 +799,7 @@ function QrView() {
           </button>
         ) : null}
         <button className="qrc-btn" type="submit" disabled={!canSave}>
-          {saving ? "Publicando..." : "Publicar QR global"}
+          {saving ? "Registrando..." : "Registrar"}
         </button>
         {notice ? (
           <p className="qrc-notice" role="status">
@@ -810,14 +810,14 @@ function QrView() {
 
       <section className="qrc-saved-section" aria-labelledby="saved-qr-title">
         <div className="qrc-saved-heading">
-          <h2 id="saved-qr-title">Tus QR publicados</h2>
+          <h2 id="saved-qr-title">Tus QR registrados</h2>
           <span>{contacts.length} recientes</span>
         </div>
         {loadingContacts ? (
           <p className="qrc-empty">Cargando tus QR...</p>
         ) : null}
         {!loadingContacts && contacts.length === 0 ? (
-          <p className="qrc-empty">Los QR que guardes aparecerán aquí.</p>
+          <p className="qrc-empty">Los QR que registres aparecerán aquí.</p>
         ) : null}
         <div className="qrc-saved-list">
           {contacts.map((contact) => (
