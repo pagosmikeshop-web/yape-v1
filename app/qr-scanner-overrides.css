@@ -1,0 +1,96 @@
+/*
+ * El decodificador usa toda la señal del vídeo. El marco solo ayuda a
+ * encuadrar el QR y no limita la zona que analiza ZXing.
+ */
+@keyframes qr-scanner-line-sweep {
+  0%,
+  100% {
+    top: 33%;
+    opacity: 0.58;
+  }
+
+  50% {
+    top: 67%;
+    opacity: 1;
+  }
+}
+
+.mobile-bank-shell .scanner-live-frame::before {
+  display: block !important;
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: min(82vw, 62vh) !important;
+  height: min(82vw, 62vh) !important;
+  z-index: 2 !important;
+  border: 2px solid rgba(244, 167, 255, 0.52) !important;
+  border-top-color: rgba(244, 167, 255, 0.92) !important;
+  border-right-color: rgba(146, 11, 193, 0.78) !important;
+  border-bottom-color: rgba(32, 199, 186, 0.58) !important;
+  border-left-color: rgba(244, 167, 255, 0.92) !important;
+  border-radius: 18px !important;
+  clip-path: none !important;
+  transform: translate(-50%, -50%) !important;
+  pointer-events: none !important;
+}
+
+.mobile-bank-shell .scanner-live-frame::after {
+  display: block !important;
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: min(82vw, 62vh) !important;
+  height: min(82vw, 62vh) !important;
+  z-index: 2 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 18px !important;
+  clip-path: none !important;
+  transform: translate(-50%, -50%) !important;
+  pointer-events: none !important;
+}
+
+.mobile-bank-shell .scanner-live-frame i {
+  top: 33% !important;
+  right: auto !important;
+  left: 50% !important;
+  width: min(72vw, 56vh) !important;
+  z-index: 3 !important;
+  height: 3px !important;
+  transform: translateX(-50%) !important;
+  animation: qr-scanner-line-sweep 2.4s ease-in-out infinite !important;
+}
+
+.mobile-bank-shell .scanner-live-frame p {
+  z-index: 3 !important;
+}
+
+/* iOS transforma un select de cámaras en un picker visible. */
+.mobile-bank-shell .scanner-camera-select,
+.mobile-bank-shell .scanner-preferences {
+  display: none !important;
+}
+
+.mobile-bank-shell .scanner-live-actions {
+  display: block !important;
+  margin: 0 !important;
+}
+
+.mobile-bank-shell .scanner-live-actions button:only-child {
+  width: 100% !important;
+  min-height: 72px !important;
+  border-radius: 12px !important;
+  color: #480f54 !important;
+  background: #fff !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bank-shell .scanner-live-frame i {
+    animation: none !important;
+  }
+}

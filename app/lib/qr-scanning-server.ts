@@ -18,6 +18,7 @@ export type QrScanResult = {
     name: string;
     provider: string;
     recipientId: string | null;
+    phone: string | null;
   };
 };
 
@@ -31,6 +32,7 @@ export class QrScanError extends Error {
 type QrRow = {
   id: string;
   holder_name: string;
+  phone_e164: string | null;
   provider: string;
   recipient_user_id: string | null;
   status: "active" | "revoked";
@@ -202,7 +204,7 @@ export async function scanQr(input: {
   const valueHash = await globalQrPayloadHash(value);
   const database = dbBinding();
   const row = await database.prepare(
-    `SELECT id, holder_name, provider, recipient_user_id, status, expires_at
+    `SELECT id, holder_name, phone_e164, provider, recipient_user_id, status, expires_at
      FROM global_qr_directory WHERE payload_hash = ? LIMIT 1`,
   ).bind(valueHash).first<QrRow>();
 
@@ -229,6 +231,7 @@ export async function scanQr(input: {
         name: maskRecipientName(recipient.display_name),
         provider: "Yape",
         recipientId: recipient.id,
+        phone: null,
       }),
       request: input.request,
     });
@@ -246,9 +249,10 @@ export async function scanQr(input: {
     status: "valid",
     result: result("valid", {
       id: row.id,
-      name: row.holder_name,
+      name: maskRecipientName(row.holder_name),
       provider: row.provider,
       recipientId: row.recipient_user_id,
+      phone: row.phone_e164,
     }),
     request: input.request,
   });

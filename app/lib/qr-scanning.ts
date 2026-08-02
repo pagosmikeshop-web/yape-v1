@@ -1,5 +1,6 @@
 export const QR_SCAN_MAX_BYTES = 2_048;
 export const QR_SCAN_MIN_BYTES = 4;
+export const QR_TRANSFER_SESSION_KEY = "yape-qr-transfer-payload";
 
 /** Normaliza el texto decodificado sin interpretar ni ejecutar su contenido. */
 export function normalizeQrPayload(value: unknown) {

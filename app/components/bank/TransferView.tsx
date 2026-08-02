@@ -9,6 +9,7 @@ import { resetIOSViewport } from "../../lib/ios-viewport";
 import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
 import { fetchSession } from "../../lib/session-cache";
 import { maskPhone } from "../../lib/masked-phone";
+import { QR_TRANSFER_SESSION_KEY } from "../../lib/qr-scanning";
 import { APK_ASSET_ROOT, AssetIcon, LottiePlayer } from "./primitives";
 import {
   buildVoucherShareText,
@@ -146,6 +147,49 @@ export function TransferView() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("from") !== "qr") return;
+
+    let rawPayload = "";
+    try {
+      rawPayload = window.sessionStorage.getItem(QR_TRANSFER_SESSION_KEY) ?? "";
+      window.sessionStorage.removeItem(QR_TRANSFER_SESSION_KEY);
+    } catch {
+      return;
+    }
+    if (!rawPayload) return;
+
+    try {
+      const payload = JSON.parse(rawPayload) as {
+        recipientId?: unknown;
+        phone?: unknown;
+        displayName?: unknown;
+      };
+      const requestedRecipientId = typeof payload.recipientId === "string"
+        ? payload.recipientId.trim()
+        : "";
+      const requestedPhone = typeof payload.phone === "string"
+        ? payload.phone.replace(/\D/gu, "").slice(-9)
+        : "";
+      const requestedName = typeof payload.displayName === "string"
+        ? payload.displayName.trim().slice(0, 48)
+        : "";
+      if (!requestedName || (!requestedRecipientId && !/^9\d{8}$/u.test(requestedPhone))) return;
+
+      setRecipientId(requestedRecipientId);
+      setRecipientName(requestedName);
+      setRecipientPhone(requestedPhone);
+      setRecipientIsNewNumber(false);
+      setManualRecipientMode(false);
+      setPhoneIsEditing(false);
+      setDestination("Yape");
+      setNotice("");
+      setStage("amount");
+    } catch {
+      // Un payload QR corrupto no debe impedir usar la transferencia manual.
+    }
   }, []);
 
   useEffect(() => {
