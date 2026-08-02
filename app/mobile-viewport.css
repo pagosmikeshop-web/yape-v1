@@ -1061,6 +1061,10 @@ canvas {
 }
 
 /* PIN: replace the heading with the six-digit progress indicator without changing the keypad flow. */
+.returning-keypad-card .returning-pin-hint {
+  display: none;
+}
+
 .pin-indicator {
   position: relative;
   display: grid;

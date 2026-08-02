@@ -2848,16 +2848,19 @@
 .mobile-bank-shell.view-scanner .reference-scanner-view > header {
   position: fixed !important;
   top: max(12px, env(safe-area-inset-top, 0px)) !important;
-  right: auto !important;
-  left: max(16px, env(safe-area-inset-left, 0px)) !important;
+  right: max(16px, env(safe-area-inset-right, 0px)) !important;
+  left: auto !important;
   width: auto !important;
   min-height: 0 !important;
   margin: 0 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
   z-index: 20 !important;
 }
 
-.mobile-bank-shell.view-scanner .reference-scanner-view > header span {
+.mobile-bank-shell.view-scanner .reference-scanner-view > header .scanner-status-chip {
   display: none !important;
+  visibility: hidden !important;
 }
 
 .mobile-bank-shell.view-scanner .reference-scanner-view > header a {
