@@ -2,7 +2,6 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 
 const baseUrl = (__ENV.LOAD_TEST_BASE_URL || "").replace(/\/$/u, "");
-const bypassSecret = (__ENV.VERCEL_AUTOMATION_BYPASS_SECRET || "").trim();
 
 export const options = {
   scenarios: {
@@ -28,10 +27,7 @@ export const options = {
 export default function () {
   if (!baseUrl) throw new Error("Define LOAD_TEST_BASE_URL apuntando a staging.");
   const response = http.get(`${baseUrl}/api/health`, {
-    headers: {
-      accept: "application/json",
-      ...(bypassSecret ? { "x-vercel-protection-bypass": bypassSecret } : {}),
-    },
+    headers: { accept: "application/json" },
     tags: { endpoint: "health" },
   });
   check(response, {
