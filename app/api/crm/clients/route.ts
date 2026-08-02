@@ -121,19 +121,19 @@ export async function GET(request: Request) {
            COUNT(*) AS total_clients,
            SUM(CASE WHEN ${CRM_STATUS_SQL} = 'new' THEN 1 ELSE 0 END) AS new_clients,
            SUM(CASE WHEN ${CRM_STATUS_SQL} = 'vip' THEN 1 ELSE 0 END) AS vip_clients,
-           SUM(COALESCE((
-             SELECT SUM(a.amount_cents)
-             FROM client_crm_activities a
-             WHERE a.user_id = u.id AND a.activity_type = 'purchase'
-           ), 0)) AS total_sales_cents,
-           SUM(COALESCE((
-             SELECT SUM(a.amount_cents)
-             FROM client_crm_activities a
-             WHERE a.user_id = u.id AND a.activity_type = 'payment'
-           ), 0)) AS total_payments_cents
+           SUM(COALESCE(activity_totals.total_sales_cents, 0)) AS total_sales_cents,
+           SUM(COALESCE(activity_totals.total_payments_cents, 0)) AS total_payments_cents
          FROM users u
          LEFT JOIN payment_directory d ON d.user_id = u.id
          LEFT JOIN client_crm_profiles p ON p.user_id = u.id
+         LEFT JOIN (
+           SELECT
+             user_id,
+             COALESCE(SUM(CASE WHEN activity_type = 'purchase' THEN amount_cents ELSE 0 END), 0) AS total_sales_cents,
+             COALESCE(SUM(CASE WHEN activity_type = 'payment' THEN amount_cents ELSE 0 END), 0) AS total_payments_cents
+           FROM client_crm_activities
+           GROUP BY user_id
+         ) activity_totals ON activity_totals.user_id = u.id
          ${where}`,
       ).bind(...values).first<{
         total_clients: number;

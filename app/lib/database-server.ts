@@ -176,9 +176,19 @@ function supabaseDatabase(url: string) {
   const client = postgres(url, {
     ssl: "require",
     prepare: false,
-    max: 4,
+    // Vercel puede crear varias instancias en paralelo. Mantener un pool
+    // pequeño por instancia evita multiplicar conexiones contra el pooler de
+    // Supabase durante un pico de tráfico.
+    max: 2,
     idle_timeout: 20,
     connect_timeout: 10,
+    max_lifetime: 600,
+    connection: {
+      application_name: "yape-web",
+      statement_timeout: 8_000,
+      lock_timeout: 3_000,
+      idle_in_transaction_session_timeout: 10_000,
+    },
     onnotice: () => undefined,
   });
   const database = new SupabasePostgresDatabase(client);

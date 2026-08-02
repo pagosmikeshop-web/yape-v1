@@ -4,7 +4,7 @@ import {
   createUser,
   dbBinding,
   generateTemporaryPassword,
-  getUserRoles,
+  getUserRolesBulk,
   linkTelegramIdentity,
   publicAppBaseUrl,
   requireUnlockedSession,
@@ -107,10 +107,12 @@ export async function GET(request: Request) {
        LIMIT ? OFFSET ?`,
     ).bind(...values, pageSize, (safePage - 1) * pageSize).all<ListedUser>();
 
-    const users = await Promise.all((result.results ?? []).map(async (entry) => ({
+    const entries = result.results ?? [];
+    const rolesByUser = await getUserRolesBulk(entries.map((entry) => entry.id));
+    const users = entries.map((entry) => ({
       ...entry,
-      roles: await getUserRoles(entry.id),
-    })));
+      roles: rolesByUser.get(entry.id) ?? [],
+    }));
 
     return jsonOk({
       users,

@@ -19,7 +19,12 @@ type AuthEnv = {
   AUTH_OWNER_PASSWORD_RESET_ENABLED?: string;
   AUTH_OWNER_TELEGRAM_ID?: string;
   AUTH_RATE_LIMIT_PEPPER?: string;
+  RATE_LIMIT_REDIS_URL?: string;
+  RATE_LIMIT_REDIS_TOKEN?: string;
+  KV_REST_API_URL?: string;
+  KV_REST_API_TOKEN?: string;
   AUTH_UNLOCK_IDLE_MINUTES?: string;
+  CRON_SECRET?: string;
   ACCOUNT_SMS_VALIDATION_TOKEN?: string;
   ACCOUNT_AUTO_VALIDATION_TOKEN?: string;
   TELEGRAM_BOT_TOKEN?: string;
@@ -323,8 +328,78 @@ export async function authRateLimitSubjectHash(bucket: string, subject: string) 
   return hmacSha256(rateLimitPepper(), `mi-banco-auth-rate-v1\n${bucket}\n${subject}`);
 }
 
+type DistributedRateLimitState = {
+  attempts: number;
+  retryAfterSeconds: number;
+};
+
+const REDIS_RATE_LIMIT_SCRIPT = `
+local current = redis.call('INCR', KEYS[1])
+if current == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+local ttl = redis.call('TTL', KEYS[1])
+return { current, ttl }
+`;
+
+function redisRateLimitConfig() {
+  const environment = authEnv();
+  const endpoint = environment.RATE_LIMIT_REDIS_URL?.trim() || environment.KV_REST_API_URL?.trim() || "";
+  const token = environment.RATE_LIMIT_REDIS_TOKEN?.trim() || environment.KV_REST_API_TOKEN?.trim() || "";
+  if (!endpoint || !token) return null;
+  try {
+    const url = new URL(endpoint);
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) return null;
+    return { endpoint: url.toString().replace(/\/$/u, ""), token };
+  } catch {
+    return null;
+  }
+}
+
+async function tryDistributedRateLimit(
+  rule: AuthRateLimitRule,
+  subjectHash: string,
+): Promise<DistributedRateLimitState | null> {
+  const config = redisRateLimitConfig();
+  if (!config) return null;
+  const key = `yape:auth-rate:v1:${rule.bucket}:${subjectHash}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 500);
+  try {
+    const response = await fetch(config.endpoint, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify([
+        "EVAL",
+        REDIS_RATE_LIMIT_SCRIPT,
+        "1",
+        key,
+        String(rule.windowSeconds),
+      ]),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const payload = await response.json() as { result?: unknown };
+    const result = Array.isArray(payload.result) ? payload.result : [];
+    const attempts = Number(result[0]);
+    const ttl = Number(result[1]);
+    if (!Number.isSafeInteger(attempts) || attempts < 1 || !Number.isFinite(ttl)) return null;
+    return {
+      attempts,
+      retryAfterSeconds: Math.max(1, Math.min(rule.windowSeconds, Math.trunc(ttl))),
+    };
+  } catch {
+    // El backend distribuido es opcional: si no responde, se conserva el
+    // limitador transaccional de Supabase como fallback seguro.
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function enforceAuthRateLimits(rules: AuthRateLimitRule[]) {
-  await ensureAuthSchema();
   const nowSeconds = Math.floor(Date.now() / 1000);
   const now = new Date(nowSeconds * 1000).toISOString();
 
@@ -334,38 +409,65 @@ export async function enforceAuthRateLimits(rules: AuthRateLimitRule[]) {
     }
   }
 
-  const states = await Promise.all(rules.map(async (rule) => {
-    const subjectHash = await authRateLimitSubjectHash(rule.bucket, rule.subject);
-    const cutoff = nowSeconds - rule.windowSeconds;
-    const state = await database().prepare(
-      `INSERT INTO auth_rate_limits (
-        bucket, subject_hash, window_started_at, attempt_count, updated_at
-      ) VALUES (?, ?, ?, 1, ?)
-      ON CONFLICT(bucket, subject_hash) DO UPDATE SET
-        window_started_at = CASE
-          WHEN auth_rate_limits.window_started_at <= ? THEN excluded.window_started_at
-          ELSE auth_rate_limits.window_started_at
-        END,
-        attempt_count = CASE
-          WHEN auth_rate_limits.window_started_at <= ? THEN 1
-          ELSE auth_rate_limits.attempt_count + 1
-        END,
-        updated_at = excluded.updated_at
-      RETURNING window_started_at, attempt_count`,
-    ).bind(rule.bucket, subjectHash, nowSeconds, now, cutoff, cutoff).first<{
-      window_started_at: number;
-      attempt_count: number;
-    }>();
-    return { rule, state };
+  const hashedRules = await Promise.all(rules.map(async (rule) => ({
+    rule,
+    subjectHash: await authRateLimitSubjectHash(rule.bucket, rule.subject),
+  })));
+  const distributedStates = await Promise.all(hashedRules.map(async ({ rule, subjectHash }) => ({
+    rule,
+    subjectHash,
+    state: await tryDistributedRateLimit(rule, subjectHash),
+  })));
+  const distributedResults = distributedStates.filter((entry): entry is {
+    rule: AuthRateLimitRule;
+    subjectHash: string;
+    state: DistributedRateLimitState;
+  } => entry.state !== null);
+  const distributedKeys = new Set(distributedResults.map((entry) => `${entry.rule.bucket}\n${entry.subjectHash}`));
+  const fallbackRules = hashedRules.filter(({ rule, subjectHash }) => !distributedKeys.has(`${rule.bucket}\n${subjectHash}`));
+  const states: Array<{ rule: AuthRateLimitRule; attempts: number; retryAfterSeconds: number }> = distributedResults.map(({ rule, state }) => ({
+    rule,
+    attempts: state.attempts,
+    retryAfterSeconds: state.retryAfterSeconds,
   }));
 
-  for (const { rule, state } of states) {
-    const attempts = Number(state?.attempt_count ?? rule.limit + 1);
+  if (fallbackRules.length) {
+    await ensureAuthSchema();
+    const fallbackStates = await Promise.all(fallbackRules.map(async ({ rule, subjectHash }) => {
+      const cutoff = nowSeconds - rule.windowSeconds;
+      const state = await database().prepare(
+        `INSERT INTO auth_rate_limits (
+          bucket, subject_hash, window_started_at, attempt_count, updated_at
+        ) VALUES (?, ?, ?, 1, ?)
+        ON CONFLICT(bucket, subject_hash) DO UPDATE SET
+          window_started_at = CASE
+            WHEN auth_rate_limits.window_started_at <= ? THEN excluded.window_started_at
+            ELSE auth_rate_limits.window_started_at
+          END,
+          attempt_count = CASE
+            WHEN auth_rate_limits.window_started_at <= ? THEN 1
+            ELSE auth_rate_limits.attempt_count + 1
+          END,
+          updated_at = excluded.updated_at
+        RETURNING window_started_at, attempt_count`,
+      ).bind(rule.bucket, subjectHash, nowSeconds, now, cutoff, cutoff).first<{
+        window_started_at: number;
+        attempt_count: number;
+      }>();
+      return {
+        rule,
+        attempts: Number(state?.attempt_count ?? rule.limit + 1),
+        retryAfterSeconds: Math.max(
+          1,
+          Number(state?.window_started_at ?? nowSeconds) + rule.windowSeconds - nowSeconds,
+        ),
+      };
+    }));
+    states.push(...fallbackStates);
+  }
+
+  for (const { rule, attempts, retryAfterSeconds } of states) {
     if (attempts > rule.limit) {
-      const retryAfterSeconds = Math.max(
-        1,
-        Number(state?.window_started_at ?? nowSeconds) + rule.windowSeconds - nowSeconds,
-      );
       throw Response.json(
         {
           ok: false,
@@ -1110,9 +1212,6 @@ async function findSessionUser(request: Request, roles?: AppRole[], includeExpir
   const now = new Date().toISOString();
   const unlockIdleMs = unlockIdleMinutes() * 60_000;
   const unlockCutoff = new Date(Date.now() - unlockIdleMs).toISOString();
-  await database().prepare(
-    "DELETE FROM sessions WHERE token_hash = ? AND expires_at <= ?",
-  ).bind(tokenHash, now).run();
   const statement = database().prepare(
     `SELECT s.id AS session_id, s.token_hash, s.expires_at,
       s.last_seen_at, s.pin_verified_at, s.unlocked_until,
@@ -1134,14 +1233,18 @@ async function findSessionUser(request: Request, roles?: AppRole[], includeExpir
       && Date.parse(row.unlocked_until) > Date.now()
       && row.last_seen_at > unlockCutoff,
   );
+  const shouldTouchSession = Date.parse(row.last_seen_at) <= Date.now() - 60_000;
   const refreshedUnlockUntil = unlocked
-    ? new Date(Date.now() + unlockIdleMs).toISOString()
+    ? (shouldTouchSession ? new Date(Date.now() + unlockIdleMs).toISOString() : row.unlocked_until)
     : null;
+  const unlockChanged = row.unlocked_until !== refreshedUnlockUntil;
   const [userRoles] = await Promise.all([
     getUserRoles(row.id),
-    database().prepare(
-      "UPDATE sessions SET last_seen_at = ?, unlocked_until = ? WHERE id = ?",
-    ).bind(now, refreshedUnlockUntil, row.session_id).run(),
+    shouldTouchSession || unlockChanged
+      ? database().prepare(
+        "UPDATE sessions SET last_seen_at = ?, unlocked_until = ? WHERE id = ?",
+      ).bind(now, refreshedUnlockUntil, row.session_id).run()
+      : Promise.resolve(),
   ]);
   row.roles = userRoles;
   const effectiveRoles = new Set<AppRole>([row.role, ...(row.roles ?? [])]);
@@ -1431,6 +1534,25 @@ export async function getUserRoles(userId: string): Promise<AppRole[]> {
     "SELECT role FROM user_roles WHERE user_id = ? ORDER BY role",
   ).bind(userId).all<{ role: AppRole }>();
   return [...new Set(rows.results?.map((entry) => entry.role) ?? [])];
+}
+
+/** Obtiene los roles de una página completa en una sola consulta. */
+export async function getUserRolesBulk(userIds: string[]) {
+  const ids = [...new Set(userIds.map((id) => id.trim()).filter((id) => id.length > 0 && id.length <= 128))];
+  const result = new Map<string, AppRole[]>();
+  if (!ids.length) return result;
+  await ensureAuthSchema();
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = await database().prepare(
+    `SELECT user_id, role FROM user_roles WHERE user_id IN (${placeholders}) ORDER BY user_id, role`,
+  ).bind(...ids).all<{ user_id: string; role: AppRole }>();
+  for (const id of ids) result.set(id, []);
+  for (const row of rows.results ?? []) {
+    const roles = result.get(row.user_id) ?? [];
+    if (!roles.includes(row.role)) roles.push(row.role);
+    result.set(row.user_id, roles);
+  }
+  return result;
 }
 
 export async function grantUserRole(input: {

@@ -33,7 +33,8 @@ describe("password reset approval flow", () => {
 
   it("keeps the authenticated session when PIN inactivity locks the UI", () => {
     const source = read("app/lib/auth-server.ts");
-    expect(source).toContain("DELETE FROM sessions WHERE token_hash = ? AND expires_at <= ?");
+    expect(source).toContain("Inactivity only locks the UI again");
+    expect(source).not.toContain("DELETE FROM sessions WHERE token_hash = ? AND expires_at <= ?");
     expect(source).not.toContain("last_seen_at <= idleCutoff");
     expect(source).toContain("AUTH_UNLOCK_IDLE_MINUTES");
   });

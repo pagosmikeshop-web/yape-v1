@@ -1,4 +1,5 @@
-import { dbBinding, normalizePeruvianMobile, routeError } from "@/app/lib/auth-server";
+import { dbBinding, normalizePeruvianMobile, routeError, authEnv } from "@/app/lib/auth-server";
+import { isSupabaseDatabase } from "@/app/lib/database-server";
 import { findActiveRecipientById } from "@/app/lib/active-recipient-server";
 import { bytesToBase64Url } from "@/app/lib/base64url";
 import {
@@ -207,6 +208,9 @@ export function assertSameOriginMutation(request: Request, requireJson: boolean)
 
 export async function ensureQrContactSchema() {
   if (schemaReady) return schemaReady;
+  // Supabase se administra exclusivamente mediante migraciones versionadas.
+  // Nunca ejecutamos DDL dentro de una petición de usuario.
+  if (isSupabaseDatabase(authEnv())) return Promise.resolve();
   const database = dbBinding();
   schemaReady = database.batch([
     database.prepare(
