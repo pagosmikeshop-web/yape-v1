@@ -215,7 +215,7 @@ export function QRCodeScanner() {
         <video ref={videoRef} className={`scanner-video${cameraReady ? " is-ready" : ""}`} muted playsInline autoPlay aria-label="Cámara para escanear QR" />
         {uploadedImage ? <img className="scanner-upload-preview" src={uploadedImage} alt="Imagen QR seleccionada" /> : null}
         <i aria-hidden="true" />
-        <p>{status === "processing" ? "Validando el QR..." : "Coloca el código QR dentro del recuadro"}</p>
+        <p>{status === "processing" ? "Validando el QR..." : "Coloca el código QR frente a la cámara"}</p>
       </div>
 
       <input ref={fileInputRef} className="scanner-file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleUpload} />

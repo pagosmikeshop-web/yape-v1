@@ -16,50 +16,18 @@
 }
 
 .mobile-bank-shell .scanner-live-frame::before {
-  display: block !important;
-  content: "" !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  right: auto !important;
-  bottom: auto !important;
-  width: min(82vw, 62vh) !important;
-  height: min(82vw, 62vh) !important;
-  z-index: 2 !important;
-  border: 2px solid rgba(244, 167, 255, 0.52) !important;
-  border-top-color: rgba(244, 167, 255, 0.92) !important;
-  border-right-color: rgba(146, 11, 193, 0.78) !important;
-  border-bottom-color: rgba(32, 199, 186, 0.58) !important;
-  border-left-color: rgba(244, 167, 255, 0.92) !important;
-  border-radius: 18px !important;
-  clip-path: none !important;
-  transform: translate(-50%, -50%) !important;
-  pointer-events: none !important;
+  display: none !important;
 }
 
 .mobile-bank-shell .scanner-live-frame::after {
-  display: block !important;
-  content: "" !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  right: auto !important;
-  bottom: auto !important;
-  width: min(82vw, 62vh) !important;
-  height: min(82vw, 62vh) !important;
-  z-index: 2 !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 18px !important;
-  clip-path: none !important;
-  transform: translate(-50%, -50%) !important;
-  pointer-events: none !important;
+  display: none !important;
 }
 
 .mobile-bank-shell .scanner-live-frame i {
   top: 33% !important;
   right: auto !important;
   left: 50% !important;
-  width: min(72vw, 56vh) !important;
+  width: min(74vw, 56vh) !important;
   z-index: 3 !important;
   height: 3px !important;
   transform: translateX(-50%) !important;
