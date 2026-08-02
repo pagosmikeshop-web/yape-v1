@@ -1059,3 +1059,75 @@ canvas {
     text-align: center;
   }
 }
+
+/* PIN: replace the heading with the six-digit progress indicator without changing the keypad flow. */
+.pin-indicator {
+  position: relative;
+  display: grid;
+  min-block-size: 44px;
+  place-items: center;
+}
+
+.pin-indicator > h1,
+.pin-indicator > .pin-dots {
+  grid-area: 1 / 1;
+}
+
+.pin-indicator > h1 {
+  margin: 0;
+  transition: opacity 140ms ease;
+}
+
+.pin-indicator > .pin-dots,
+.returning-keypad-card .pin-indicator > .pin-dots {
+  position: static;
+  inline-size: auto;
+  block-size: auto;
+  min-block-size: 44px;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  clip-path: none;
+  white-space: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 4vw, 18px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms ease, visibility 140ms ease;
+}
+
+.pin-indicator > .pin-dots span,
+.returning-keypad-card .pin-indicator > .pin-dots span {
+  flex: 0 0 auto;
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 50%;
+  background: #d7d0dc;
+}
+
+.pin-indicator > .pin-dots span.is-filled,
+.returning-keypad-card .pin-indicator > .pin-dots span.is-filled {
+  background: #4b1458;
+}
+
+.pin-indicator.has-input > h1 {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.pin-indicator.has-input > .pin-dots,
+.returning-keypad-card .pin-indicator.has-input > .pin-dots {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-indicator > h1,
+  .pin-indicator > .pin-dots,
+  .returning-keypad-card .pin-indicator > .pin-dots {
+    transition: none;
+  }
+}

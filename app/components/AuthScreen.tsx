@@ -349,15 +349,23 @@ function ReturningKeypad({
           </div>
         </div>
         <section className="returning-keypad-card">
-          <h1>{mode === "set" ? "Configura tu clave" : "Ingresa tu clave"}</h1>
+          <div className={`pin-indicator${pin.length > 0 ? " has-input" : ""}`}>
+            <h1 aria-hidden={pin.length > 0}>{mode === "set" ? "Configura tu clave" : "Ingresa tu clave"}</h1>
+            <div
+              className="pin-dots"
+              aria-hidden={pin.length === 0}
+              aria-label={`${pin.length} dígitos ingresados`}
+            >
+              {[0, 1, 2, 3, 4, 5].map((item) => (
+                <span key={item} className={item < pin.length ? "is-filled" : ""} />
+              ))}
+            </div>
+          </div>
           {mode === "verify" ? (
             <p className="returning-pin-hint">
               También puedes usar Face ID o huella. Si no quieres, escribe tu clave de 6 dígitos.
             </p>
           ) : null}
-          <div className="pin-dots" aria-label={`${pin.length} dígitos ingresados`}>
-            {[0, 1, 2, 3, 4, 5].map((item) => <span key={item} className={item < pin.length ? "is-filled" : ""} />)}
-          </div>
           {notice ? <p className={`form-notice is-${notice.tone}`} role="status">{notice.text}</p> : null}
           <div className="numeric-keypad">
             {keypadOrder.map((key) => (

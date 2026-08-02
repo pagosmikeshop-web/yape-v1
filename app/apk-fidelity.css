@@ -2824,3 +2824,190 @@
   text-align: right !important;
   white-space: nowrap !important;
 }
+
+/* Final scanner override: visual-only guide over the full camera surface. */
+.mobile-bank-shell.view-scanner,
+.mobile-bank-shell.view-scanner .bank-scroll-area,
+.mobile-bank-shell.view-scanner .reference-scanner-view {
+  width: 100% !important;
+  min-height: 100dvh !important;
+  height: 100dvh !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  background: #040407 !important;
+}
+
+.mobile-bank-shell.view-scanner .reference-scanner-view {
+  position: relative !important;
+  padding: 0 !important;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(117, 45, 145, 0.2), transparent 34%),
+    linear-gradient(180deg, #0a0a0d 0%, #020204 100%) !important;
+}
+
+.mobile-bank-shell.view-scanner .reference-scanner-view > header {
+  position: fixed !important;
+  top: max(12px, env(safe-area-inset-top, 0px)) !important;
+  right: auto !important;
+  left: max(16px, env(safe-area-inset-left, 0px)) !important;
+  width: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  z-index: 20 !important;
+}
+
+.mobile-bank-shell.view-scanner .reference-scanner-view > header span {
+  display: none !important;
+}
+
+.mobile-bank-shell.view-scanner .reference-scanner-view > header a {
+  display: grid !important;
+  width: 46px !important;
+  height: 46px !important;
+  place-items: center !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 50% !important;
+  background: rgba(54, 54, 60, 0.78) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-frame {
+  --scanner-size: clamp(220px, 64vw, 250px);
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  aspect-ratio: auto !important;
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-frame::before {
+  display: block !important;
+  content: "" !important;
+  position: absolute !important;
+  z-index: 1 !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background: rgba(0, 0, 0, 0.42) !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-frame::after {
+  display: block !important;
+  content: "" !important;
+  position: absolute !important;
+  z-index: 3 !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: var(--scanner-size) !important;
+  height: var(--scanner-size) !important;
+  box-sizing: border-box !important;
+  transform: translate(-50%, -58%) !important;
+  border: 1px solid rgba(246, 220, 255, 0.9) !important;
+  border-radius: 18px !important;
+  pointer-events: none !important;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.2), 0 0 28px rgba(212, 108, 238, 0.24), inset 0 0 22px rgba(255, 255, 255, 0.08) !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-frame .scanner-video,
+.mobile-bank-shell.view-scanner .scanner-live-frame .scanner-upload-preview {
+  position: absolute !important;
+  z-index: 0 !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  opacity: 0.86 !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-frame > i {
+  position: absolute !important;
+  z-index: 4 !important;
+  top: calc(50% - (var(--scanner-size) * 0.58) + 13px) !important;
+  left: 50% !important;
+  right: auto !important;
+  width: calc(var(--scanner-size) - 24px) !important;
+  height: 2px !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  border-radius: 999px !important;
+  background: linear-gradient(90deg, transparent, #e7a6f6 16%, #f9e5ff 50%, #e7a6f6 84%, transparent) !important;
+  box-shadow: 0 0 13px rgba(222, 113, 242, 0.92) !important;
+  animation: qr-scanner-line 2.8s ease-in-out infinite !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-frame > p {
+  position: absolute !important;
+  z-index: 5 !important;
+  top: calc(50% + (var(--scanner-size) * 0.42) + 26px) !important;
+  left: 50% !important;
+  width: min(86vw, 300px) !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  text-align: center !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-actions {
+  position: fixed !important;
+  z-index: 12 !important;
+  right: 16px !important;
+  bottom: max(16px, calc(16px + env(safe-area-inset-bottom, 0px))) !important;
+  left: 16px !important;
+  margin: 0 !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-actions button {
+  display: flex !important;
+  min-height: 76px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  border: 0 !important;
+  border-radius: 22px !important;
+  color: #29202d !important;
+  background: #fff !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+
+.mobile-bank-shell.view-scanner .reference-scanner-view > small,
+.mobile-bank-shell.view-scanner .reference-scanner-view .scanner-brand-mark {
+  display: none !important;
+}
+
+.mobile-bank-shell.view-scanner .reference-scanner-view .scanner-notice {
+  position: fixed !important;
+  z-index: 18 !important;
+  right: 20px !important;
+  bottom: calc(102px + env(safe-area-inset-bottom, 0px)) !important;
+  left: 20px !important;
+  margin: 0 !important;
+  padding: 10px 14px !important;
+  border-radius: 12px !important;
+  color: #fff !important;
+  background: rgba(53, 26, 59, 0.92) !important;
+  font-size: 13px !important;
+  text-align: center !important;
+}
+
+@keyframes qr-scanner-line {
+  0%, 100% { transform: translate(-50%, 0); opacity: 0.72; }
+  50% { transform: translate(-50%, calc(var(--scanner-size) - 28px)); opacity: 1; }
+}
+
+@media (min-width: 600px) {
+  .mobile-bank-shell.view-scanner .scanner-live-frame { --scanner-size: 280px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bank-shell.view-scanner .scanner-live-frame > i { animation: none !important; }
+}
