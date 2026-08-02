@@ -1,5 +1,5 @@
 ﻿import { sql } from "drizzle-orm";
-import { check, index, integer, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, check, index, integer, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -15,7 +15,7 @@ export const users = pgTable("users", {
   passwordSalt: text("password_salt").notNull(),
   pinHash: text("pin_hash"),
   pinSalt: text("pin_salt"),
-  credits: integer("credits").notNull().default(0),
+  credits: bigint("credits", { mode: "number" }).notNull().default(0),
   deviceId: text("device_id"),
   devicePublicKey: text("device_public_key"),
   fingerprintIdHash: text("fingerprint_id_hash"),
@@ -184,7 +184,7 @@ export const accountBalances = pgTable("account_balances", {
   userId: text("user_id")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
-  balanceCents: integer("balance_cents").notNull().default(3913),
+  balanceCents: bigint("balance_cents", { mode: "number" }).notNull().default(3913),
   isConfigured: integer("is_configured").notNull().default(0),
   updatedAt: text("updated_at").notNull(),
 }, (table) => [
@@ -202,7 +202,7 @@ export const accountMovements = pgTable("account_movements", {
   recipientUserId: text("recipient_user_id").references(() => users.id, { onDelete: "set null" }),
   savedRecipientId: text("saved_recipient_id").references(() => savedPaymentRecipients.id, { onDelete: "set null" }),
   destination: text("destination").notNull().default("Yape"),
-  amountCents: integer("amount_cents").notNull(),
+  amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
   message: text("message").notNull().default(""),
   securityCode: text("security_code").notNull(),
   operationNumber: text("operation_number").notNull(),
@@ -242,8 +242,8 @@ export const autocompleteKeys = pgTable("autocomplete_keys", {
   id: text("id").primaryKey(),
   tokenHash: text("token_hash").notNull(),
   tokenHint: text("token_hint").notNull(),
-  creditsTotal: integer("credits_total").notNull(),
-  creditsRemaining: integer("credits_remaining").notNull(),
+  creditsTotal: bigint("credits_total", { mode: "number" }).notNull(),
+  creditsRemaining: bigint("credits_remaining", { mode: "number" }).notNull(),
   createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull(),
   revokedAt: text("revoked_at"),
@@ -272,8 +272,8 @@ export const autocompleteKeyClaims = pgTable("autocomplete_key_claims", {
 export const creditLedger = pgTable("credit_ledger", {
   id: text("id").primaryKey(),
   sellerId: text("seller_id").notNull(),
-  delta: integer("delta").notNull(),
-  balanceAfter: integer("balance_after").notNull(),
+  delta: bigint("delta", { mode: "number" }).notNull(),
+  balanceAfter: bigint("balance_after", { mode: "number" }).notNull(),
   reason: text("reason").notNull(),
   referenceId: text("reference_id").notNull(),
   createdBy: text("created_by").notNull(),
@@ -284,7 +284,7 @@ export const activations = pgTable("activations", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().unique(),
   sellerId: text("seller_id").notNull(),
-  creditsCharged: integer("credits_charged").notNull().default(1),
+  creditsCharged: bigint("credits_charged", { mode: "number" }).notNull().default(1),
   createdAt: text("created_at").notNull(),
 });
 
@@ -323,7 +323,7 @@ export const passwordResetRequests = pgTable("password_reset_requests", {
   userId: text("user_id").notNull(),
   sellerId: text("seller_id").notNull(),
   status: text("status").notNull().default("pending"),
-  priceCredits: integer("price_credits").notNull().default(1),
+  priceCredits: bigint("price_credits", { mode: "number" }).notNull().default(1),
   createdAt: text("created_at").notNull(),
   approvedAt: text("approved_at"),
   approvedBy: text("approved_by"),
@@ -508,7 +508,7 @@ export const clientCrmActivities = pgTable("client_crm_activities", {
   activityType: text("activity_type").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
-  amountCents: integer("amount_cents").notNull().default(0),
+  amountCents: bigint("amount_cents", { mode: "number" }).notNull().default(0),
   createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull(),
 }, (table) => [
