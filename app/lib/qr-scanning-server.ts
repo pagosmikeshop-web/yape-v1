@@ -133,6 +133,11 @@ async function ensureQrScanningSchemaUncached() {
 let qrSchemaReady: Promise<void> | null = null;
 
 function ensureQrScanningSchema() {
+  // Supabase se despliega mediante migraciones versionadas. Consultar
+  // information_schema en cada instancia fría añadía dos viajes de red antes
+  // de validar el QR; las consultas reales siguen fallando de forma segura si
+  // una migración no está aplicada.
+  if (isSupabaseDatabase(authEnv())) return Promise.resolve();
   if (qrSchemaReady) return qrSchemaReady;
   qrSchemaReady = ensureQrScanningSchemaUncached().catch((error) => {
     qrSchemaReady = null;
@@ -198,15 +203,19 @@ export async function scanQr(input: {
   await ensureQrScanningSchema();
   const value = normalizeQrValue(input.value);
   const scanId = normalizeScanId(input.scanId);
-  const existing = await findExistingEvent(input.user.id, scanId);
-  if (existing) return responseForEvent(existing.response_payload) ?? result("invalid");
-
   const valueHash = await globalQrPayloadHash(value);
   const database = dbBinding();
-  const row = await database.prepare(
-    `SELECT id, holder_name, phone_e164, provider, recipient_user_id, status, expires_at
-     FROM global_qr_directory WHERE payload_hash = ? LIMIT 1`,
-  ).bind(valueHash).first<QrRow>();
+  // La comprobación de idempotencia y la búsqueda indexada del QR son
+  // independientes. Ejecutarlas en paralelo elimina un RTT completo sin
+  // permitir lecturas duplicadas ni saltarse la auditoría.
+  const [existing, row] = await Promise.all([
+    findExistingEvent(input.user.id, scanId),
+    database.prepare(
+      `SELECT id, holder_name, phone_e164, provider, recipient_user_id, status, expires_at
+       FROM global_qr_directory WHERE payload_hash = ? LIMIT 1`,
+    ).bind(valueHash).first<QrRow>(),
+  ]);
+  if (existing) return responseForEvent(existing.response_payload) ?? result("invalid");
 
   if (!row) {
     const recipientId = parsePaymentQrPayload(value);

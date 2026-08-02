@@ -332,6 +332,9 @@ export async function enforceAuthRateLimits(rules: AuthRateLimitRule[]) {
     if (!/^[a-z0-9:_-]{3,64}$/u.test(rule.bucket) || rule.limit < 1 || rule.windowSeconds < 1) {
       throw new Error("Invalid authentication rate-limit policy.");
     }
+  }
+
+  const states = await Promise.all(rules.map(async (rule) => {
     const subjectHash = await authRateLimitSubjectHash(rule.bucket, rule.subject);
     const cutoff = nowSeconds - rule.windowSeconds;
     const state = await database().prepare(
@@ -353,6 +356,10 @@ export async function enforceAuthRateLimits(rules: AuthRateLimitRule[]) {
       window_started_at: number;
       attempt_count: number;
     }>();
+    return { rule, state };
+  }));
+
+  for (const { rule, state } of states) {
     const attempts = Number(state?.attempt_count ?? rule.limit + 1);
     if (attempts > rule.limit) {
       const retryAfterSeconds = Math.max(
@@ -439,11 +446,15 @@ export async function ensureAuthSchema() {
         "global_recipient_directory",
         "global_qr_directory",
       ];
-      const missing: string[] = [];
-      for (const table of requiredTables) {
-        const row = await db.prepare("SELECT to_regclass(?) AS table_name").bind(`public.${table}`).first<{ table_name: string | null }>();
-        if (!row?.table_name) missing.push(table);
-      }
+      // Una sola consulta de metadatos evita siete viajes de red en cada
+      // instancia fría de Supabase antes de validar la sesión.
+      const placeholders = requiredTables.map(() => "?").join(", ");
+      const rows = await db.prepare(
+        `SELECT table_name FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_name IN (${placeholders})`,
+      ).bind(...requiredTables).all<{ table_name: string }>();
+      const found = new Set((rows.results ?? []).map((row) => row.table_name));
+      const missing = requiredTables.filter((table) => !found.has(table));
       if (missing.length) {
         throw new Error(`El esquema de Supabase no estÃ¡ aplicado. Faltan tablas: ${missing.join(", ")}. Ejecuta la migraciÃ³n SQL antes de cambiar DATABASE_PROVIDER.`);
       }
@@ -1118,13 +1129,6 @@ async function findSessionUser(request: Request, roles?: AppRole[], includeExpir
   );
   const row = await statement.bind(tokenHash, now).first<SessionRow>();
   if (!row) return null;
-  row.roles = await getUserRoles(row.id);
-  const effectiveRoles = new Set<AppRole>([row.role, ...(row.roles ?? [])]);
-  if (roles && !roles.some((role) => effectiveRoles.has(role))) return null;
-  const hasStaffRole = effectiveRoles.has("admin") || effectiveRoles.has("seller");
-  if (!includeExpiredAccess && !hasStaffRole && row.access_expires_at && Date.parse(row.access_expires_at) <= Date.now()) {
-    return null;
-  }
   const unlocked = Boolean(
     row.unlocked_until
       && Date.parse(row.unlocked_until) > Date.now()
@@ -1133,9 +1137,19 @@ async function findSessionUser(request: Request, roles?: AppRole[], includeExpir
   const refreshedUnlockUntil = unlocked
     ? new Date(Date.now() + unlockIdleMs).toISOString()
     : null;
-  await database().prepare(
-    "UPDATE sessions SET last_seen_at = ?, unlocked_until = ? WHERE id = ?",
-  ).bind(now, refreshedUnlockUntil, row.session_id).run();
+  const [userRoles] = await Promise.all([
+    getUserRoles(row.id),
+    database().prepare(
+      "UPDATE sessions SET last_seen_at = ?, unlocked_until = ? WHERE id = ?",
+    ).bind(now, refreshedUnlockUntil, row.session_id).run(),
+  ]);
+  row.roles = userRoles;
+  const effectiveRoles = new Set<AppRole>([row.role, ...(row.roles ?? [])]);
+  if (roles && !roles.some((role) => effectiveRoles.has(role))) return null;
+  const hasStaffRole = effectiveRoles.has("admin") || effectiveRoles.has("seller");
+  if (!includeExpiredAccess && !hasStaffRole && row.access_expires_at && Date.parse(row.access_expires_at) <= Date.now()) {
+    return null;
+  }
   return {
     user: {
       ...mapUser(row),

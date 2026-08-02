@@ -34,6 +34,7 @@ const MIN_QR_BYTES = 4;
 const MAX_QR_BYTES = 2_048;
 const MIN_ENCRYPTION_SECRET_LENGTH = 32;
 let schemaReady: Promise<void> | null = null;
+let payloadHashKey: { secret: string; key: CryptoKey } | null = null;
 
 type QrContactEnv = {
   DB?: D1Database;
@@ -106,13 +107,17 @@ async function encryptionKey() {
 }
 
 async function payloadHash(userId: string, payload: string) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(encryptionSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
+  const secret = encryptionSecret();
+  const key = payloadHashKey?.secret === secret
+    ? payloadHashKey.key
+    : await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+  payloadHashKey = { secret, key };
   const signature = await crypto.subtle.sign(
     "HMAC",
     key,
