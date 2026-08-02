@@ -111,6 +111,114 @@
   margin: 14px auto 0;
 }
 
+/* Lector QR conectado al endpoint seguro de Supabase. */
+.mobile-bank-shell .scanner-live-frame {
+  isolation: isolate;
+}
+
+.mobile-bank-shell .scanner-live-frame.is-camera-ready::after {
+  border-color: rgba(32, 199, 186, .72);
+}
+
+.mobile-bank-shell .scanner-camera-select {
+  position: fixed;
+  right: 16px;
+  bottom: calc(176px + env(safe-area-inset-bottom));
+  left: 16px;
+  z-index: 21;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 10px;
+  color: #f5f2f7;
+  background: rgba(17, 12, 20, .78);
+  backdrop-filter: blur(12px);
+  font-size: 11px;
+}
+
+.mobile-bank-shell .scanner-camera-select span {
+  color: #c4b7ca;
+  font-weight: 700;
+}
+
+.mobile-bank-shell .scanner-camera-select select {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  color: inherit;
+  background: rgba(255, 255, 255, .1);
+  font: inherit;
+}
+
+.mobile-bank-shell .scanner-live-actions {
+  gap: 8px;
+}
+
+.mobile-bank-shell .scanner-live-actions button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.mobile-bank-shell .scanner-notice-processing {
+  position: fixed;
+  right: 28px;
+  bottom: calc(262px + env(safe-area-inset-bottom));
+  left: 28px;
+  z-index: 22;
+  margin: 0;
+}
+
+.mobile-bank-shell .scanner-result {
+  position: fixed;
+  right: 16px;
+  bottom: calc(156px + env(safe-area-inset-bottom));
+  left: 16px;
+  z-index: 24;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(32, 199, 186, .48);
+  border-radius: 14px;
+  color: #fff;
+  background: rgba(25, 14, 30, .94);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .32);
+  backdrop-filter: blur(16px);
+}
+
+.mobile-bank-shell .scanner-result-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #0a6057;
+  background: #7ce5dc;
+}
+
+.mobile-bank-shell .scanner-result-icon svg { width: 22px; height: 22px; }
+.mobile-bank-shell .scanner-result > div:nth-child(2) { display: grid; gap: 4px; min-width: 0; }
+.mobile-bank-shell .scanner-result strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.mobile-bank-shell .scanner-result span { color: #d6cad9; font-size: 10px; }
+.mobile-bank-shell .scanner-result button { grid-column: 1 / -1; min-height: 40px; border: 0; border-radius: 9px; color: #3a1246; background: #7ce5dc; font-weight: 800; }
+.mobile-bank-shell .scanner-result .scanner-secondary-action { color: #f2eaf4; background: rgba(255, 255, 255, .1); }
+.mobile-bank-shell .scanner-retry { position: fixed; right: 28px; bottom: calc(176px + env(safe-area-inset-bottom)); left: 28px; z-index: 22; min-height: 42px; border: 0; border-radius: 9px; color: #3a1246; background: #fff; font-weight: 800; }
+.mobile-bank-shell .scanner-preferences { position: fixed; right: 16px; bottom: calc(132px + env(safe-area-inset-bottom)); z-index: 21; display: flex; align-items: center; gap: 6px; color: #d6cad9; font-size: 10px; }
+.mobile-bank-shell .scanner-preferences input { accent-color: #20c7ba; }
+.mobile-bank-shell .scanner-brand-mark { display: none; }
+
+@media (min-width: 720px) {
+  .mobile-bank-shell .scanner-camera-select,
+  .mobile-bank-shell .scanner-notice-processing,
+  .mobile-bank-shell .scanner-result,
+  .mobile-bank-shell .scanner-retry { right: 50%; left: auto; width: min(420px, calc(100% - 32px)); transform: translateX(50%); }
+  .mobile-bank-shell .scanner-preferences { right: 50%; transform: translateX(50%); }
+}
+
 /* La lista expandida debe medir lo mismo que su tarjeta; evita cortar los importes. */
 .mobile-bank-shell.view-home .movements-disclosure .simple-movement-list {
   box-sizing: border-box !important;

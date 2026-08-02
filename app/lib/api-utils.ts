@@ -127,9 +127,9 @@ export function jsonOk(data: Record<string, unknown> = {}, init?: ResponseInit) 
   return Response.json({ ok: true, ...data }, { ...init, headers });
 }
 
-export function jsonError(message: string, status = 400) {
+export function jsonError(message: string, status = 400, code?: string) {
   return Response.json(
-    { ok: false, error: message },
+    { ok: false, error: message, ...(code ? { code } : {}) },
     { status, headers: { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" } },
   );
 }

@@ -12,6 +12,7 @@ import {
 import { canManageSeller, requireManagedAccount } from "@/app/lib/management-server";
 import { requirePermission } from "@/app/lib/rbac";
 import { activateClientTrial } from "@/app/lib/trial-activation";
+import { buildFullUserDeletionStatements } from "@/app/lib/admin-user-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -184,6 +185,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     if (requestedStatus === "disabled" && current.status !== "disabled") {
       await revokeUserSessions(current.id);
+      const revokedAt = new Date().toISOString();
+      await database.batch([
+        database.prepare(
+          `UPDATE global_recipient_directory
+           SET status = 'revoked', revoked_at = ?, revoked_reason = 'Cuenta suspendida', updated_at = ?
+           WHERE submitted_by_user_id = ? AND status = 'active'`,
+        ).bind(revokedAt, revokedAt, current.id),
+        database.prepare(
+          `UPDATE global_qr_directory
+           SET status = 'revoked', revoked_at = ?, revoked_reason = 'Cuenta suspendida', updated_at = ?
+           WHERE submitted_by_user_id = ? AND status = 'active'`,
+        ).bind(revokedAt, revokedAt, current.id),
+      ]);
     }
 
     return jsonOk({
@@ -230,59 +244,14 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     }
 
     const now = new Date().toISOString();
-    const deletedLogin = `DELETED-${id}`;
-    await database.batch([
-      database.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM payment_directory WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM saved_payment_recipients WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM recipient_lookup_attempts WHERE requester_user_id = ?").bind(id),
-      database.prepare(
-        `UPDATE account_movements
-         SET recipient_name = 'Usuario eliminado',
-             recipient_reference = 'Cuenta eliminada',
-             recipient_user_id = NULL
-         WHERE recipient_user_id = ?`,
-      ).bind(id),
-      database.prepare("DELETE FROM qr_contacts WHERE user_id = ?").bind(id),
-      database.prepare("UPDATE qr_contacts SET recipient_user_id = NULL WHERE recipient_user_id = ?").bind(id),
-      database.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM account_invitations WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM telegram_identities WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM referral_redemptions WHERE referrer_user_id = ?").bind(id),
-      database.prepare("UPDATE referral_redemptions SET redeemed_by_user_id = NULL WHERE redeemed_by_user_id = ?").bind(id),
-      database.prepare("DELETE FROM permanent_access_tokens WHERE user_id = ? OR seller_id = ?").bind(id, id),
-      database.prepare(
-        "DELETE FROM global_permanent_access_tokens WHERE created_by = ? OR redeemed_by_user_id = ?",
-      ).bind(id, id),
-      database.prepare("DELETE FROM password_reset_requests WHERE user_id = ? OR seller_id = ?").bind(id, id),
-      database.prepare("DELETE FROM activations WHERE user_id = ? OR seller_id = ?").bind(id, id),
-      database.prepare("DELETE FROM credit_ledger WHERE seller_id = ?").bind(id),
-      database.prepare(
-        "UPDATE rbac_permission_overrides SET updated_by = ?, updated_at = ? WHERE updated_by = ? AND user_id <> ?",
-      ).bind(actor.id, now, id, id),
-      database.prepare("DELETE FROM rbac_permission_overrides WHERE user_id = ?").bind(id),
-      database.prepare(
-        "UPDATE client_crm_activities SET created_by = ? WHERE created_by = ? AND user_id <> ?",
-      ).bind(actor.id, id, id),
-      database.prepare("DELETE FROM client_crm_activities WHERE user_id = ?").bind(id),
-      database.prepare(
-        "UPDATE client_crm_profiles SET updated_by = ?, updated_at = ? WHERE updated_by = ? AND user_id <> ?",
-      ).bind(actor.id, now, id, id),
-      database.prepare("DELETE FROM client_crm_profiles WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM webauthn_credentials WHERE user_id = ?").bind(id),
-      database.prepare("DELETE FROM webauthn_challenges WHERE user_id = ?").bind(id),
-      database.prepare(
-        `UPDATE users SET seller_code = ?, username = ?, display_name = 'Usuario eliminado', email = '',
-           status = 'disabled', owner_id = NULL, credits = 0, device_id = NULL, device_public_key = NULL,
-           fingerprint_id_hash = NULL, telegram_user_id = NULL, referral_code = NULL,
-           referred_by_user_id = NULL, access_expires_at = NULL, deleted_at = ?, updated_at = ?
-         WHERE id = ? AND is_owner = 0 AND deleted_at IS NULL`,
-      ).bind(deletedLogin, deletedLogin.toLowerCase(), now, now, id),
-      database.prepare(
-        `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
-         VALUES (?, ?, 'web_delete_user', ?, ?)`,
-      ).bind(crypto.randomUUID(), actor.telegramUserId ?? actor.id, `${id}:${target.role}`, now),
-    ]);
+    await database.batch(buildFullUserDeletionStatements(
+      database,
+      id,
+      actor.id,
+      actor.telegramUserId,
+      target.role,
+      now,
+    ));
     return jsonOk({
       message: "Usuario eliminado. Su Telegram ID y dispositivo quedan libres para un nuevo registro.",
     });

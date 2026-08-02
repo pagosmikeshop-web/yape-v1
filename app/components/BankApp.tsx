@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   buildPaymentQrPayload,
-  parsePaymentQrPayload,
 } from "../lib/payment-qr";
 import {
   clearSessionCache,
@@ -37,6 +36,9 @@ import {
 } from "./bank/MovementVoucher";
 import { HomeView } from "./bank/HomeView";
 import { contactInitials, maskPhone, TransferView } from "./bank/TransferView";
+import { RecipientContactsView } from "./bank/RecipientContactsView";
+import { GlobalDirectoryTermsDialog } from "./bank/GlobalDirectoryTermsDialog";
+import { QRCodeScanner } from "./bank/QRCodeScanner";
 import type {
   BankView,
   Movement,
@@ -153,6 +155,7 @@ const viewTitles: Partial<Record<BankView, string>> = {
   notifications: "Notificaciones",
   "account-data": "Mis datos",
   "account-details": "Datos de mi cuenta",
+  "account-payment-data": "Autocompletado Free",
   "voucher-editor": "Editar voucher",
   "high-amount": "Confirmación de yapeo alto",
   limits: "Límites transaccionales",
@@ -421,6 +424,7 @@ function QrView() {
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controlsRef = useRef<QrScannerControls | null>(null);
@@ -433,7 +437,7 @@ function QrView() {
   const loadContacts = useCallback(async () => {
     setLoadingContacts(true);
     try {
-      const response = await fetch("/api/qr-contacts", { cache: "no-store" });
+      const response = await fetch("/api/qr-directory", { cache: "no-store" });
       const data = (await response.json()) as {
         contacts?: SavedQrContact[];
         error?: string;
@@ -576,13 +580,19 @@ function QrView() {
     scanLockedRef.current = false;
   }
 
-  async function saveQrContact(event: FormEvent<HTMLFormElement>) {
+  function requestSaveQrContact(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!qrPayload || holderName.trim().length < 2 || saving) return;
+    setTermsOpen(true);
+  }
+
+  async function publishQrContact() {
+    if (!qrPayload || holderName.trim().length < 2 || saving) return;
+    setTermsOpen(false);
     setSaving(true);
     setNotice("");
     try {
-      const response = await fetch("/api/qr-contacts", {
+      const response = await fetch("/api/qr-directory", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -590,6 +600,8 @@ function QrView() {
           phone,
           provider,
           payload: qrPayload,
+          termsAccepted: true,
+          termsVersion: "global-recipient-v1",
         }),
       });
       const data = (await response.json()) as {
@@ -620,7 +632,7 @@ function QrView() {
     setNotice("");
     try {
       const response = await fetch(
-        `/api/qr-contacts/${encodeURIComponent(contact.id)}`,
+        `/api/qr-directory/${encodeURIComponent(contact.id)}`,
         { method: "DELETE" },
       );
       const data = (await response.json()) as { error?: string };
@@ -653,13 +665,13 @@ function QrView() {
             <AssetIcon name="ic_qrcode_r_yape" />
           </Link>
           <div>
-            <h1 className="qrc-header-title">Guardar QR</h1>
+            <h1 className="qrc-header-title">Publicar QR global</h1>
             <p className="qrc-header-sub">Sube una imagen con código QR</p>
           </div>
         </div>
       </header>
 
-      <form className="qrc-card" onSubmit={saveQrContact}>
+      <form className="qrc-card" onSubmit={requestSaveQrContact}>
         <input
           ref={fileInputRef}
           className="qrc-file-input"
@@ -742,7 +754,7 @@ function QrView() {
         </label>
         <label className="qrc-field">
           <span className="qrc-label">
-            Número de celular <small className="qrc-optional">(Opcional)</small>
+            Número de celular <small className="qrc-optional">(necesario si el QR no incluye celular)</small>
           </span>
           <input
             className="qrc-input"
@@ -787,7 +799,7 @@ function QrView() {
           </button>
         ) : null}
         <button className="qrc-btn" type="submit" disabled={!canSave}>
-          {saving ? "Guardando..." : "Guardar QR"}
+          {saving ? "Publicando..." : "Publicar QR global"}
         </button>
         {notice ? (
           <p className="qrc-notice" role="status">
@@ -798,8 +810,8 @@ function QrView() {
 
       <section className="qrc-saved-section" aria-labelledby="saved-qr-title">
         <div className="qrc-saved-heading">
-          <h2 id="saved-qr-title">Tus QR guardados</h2>
-          <span>{contacts.length}/50</span>
+          <h2 id="saved-qr-title">Tus QR publicados</h2>
+          <span>{contacts.length} recientes</span>
         </div>
         {loadingContacts ? (
           <p className="qrc-empty">Cargando tus QR...</p>
@@ -872,6 +884,11 @@ function QrView() {
           </div>
         </div>
       ) : null}
+      <GlobalDirectoryTermsDialog
+        open={termsOpen}
+        onCancel={() => setTermsOpen(false)}
+        onAccept={() => void publishQrContact()}
+      />
     </div>
   );
 }
@@ -905,7 +922,24 @@ function PersonalQrView() {
         return;
       }
       try {
-        const payload = buildPaymentQrPayload(id);
+        let payload = buildPaymentQrPayload(id);
+        try {
+          const paymentDataResponse = await fetch("/api/account/payment-data", {
+            cache: "no-store",
+          });
+          const paymentData = (await paymentDataResponse.json()) as {
+            data?: { qrPayload?: string | null };
+          };
+          if (
+            paymentDataResponse.ok
+            && typeof paymentData.data?.qrPayload === "string"
+            && paymentData.data.qrPayload.trim()
+          ) {
+            payload = paymentData.data.qrPayload;
+          }
+        } catch {
+          // The generated account QR remains a safe fallback when no QR is saved.
+        }
         const { default: QRCode } = await import("qrcode");
         const image = await QRCode.toDataURL(payload, {
           width: 640,
@@ -1290,9 +1324,9 @@ type ReferralOverview = {
   code: string | null;
   command: string | null;
   rewardDays: number;
-  monthlyLimit: number;
-  usedThisMonth: number;
-  remainingThisMonth: number;
+  redemptionLimit: number;
+  usedRedemptions: number;
+  remainingRedemptions: number;
   groupUrl: string;
 };
 
@@ -1478,7 +1512,7 @@ function AccountDataView() {
             </div>
             <strong>
               {referral
-                ? `${referral.remainingThisMonth}/${referral.monthlyLimit}`
+                ? `${referral.remainingRedemptions}/${referral.redemptionLimit}`
                 : "—"}
             </strong>
           </header>
@@ -1541,8 +1575,7 @@ function AccountDataView() {
           </ol>
           <footer>
             <span>
-              <strong>{referral?.usedThisMonth ?? 0}</strong> canjes usados este
-              mes
+              <strong>{referral?.usedRedemptions ?? 0}</strong> canjes usados
             </span>
             <a href={referral?.groupUrl || "/api/telegram/group"}>
               Abrir grupo de Telegram
@@ -1571,6 +1604,12 @@ function AccountDataView() {
               title="Datos de mi cuenta"
               description="Información personal y afiliación"
               href="/datos-cuenta/detalle"
+            />
+            <AccountHubMenuItem
+              icon="ic_qrcode_r_yape_primary"
+              title="Autocompletado Free"
+              description="Nombres y QR para autocompletar"
+              href="/datos-cuenta/recepcion"
             />
             <AccountHubMenuItem
               icon="ic_document_outline_yape_primary"
@@ -3117,199 +3156,6 @@ function OnlinePurchasesView() {
   );
 }
 
-function ScannerView() {
-  const router = useRouter();
-  const [flashlight, setFlashlight] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [uploadedImage, setUploadedImage] = useState("");
-  const [cameraReady, setCameraReady] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const controlsRef = useRef<QrScannerControls | null>(null);
-  const scanLockedRef = useRef(false);
-
-  const stopCamera = useCallback(() => {
-    controlsRef.current?.stop();
-    controlsRef.current = null;
-    const stream = videoRef.current?.srcObject;
-    if (stream instanceof MediaStream)
-      stream.getTracks().forEach((track) => track.stop());
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setCameraReady(false);
-  }, []);
-
-  const acceptQrValue = useCallback(
-    (rawValue: string) => {
-      if (scanLockedRef.current) return;
-      const recipientId = parsePaymentQrPayload(rawValue);
-      if (!recipientId) {
-        setNotice("El código no corresponde a un QR válido de Yape.");
-        return;
-      }
-
-      scanLockedRef.current = true;
-      setNotice("QR reconocido. Verificando destinatario...");
-      controlsRef.current?.stop();
-      router.push(`/transferir?recipient=${encodeURIComponent(recipientId)}`);
-    },
-    [router],
-  );
-
-  const startCamera = useCallback(async () => {
-    if (
-      typeof navigator === "undefined" ||
-      !navigator.mediaDevices?.getUserMedia
-    ) {
-      setNotice(
-        "La cámara no está disponible en este navegador. Puedes subir una imagen con QR.",
-      );
-      return;
-    }
-
-    try {
-      stopCamera();
-      const preview = videoRef.current;
-      if (!preview) return;
-      scanLockedRef.current = false;
-      const { BrowserQRCodeReader } = await import("@zxing/browser");
-      const reader = new BrowserQRCodeReader() as QrCodeReader;
-      const controls = await reader.decodeFromConstraints(
-        { video: { facingMode: { ideal: "environment" } }, audio: false },
-        preview,
-        (result) => {
-          if (result) acceptQrValue(result.getText());
-        },
-      );
-      controlsRef.current = controls;
-      setCameraReady(true);
-      setNotice("");
-    } catch {
-      setCameraReady(false);
-      setNotice(
-        "No se pudo abrir la cámara. Revisa el permiso o sube una imagen con QR.",
-      );
-    }
-  }, [acceptQrValue, stopCamera]);
-
-  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const nextPreview = URL.createObjectURL(file);
-    setUploadedImage((current) => {
-      if (current) URL.revokeObjectURL(current);
-      return nextPreview;
-    });
-    setNotice(`Analizando ${file.name}...`);
-    try {
-      const { BrowserQRCodeReader } = await import("@zxing/browser");
-      const reader = new BrowserQRCodeReader() as QrCodeReader;
-      const result = await reader.decodeFromImageUrl(nextPreview);
-      acceptQrValue(result.getText());
-    } catch {
-      setNotice("No encontramos un QR válido de Yape en esa imagen.");
-    } finally {
-      event.target.value = "";
-    }
-  }
-
-  async function toggleFlashlight() {
-    const nextValue = !flashlight;
-    const stream = videoRef.current?.srcObject;
-    const track =
-      stream instanceof MediaStream ? stream.getVideoTracks()[0] : undefined;
-    if (!track) {
-      setFlashlight(nextValue);
-      await startCamera();
-      return;
-    }
-
-    const capabilities = track.getCapabilities() as MediaTrackCapabilities & {
-      torch?: boolean;
-    };
-    if (!capabilities.torch) {
-      setNotice("La linterna física no está disponible en este dispositivo.");
-      return;
-    }
-
-    try {
-      await track.applyConstraints({
-        advanced: [{ torch: nextValue }],
-      } as unknown as MediaTrackConstraints);
-      setFlashlight(nextValue);
-    } catch {
-      setNotice("No se pudo cambiar el estado de la linterna.");
-    }
-  }
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void startCamera();
-    }, 0);
-    return () => {
-      window.clearTimeout(timer);
-      stopCamera();
-    };
-  }, [startCamera, stopCamera]);
-
-  useEffect(() => {
-    return () => {
-      if (uploadedImage) URL.revokeObjectURL(uploadedImage);
-    };
-  }, [uploadedImage]);
-
-  return (
-    <div className={`reference-scanner-view${flashlight ? " is-lit" : ""}`}>
-      <header>
-        <span className="scanner-status-chip">LECTOR YAPE</span>
-        <Link href="/inicio" aria-label="Cerrar escáner">
-          <AssetIcon name="ic_close_scan" />
-        </Link>
-      </header>
-      <div className="scanner-frame scanner-live-frame">
-        <video
-          ref={videoRef}
-          className={`scanner-video${cameraReady ? " is-ready" : ""}`}
-          muted
-          playsInline
-          autoPlay
-          aria-label="Cámara para escanear QR"
-        />
-        {uploadedImage ? (
-          <img
-            className="scanner-upload-preview"
-            src={uploadedImage}
-            alt="Imagen QR seleccionada"
-          />
-        ) : null}
-        <i />
-        <p>Enfoca el código QR dentro del recuadro</p>
-      </div>
-      <input
-        ref={fileInputRef}
-        className="scanner-file-input"
-        type="file"
-        accept="image/*"
-        onChange={handleUpload}
-      />
-      <div className="scanner-actions scanner-live-actions">
-        <button type="button" onClick={() => void toggleFlashlight()}>
-          <AssetIcon name="mb_ic_flash_on" />
-          {flashlight ? "Apagar linterna" : "Encender linterna"}
-        </button>
-        <button type="button" onClick={() => fileInputRef.current?.click()}>
-          <AssetIcon name="ic_add_photo_outline_yape" />
-          Subir una imagen con QR
-        </button>
-      </div>
-      {notice ? (
-        <p className="scanner-notice" role="status">
-          {notice}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function isLocalEditMode() {
   if (
     process.env.NODE_ENV === "production" ||
@@ -3323,17 +3169,176 @@ function isLocalEditMode() {
   );
 }
 
+function ScannerView() {
+  return <QRCodeScanner />;
+}
+
+type ExpiredAccessReferral = {
+  code: string | null;
+  command: string | null;
+  rewardDays: number;
+  redemptionLimit: number;
+  usedRedemptions: number;
+  remainingRedemptions: number;
+  groupUrl: string;
+};
+
+function AccessExpiredGate({ onResolved }: { onResolved: () => void }) {
+  const [referral, setReferral] = useState<ExpiredAccessReferral | null>(null);
+  const [referralLoaded, setReferralLoaded] = useState(false);
+  const [token, setToken] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/account/referral", {
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.ok !== false) setReferral(data as ExpiredAccessReferral);
+        setReferralLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) setReferralLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function claimPermanentAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token.trim() || loading) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/access/redeem", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ token: token.trim() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(safeApiMessage(data?.error, "No pudimos activar la clave permanente."));
+        return;
+      }
+      onResolved();
+    } catch (error) {
+      setMessage(safeClientMessage(error, "No pudimos activar la clave permanente."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function checkTelegramRedemption() {
+    if (checking) return;
+    setChecking(true);
+    setMessage("");
+    try {
+      clearSessionCache();
+      const result = await fetchSession({ force: true });
+      if (result.ok) {
+        const expiry = typeof result.user.accessExpiresAt === "string"
+          ? result.user.accessExpiresAt
+          : null;
+        if (!expiry || Date.parse(expiry) > Date.now()) {
+          onResolved();
+          return;
+        }
+      }
+      setMessage("Todavía no vemos un canje. Escribe el comando en el grupo y vuelve a comprobar.");
+    } catch (error) {
+      setMessage(safeClientMessage(error, "No pudimos comprobar el acceso."));
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  const remaining = referral?.remainingRedemptions ?? 3;
+  return (
+    <div className="access-expired-overlay" role="presentation">
+      <section
+        className="access-expired-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="access-expired-title"
+        aria-describedby="access-expired-description"
+      >
+        <span className="access-expired-eyebrow">ACCESO REQUERIDO</span>
+        <h2 id="access-expired-title">Tu prueba de 3 días terminó</h2>
+        <p id="access-expired-description">
+          Para continuar, activa un acceso permanente o utiliza <strong>/redeem</strong>.
+          Este aviso no se puede cerrar.
+        </p>
+
+        <form className="access-expired-form" onSubmit={claimPermanentAccess}>
+          <label htmlFor="expired-access-token">Clave permanente</label>
+          <div className="access-expired-token-row">
+            <input
+              id="expired-access-token"
+              value={token}
+              onChange={(event) => setToken(event.target.value.toUpperCase())}
+              placeholder="YAPE-XXXX-XXXX-XXXX"
+              autoComplete="one-time-code"
+              disabled={loading}
+            />
+            <button type="submit" disabled={!token.trim() || loading}>
+              {loading ? "Validando…" : "Activar"}
+            </button>
+          </div>
+        </form>
+
+        <div className="access-expired-divider" aria-hidden="true"><span>o</span></div>
+
+        <div className="access-expired-redeem">
+          <h3>Usar /redeem</h3>
+          {!referralLoaded ? (
+            <p>Preparando tu código de acceso…</p>
+          ) : !referral ? (
+            <p>No pudimos cargar tu código. Vuelve a intentar en unos segundos.</p>
+          ) : remaining > 0 && referral.command ? (
+            <>
+              <p>Comparte este comando en el grupo de Telegram:</p>
+              <code>{referral.command}</code>
+              <small>
+                Te quedan {remaining} de {referral.redemptionLimit} canjes disponibles.
+              </small>
+              <button type="button" onClick={() => void checkTelegramRedemption()} disabled={checking}>
+                {checking ? "Comprobando…" : "Ya hice /redeem, comprobar acceso"}
+              </button>
+              <a href={referral.groupUrl || "/api/telegram/group"}>Abrir grupo de Telegram</a>
+            </>
+          ) : (
+            <p className="access-expired-limit">
+              Ya agotaste los 3 canjes disponibles. Necesitas comprar el plan permanente.
+            </p>
+          )}
+        </div>
+        {message ? <p className="access-expired-message" role="alert">{message}</p> : null}
+      </section>
+    </div>
+  );
+}
+
 export function BankApp({ view }: { view: BankView }) {
   const router = useRouter();
   // Keep the first render deterministic on the server and in the browser.
   // Browser-only state (local edit mode/sessionStorage) is resolved after
   // hydration so the protected shell cannot appear only on the client.
   const [authorized, setAuthorized] = useState(false);
+  const [accessExpired, setAccessExpired] = useState(false);
   const [sessionError, setSessionError] = useState("");
   const [sessionAttempt, setSessionAttempt] = useState(0);
 
   useEffect(() => {
     if (isLocalEditMode()) {
+      setAccessExpired(false);
       setAuthorized(true);
       return;
     }
@@ -3362,6 +3367,12 @@ export function BankApp({ view }: { view: BankView }) {
         router.replace("/");
         return;
       }
+      const accessExpiresAt = typeof result.user.accessExpiresAt === "string"
+        ? result.user.accessExpiresAt
+        : null;
+      setAccessExpired(
+        Boolean(accessExpiresAt && Date.parse(accessExpiresAt) <= Date.now()),
+      );
       setOptimisticUnlock(true);
       setAuthorized(true);
     });
@@ -3409,6 +3420,7 @@ export function BankApp({ view }: { view: BankView }) {
           {view === "notifications" ? <NotificationsView /> : null}
           {view === "account-data" ? <AccountDataView /> : null}
           {view === "account-details" ? <AccountDetailsView /> : null}
+          {view === "account-payment-data" ? <RecipientContactsView /> : null}
           {view === "voucher-editor" ? <VoucherEditorView /> : null}
           {view === "high-amount" ? <HighAmountView /> : null}
           {view === "limits" ? <LimitsView /> : null}
@@ -3420,6 +3432,16 @@ export function BankApp({ view }: { view: BankView }) {
           {view === "scanner" ? <ScannerView /> : null}
         </div>
       </section>
+      {accessExpired ? (
+        <AccessExpiredGate
+          onResolved={() => {
+            clearSessionCache();
+            setOptimisticUnlock(true);
+            setAccessExpired(false);
+            setSessionAttempt((value) => value + 1);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

@@ -4,7 +4,7 @@ import {
   dbBinding,
   enforceAuthRateLimits,
   hashSecret,
-  requireSession,
+  requireSessionIncludingExpired,
   rotateAndUnlockSession,
   routeError,
   secretHashNeedsUpgrade,
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const { user, sessionId } = await requireSession(request);
+    const { user, sessionId } = await requireSessionIncludingExpired(request);
     if (user.mustChangePassword) return jsonError("Cambia tu contraseña antes de verificar la clave.", 428);
     const body = await readJson(request);
     const pin = asString(body.pin).replace(/\D/gu, "");

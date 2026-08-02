@@ -4,7 +4,7 @@ import {
   dbBinding,
   enforceAuthRateLimits,
   hashSecret,
-  requireSession,
+  requireSessionIncludingExpired,
   rotateAndUnlockSession,
   routeError,
 } from "@/app/lib/auth-server";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const { user, sessionId } = await requireSession(request);
+    const { user, sessionId } = await requireSessionIncludingExpired(request);
     if (user.mustChangePassword) return jsonError("Cambia tu contraseña antes de configurar la clave.", 428);
     await enforceAuthRateLimits([
       { bucket: "pin-account", subject: user.id, limit: 5, windowSeconds: 10 * 60 },

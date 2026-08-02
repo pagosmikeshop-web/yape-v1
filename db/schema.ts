@@ -23,6 +23,7 @@ export const users = pgTable("users", {
   referralCode: text("referral_code"),
   referredByUserId: text("referred_by_user_id"),
   accessExpiresAt: text("access_expires_at"),
+  referralRedemptionCount: integer("referral_redemption_count").notNull().default(0),
   mustChangePassword: integer("must_change_password").notNull().default(0),
   mustSetPin: integer("must_set_pin").notNull().default(1),
   createdAt: text("created_at").notNull(),
@@ -106,6 +107,77 @@ export const savedPaymentRecipients = pgTable("saved_payment_recipients", {
 }, (table) => [
   uniqueIndex("saved_payment_recipients_user_phone_unique").on(table.userId, table.phoneE164),
   index("saved_payment_recipients_user_updated_idx").on(table.userId, table.updatedAt),
+]);
+
+/** Directorio global de destinatarios publicado con aceptación de términos. */
+export const globalRecipientDirectory = pgTable("global_recipient_directory", {
+  id: text("id").primaryKey(),
+  phoneE164: text("phone_e164").notNull(),
+  displayName: text("display_name").notNull(),
+  source: text("source").notNull().default("manual"),
+  submittedByUserId: text("submitted_by_user_id").notNull(),
+  termsVersion: text("terms_version").notNull(),
+  termsAcceptedAt: text("terms_accepted_at").notNull(),
+  status: text("status").notNull().default("active"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  revokedAt: text("revoked_at"),
+  revokedReason: text("revoked_reason"),
+}, (table) => [
+  uniqueIndex("global_recipient_directory_phone_unique").on(table.phoneE164),
+  index("global_recipient_directory_submitter_idx").on(table.submittedByUserId, table.updatedAt),
+  index("global_recipient_directory_active_idx").on(table.phoneE164, table.status),
+  check("global_recipient_directory_source_check", sql`${table.source} in ('manual', 'qr')`),
+  check("global_recipient_directory_status_check", sql`${table.status} in ('active', 'revoked')`),
+]);
+
+/** QR global publicado con payload cifrado y aceptación de términos. */
+export const globalQrDirectory = pgTable("global_qr_directory", {
+  id: text("id").primaryKey(),
+  holderName: text("holder_name").notNull(),
+  phoneE164: text("phone_e164"),
+  provider: text("provider").notNull(),
+  recipientUserId: text("recipient_user_id"),
+  submittedByUserId: text("submitted_by_user_id").notNull(),
+  qrPayloadCiphertext: text("qr_payload_ciphertext").notNull(),
+  qrPayloadIv: text("qr_payload_iv").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  encryptionVersion: integer("encryption_version").notNull().default(1),
+  termsVersion: text("terms_version").notNull(),
+  termsAcceptedAt: text("terms_accepted_at").notNull(),
+  status: text("status").notNull().default("active"),
+    expiresAt: text("expires_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  revokedAt: text("revoked_at"),
+  revokedReason: text("revoked_reason"),
+}, (table) => [
+  uniqueIndex("global_qr_directory_payload_unique").on(table.payloadHash),
+  index("global_qr_directory_submitter_idx").on(table.submittedByUserId, table.updatedAt),
+  index("global_qr_directory_phone_idx").on(table.phoneE164, table.status),
+  index("global_qr_directory_recipient_idx").on(table.recipientUserId),
+  check("global_qr_directory_encryption_version_check", sql`${table.encryptionVersion} = 1`),
+  check("global_qr_directory_status_check", sql`${table.status} in ('active', 'revoked')`),
+]);
+
+/** Registro inmutable de cada intento de lectura del lector QR. */
+export const qrScanEvents = pgTable("qr_scan_events", {
+  id: text("id").primaryKey(),
+  qrId: text("qr_id").references(() => globalQrDirectory.id, { onDelete: "set null" }),
+  scannedValueHash: text("scanned_value_hash").notNull(),
+  scannedByUserId: text("scanned_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  idempotencyKey: text("idempotency_key").notNull(),
+  scanStatus: text("scan_status").notNull(),
+  errorCode: text("error_code"),
+  responsePayload: text("response_payload"),
+  deviceInformation: text("device_information"),
+  userAgent: text("user_agent"),
+  scannedAt: text("scanned_at").notNull(),
+}, (table) => [
+  uniqueIndex("qr_scan_events_idempotency_unique").on(table.scannedByUserId, table.idempotencyKey),
+  index("qr_scan_events_qr_time_idx").on(table.qrId, table.scannedAt),
+  index("qr_scan_events_user_time_idx").on(table.scannedByUserId, table.scannedAt),
+    check("qr_scan_events_status_check", sql`${table.scanStatus} in ('valid', 'invalid')`),
 ]);
 
 export const accountBalances = pgTable("account_balances", {
@@ -255,7 +327,33 @@ export const passwordResetRequests = pgTable("password_reset_requests", {
   createdAt: text("created_at").notNull(),
   approvedAt: text("approved_at"),
   approvedBy: text("approved_by"),
-}, (table) => [index("password_reset_seller_idx").on(table.sellerId, table.status)]);
+}, (table) => [
+  index("password_reset_seller_idx").on(table.sellerId, table.status),
+  index("password_reset_user_idx").on(table.userId, table.status, table.createdAt),
+]);
+
+export const accountPaymentProfiles = pgTable("account_payment_profiles", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  phoneE164: text("phone_e164"),
+  qrPayloadCiphertext: text("qr_payload_ciphertext"),
+  qrPayloadIv: text("qr_payload_iv"),
+  accuracyConfirmedAt: text("accuracy_confirmed_at").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("account_payment_profiles_phone_unique").on(table.phoneE164),
+  index("account_payment_profiles_updated_idx").on(table.updatedAt),
+  check(
+    "account_payment_profiles_contact_check",
+    sql`${table.phoneE164} is not null or ${table.qrPayloadCiphertext} is not null`,
+  ),
+  check(
+    "account_payment_profiles_qr_pair_check",
+    sql`(${table.qrPayloadCiphertext} is null and ${table.qrPayloadIv} is null) or (${table.qrPayloadCiphertext} is not null and ${table.qrPayloadIv} is not null)`,
+  ),
+]);
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: text("id").primaryKey(),

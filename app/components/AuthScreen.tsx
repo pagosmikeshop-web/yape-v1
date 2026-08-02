@@ -9,6 +9,7 @@ import { authErrorMessage, createAuthAttemptId, requestAuthJson } from "../lib/a
 import { safeApiMessage, safeClientMessage } from "../lib/client-error";
 import { buildPaymentQrPayload } from "../lib/payment-qr";
 import { getFingerprintId, hasLocalRegistrationAnchor, saveLocalRegistrationAnchor, clearLocalRegistrationAnchor } from "../lib/registration-device";
+import { clearSessionCache, setOptimisticUnlock } from "../lib/session-cache";
 import { unlockWithPlatformBiometric, WebAuthnClientError } from "../lib/webauthn-client";
 
 type Screen = "login" | "register" | "change-password" | "recover" | "change-number";
@@ -387,17 +388,27 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
   const [checking, setChecking] = useState(screen === "login");
   const [busy, setBusy] = useState(false);
-  const [recoveryMode, setRecoveryMode] = useState<"request" | "complete">("request");
-  const [recoveryCode, setRecoveryCode] = useState("");
+  const [recoveryRequest, setRecoveryRequest] = useState<{
+    id: string;
+    sellerId: string;
+    username: string;
+  } | null>(null);
+  const [recoveryChallenge, setRecoveryChallenge] = useState<{
+    requestId: string;
+    token: string;
+  } | null>(null);
   const [fingerprintId, setFingerprintId] = useState("");
   const [registerAllowed, setRegisterAllowed] = useState(false);
   const [registerChecking, setRegisterChecking] = useState(screen === "register");
   const [groupInviteUrl, setGroupInviteUrl] = useState("/api/telegram/group");
   const [accessLookup, setAccessLookup] = useState<AccessLookup | null>(null);
   const authActionInFlightRef = useRef(false);
+  const loginSessionCheckStartedRef = useRef(false);
+  const redirectInFlightRef = useRef(false);
 
   useEffect(() => {
-    if (screen !== "login") return;
+    if (screen !== "login" || loginSessionCheckStartedRef.current) return;
+    loginSessionCheckStartedRef.current = true;
     let cancelled = false;
     fetch("/api/auth/me", {
       cache: "no-store",
@@ -418,9 +429,15 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       }
       const user = data?.user as AuthUser | null;
       if (!user) return;
-      if (user.mustChangePassword) router.replace("/cambiar-contrasena");
+      if (user.mustChangePassword) {
+        if (redirectInFlightRef.current) return;
+        redirectInFlightRef.current = true;
+        router.replace("/cambiar-contrasena");
+      }
       else if (user.unlocked) {
         sessionStorage.setItem(UNLOCK_KEY, "1");
+        if (redirectInFlightRef.current) return;
+        redirectInFlightRef.current = true;
         router.replace(rolePath(user));
       } else setSessionUser(user);
     }).catch((error: unknown) => {
@@ -429,7 +446,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       if (!cancelled) setChecking(false);
     });
     return () => { cancelled = true; };
-  }, [router, screen]);
+  }, [screen]);
 
   useEffect(() => {
     if (screen !== "login" || typeof window === "undefined") return;
@@ -455,13 +472,53 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     return () => { cancelled = true; };
   }, [screen]);
 
+  useEffect(() => {
+    if (screen !== "recover" || !recoveryRequest || recoveryChallenge) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    let polling = false;
+    const checkApproval = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const proof = await createDeviceProof(recoveryRequest.sellerId, recoveryRequest.username);
+        const data = await apiPost("/api/auth/password/reset/status", {
+          requestId: recoveryRequest.id,
+          sellerId: recoveryRequest.sellerId,
+          username: recoveryRequest.username,
+          ...proof,
+        });
+        if (cancelled) return;
+        if (data.status === "approved" && data.requestId && data.resetToken) {
+          setRecoveryChallenge({ requestId: String(data.requestId), token: String(data.resetToken) });
+          setNotice({ text: "Restablecimiento aprobado. Ya puedes crear una nueva contraseña.", tone: "info" });
+          return;
+        }
+        if (data.status === "unavailable") {
+          setRecoveryRequest(null);
+          setNotice({ text: "No se pudo mantener la solicitud. Vuelve a solicitar el restablecimiento.", tone: "error" });
+        }
+      } catch {
+        // A transient polling failure should not erase a valid pending request.
+      } finally {
+        polling = false;
+      }
+    };
+    void checkApproval();
+    timer = window.setInterval(() => void checkApproval(), 5000);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearInterval(timer);
+    };
+  }, [recoveryChallenge, recoveryRequest, screen]);
+
   function resetForm() {
     formRef.current?.reset();
     setNotice(null);
     setRegisterAllowed(false);
     if (screen === "recover") {
-      setRecoveryMode("request");
-      setRecoveryCode("");
+      setRecoveryRequest(null);
+      setRecoveryChallenge(null);
     }
   }
 
@@ -473,7 +530,11 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       return null;
     });
     if (!data || !sessionUser) return;
+    clearSessionCache();
+    setOptimisticUnlock(true);
     sessionStorage.setItem(UNLOCK_KEY, "1");
+    if (redirectInFlightRef.current) return;
+    redirectInFlightRef.current = true;
     router.replace(rolePath({ ...sessionUser, mustSetPin: false, pinSet: true }));
   }
 
@@ -482,7 +543,11 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     try {
       await unlockWithPlatformBiometric();
       if (!sessionUser) return;
+      clearSessionCache();
+      setOptimisticUnlock(true);
       sessionStorage.setItem(UNLOCK_KEY, "1");
+      if (redirectInFlightRef.current) return;
+      redirectInFlightRef.current = true;
       router.replace(rolePath({ ...sessionUser, mustSetPin: false, pinSet: true }));
     } catch (error) {
       const message = error instanceof WebAuthnClientError
@@ -593,7 +658,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       }
 
       if (screen === "recover") {
-        if (recoveryMode === "request") {
+        if (!recoveryChallenge) {
           const sellerId = String(formData.get("recover-seller-id") ?? "");
           const username = String(formData.get("recover-username") ?? "");
           const proof = await createDeviceProof(sellerId, username);
@@ -603,25 +668,25 @@ export function AuthScreen({ screen }: { screen: Screen }) {
             ...proof,
           }, attemptId);
           const requestId = String(data.requestId ?? "");
-          const resetToken = String(data.resetToken ?? "");
-          const nextCode = requestId && resetToken ? `${requestId}.${resetToken}` : "";
-          setRecoveryCode(nextCode);
-          setRecoveryMode("complete");
-          setNotice({ text: safeApiMessage(data.message, "Si los datos corresponden a una cuenta, la solicitud fue registrada."), tone: "info" });
+          if (!requestId || data.pending !== true) {
+            setNotice({ text: "No pudimos validar los datos para solicitar el restablecimiento.", tone: "error" });
+            return;
+          }
+          setRecoveryRequest({ id: requestId, sellerId, username });
+          setNotice({ text: safeApiMessage(data.message, "Solicitud enviada. Tu vendedor debe aprobar el restablecimiento."), tone: "info" });
         } else {
           const newPassword = String(formData.get("recover-new-password") ?? "");
           const confirmation = String(formData.get("recover-confirm-password") ?? "");
           if (newPassword !== confirmation) throw new Error("Las contraseñas nuevas no coinciden.");
-          const combinedCode = String(formData.get("recovery-code") ?? "").trim();
-          const separator = combinedCode.indexOf(".");
-          const requestId = separator > 0 ? combinedCode.slice(0, separator) : "";
-          const resetToken = separator > 0 ? combinedCode.slice(separator + 1) : "";
+          if (!recoveryChallenge) throw new Error("Aun no se aprueba la solicitud.");
           await apiPost("/api/auth/password/reset/complete", {
-            requestId,
-            resetToken,
+            requestId: recoveryChallenge.requestId,
+            resetToken: recoveryChallenge.token,
             newPassword,
           }, attemptId);
           setNotice({ text: "Contraseña restablecida. Ya puedes iniciar sesión.", tone: "info" });
+          setRecoveryRequest(null);
+          setRecoveryChallenge(null);
           window.setTimeout(() => router.replace("/"), 900);
         }
         return;
@@ -790,20 +855,21 @@ export function AuthScreen({ screen }: { screen: Screen }) {
                 </>
               ) : null}
               {screen === "recover" ? (
-                recoveryMode === "request" ? (
+                recoveryChallenge ? (
+                  <>
+                    <PasswordField id="recover-new-password" label="Nueva contraseña" autoComplete="new-password" />
+                    <PasswordField id="recover-confirm-password" label="Confirma la nueva contraseña" autoComplete="new-password" />
+                    <button className="login-button" type="submit" disabled={busy}>RESTABLECER CONTRASEÑA</button>
+                  </>
+                ) : recoveryRequest ? (
+                  <div className="form-notice is-info" role="status" aria-live="polite">
+                    Estamos esperando la aprobación de tu vendedor para continuar.
+                  </div>
+                ) : (
                   <>
                     <Field id="recover-seller-id" label="Telegram ID" inputMode="numeric" pattern="[0-9]{4,20}" />
                     <Field id="recover-username" label="Usuario" autoComplete="username" />
                     <button className="login-button" type="submit" disabled={busy}>SOLICITAR RECUPERACIÓN</button>
-                  </>
-                ) : (
-                  <>
-                    <div className="field">
-                      <input id="recovery-code" name="recovery-code" type="text" autoComplete="one-time-code" autoCapitalize="none" spellCheck="false" placeholder="Código de recuperación" aria-label="Código de recuperación" defaultValue={recoveryCode} required />
-                    </div>
-                    <PasswordField id="recover-new-password" label="Nueva contraseña" autoComplete="new-password" />
-                    <PasswordField id="recover-confirm-password" label="Confirma la nueva contraseña" autoComplete="new-password" />
-                    <button className="login-button" type="submit" disabled={busy}>RESTABLECER CONTRASEÑA</button>
                   </>
                 )
               ) : null}
@@ -822,17 +888,9 @@ export function AuthScreen({ screen }: { screen: Screen }) {
               <span className="support-arrow"><AuthAssetIcon name="ic_chevron_right_yape_muted" /></span>
             </Link>
           ) : null}
-          {screen === "recover" ? (
-            <button
-              className="ghost-link recovery-mode-toggle"
-              type="button"
-              onClick={() => {
-                setRecoveryMode((current) => current === "request" ? "complete" : "request");
-                setNotice(null);
-                formRef.current?.reset();
-              }}
-            >
-              {recoveryMode === "request" ? "Ya tengo un código aprobado" : "Solicitar un código nuevo"}
+          {screen === "recover" && recoveryRequest ? (
+            <button className="ghost-link recovery-mode-toggle" type="button" onClick={resetForm}>
+              Solicitar nuevamente
             </button>
           ) : null}
           {screen === "login" ? <p className="version">versión 9.0</p> : null}

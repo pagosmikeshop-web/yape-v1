@@ -19,8 +19,10 @@ const SESSION_TTL_MS = 45_000;
 
 let inflight: Promise<SessionResult> | null = null;
 let cached: { at: number; result: SessionResult } | null = null;
+let cacheGeneration = 0;
 
 export function clearSessionCache() {
+  cacheGeneration += 1;
   inflight = null;
   cached = null;
 }
@@ -60,6 +62,7 @@ export function fetchSession(options?: {
 
   if (!force && inflight) return inflight;
 
+  const requestGeneration = cacheGeneration;
   inflight = fetch("/api/auth/me", {
     cache: "no-store",
     credentials: "same-origin",
@@ -74,23 +77,25 @@ export function fetchSession(options?: {
           code: "ACCESS_EXPIRED",
           unauthorized: true,
         };
-        cached = { at: Date.now(), result };
+        if (requestGeneration === cacheGeneration) cached = { at: Date.now(), result };
         return result;
       }
       if (!response.ok || !data.user) {
+        const transient = response.status === 0 || response.status === 408 || response.status === 429 || response.status >= 500;
         const result: SessionResult = {
           ok: false,
           status: response.status,
           unauthorized: true,
+          transient,
         };
-        /* Solo cachear 401/403 reales; otros errores no bloquean reintentos. */
-        if (response.status === 401 || response.status === 403) {
+        /* Solo cachear 401/403 reales; los fallos del servidor no cierran la app. */
+        if (requestGeneration === cacheGeneration && !transient && (response.status === 401 || response.status === 403)) {
           cached = { at: Date.now(), result };
         }
         return result;
       }
       const result: SessionResult = { ok: true, user: data.user };
-      cached = { at: Date.now(), result };
+      if (requestGeneration === cacheGeneration) cached = { at: Date.now(), result };
       return result;
     })
     .catch(() => {
@@ -104,7 +109,7 @@ export function fetchSession(options?: {
       return result;
     })
     .finally(() => {
-      inflight = null;
+      if (requestGeneration === cacheGeneration) inflight = null;
     });
 
   return inflight;

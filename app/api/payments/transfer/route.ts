@@ -1,4 +1,5 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
+import { findActiveRecipientById, findActiveRecipientByPhone } from "@/app/lib/active-recipient-server";
 import {
   dbBinding,
   enforceAuthRateLimits,
@@ -8,6 +9,8 @@ import {
   requireUnlockedSession,
   routeError,
 } from "@/app/lib/auth-server";
+import { lookupGlobalRecipient } from "@/app/lib/global-recipient-directory";
+import { maskPhone } from "@/app/lib/masked-phone";
 import {
   maskRecipientName,
   tryMaskRecipientName,
@@ -52,11 +55,6 @@ function cleanText(value: unknown, maximum: number) {
   return asString(value).trim().replace(/[\u0000-\u001f\u007f]/gu, "").slice(0, maximum);
 }
 
-function maskPhone(phoneE164: string) {
-  const digits = phoneE164.replace(/\D/gu, "");
-  return `*** *** ${digits.slice(-3).padStart(3, "0")}`;
-}
-
 async function persistSavedRecipientName(savedRecipientId: string, displayName: string) {
   await dbBinding().prepare(
     `UPDATE saved_payment_recipients
@@ -75,15 +73,7 @@ async function resolveRecipient(
   const database = dbBinding();
   if (recipientId) {
     if (!UUID_PATTERN.test(recipientId) || recipientId === requesterUserId) return null;
-    const row = await database.prepare(
-      `SELECT u.id, u.display_name, d.phone_e164
-       FROM users u
-       LEFT JOIN payment_directory d ON d.user_id = u.id AND d.discoverable = 1
-       WHERE u.id = ? AND (u.role = 'client' OR EXISTS (
-         SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
-       )) AND u.status = 'active' AND u.deleted_at IS NULL
-       LIMIT 1`,
-    ).bind(recipientId).first<{ id: string; display_name: string; phone_e164: string | null }>();
+    const row = await findActiveRecipientById(database, recipientId);
     if (!row) return null;
     const displayName = maskRecipientName(row.display_name);
     return {
@@ -96,22 +86,23 @@ async function resolveRecipient(
 
   const phoneE164 = normalizePeruvianMobile(rawPhone);
   if (!phoneE164 || !displayName) return null;
-  const internal = await database.prepare(
-    `SELECT u.id, u.display_name
-     FROM payment_directory d
-     JOIN users u ON u.id = d.user_id
-     WHERE d.phone_e164 = ? AND d.discoverable = 1
-       AND (u.role = 'client' OR EXISTS (
-         SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
-       )) AND u.status = 'active' AND u.deleted_at IS NULL
-     LIMIT 1`,
-  ).bind(phoneE164).first<{ id: string; display_name: string }>();
+  const internal = await findActiveRecipientByPhone(database, phoneE164);
   if (internal) {
     if (internal.id === requesterUserId) return null;
     return {
       name: displayName,
       reference: maskPhone(phoneE164),
       recipientUserId: internal.id,
+      savedRecipientId: null,
+    };
+  }
+
+  const globalRecipient = await lookupGlobalRecipient(phoneE164);
+  if (globalRecipient) {
+    return {
+      name: globalRecipient.displayName,
+      reference: maskPhone(phoneE164),
+      recipientUserId: null,
       savedRecipientId: null,
     };
   }

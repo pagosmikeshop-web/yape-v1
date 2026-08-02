@@ -1,11 +1,9 @@
 import { asString, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   accountRateLimitSubject,
-  authRateLimitSubjectHash,
-  createDecoyPasswordResetChallenge,
+  dbBinding,
   enforceAuthRateLimits,
   findLoginUser,
-  issuePasswordResetChallenge,
   requestIpRateLimitSubject,
   routeError,
   verifyDeviceProof,
@@ -56,22 +54,52 @@ export async function POST(request: Request) {
       && user.device_id === deviceId
       && validDeviceProof,
     );
-    const challenge = eligible && user
-      ? await issuePasswordResetChallenge(
-        user.id,
-        await authRateLimitSubjectHash("password-reset-token", accountSubject),
-      )
-      : createDecoyPasswordResetChallenge();
+    let requestId = crypto.randomUUID();
+    let requestCreated = false;
+    if (eligible && user) {
+      const database = dbBinding();
+      const approver = user.owner_id
+        ? { id: user.owner_id }
+        : await database.prepare(
+          `SELECT seller_id AS id
+           FROM activations
+           WHERE user_id = ?
+           ORDER BY created_at DESC
+           LIMIT 1`,
+        ).bind(user.id).first<{ id: string }>()
+          ?? await database.prepare(
+            `SELECT id
+             FROM users
+             WHERE is_owner = 1 AND status = 'active' AND deleted_at IS NULL
+             LIMIT 1`,
+          ).first<{ id: string }>();
+      if (approver?.id) {
+        requestId = crypto.randomUUID();
+        requestCreated = true;
+        const now = new Date().toISOString();
+        await database.batch([
+          database.prepare(
+            `UPDATE password_reset_requests
+             SET status = 'cancelled'
+             WHERE user_id = ? AND status = 'pending'`,
+          ).bind(user.id),
+          database.prepare(
+            `INSERT INTO password_reset_requests (
+              id, user_id, seller_id, status, price_credits, created_at
+            ) VALUES (?, ?, ?, 'pending', 0, ?)`,
+          ).bind(requestId, user.id, approver.id, now),
+        ]);
+      }
+    }
     writeSecurityEvent(request, "auth.password_reset.request", eligible ? "success" : "denied", {
       actorId: eligible && user ? user.id : null,
     });
 
     return jsonOk(
       {
-        message: "Si los datos y este dispositivo son validos, puedes continuar con el restablecimiento.",
-        requestId: challenge.requestId,
-        resetToken: challenge.token,
-        expiresAt: challenge.expiresAt,
+        message: "Solicitud enviada. Tu vendedor debe aprobar el restablecimiento.",
+        requestId,
+        pending: requestCreated,
       },
       { status: 202, headers: { "cache-control": "no-store", pragma: "no-cache" } },
     );

@@ -4,6 +4,7 @@ import {
   hashSecret,
   validatePassword,
 } from "@/app/lib/auth-server";
+import { bytesToBase64Url } from "@/app/lib/base64url";
 
 const INVITATION_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const TOKEN_BYTES = 32;
@@ -15,15 +16,6 @@ export type AccountInvitation = {
   expiresAt: string;
   activationPath: string;
 };
-
-function bytesToBase64Url(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/u, "");
-}
 
 function generateInvitationToken() {
   return bytesToBase64Url(crypto.getRandomValues(new Uint8Array(TOKEN_BYTES)));

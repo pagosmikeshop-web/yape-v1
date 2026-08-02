@@ -168,7 +168,8 @@ export async function POST(request: Request) {
         "UPDATE users SET device_id = NULL, device_public_key = NULL, updated_at = ? WHERE id = ?",
       ).bind(new Date().toISOString(), user.id).run();
     }
-    if (!userHasRole(user, "admin") && !userHasRole(user, "seller")
+    /* Legacy access-expired login response intentionally disabled:
+    if (user && shouldBlockExpiredAccessAtLogin() && !userHasRole(user, "admin") && !userHasRole(user, "seller")
       && user.access_expires_at && Date.parse(user.access_expires_at) <= Date.now()) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "access_expired", actorId: user.id });
       return Response.json({
@@ -179,6 +180,7 @@ export async function POST(request: Request) {
       }, { status: 403, headers: { "cache-control": "no-store" } });
     }
 
+    */
     const cookie = await createSession(request, user.id);
     await clearAuthRateLimit("login-account", accountSubject);
     writeSecurityEvent(request, "auth.login", "success", { actorId: user.id, role: user.role });

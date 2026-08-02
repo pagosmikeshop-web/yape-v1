@@ -2,9 +2,11 @@ import {
   authEnv,
   dbBinding,
   ensureAuthSchema,
+  isUniqueConstraintError,
   REFERRAL_EXTENSION_DAYS,
-  REFERRAL_MONTHLY_LIMIT,
+  REFERRAL_REDEMPTION_LIMIT,
 } from "@/app/lib/auth-server";
+import { isSupabaseDatabase } from "@/app/lib/database-server";
 import { safeClientMessage } from "@/app/lib/client-error";
 
 type TelegramMessage = {
@@ -229,9 +231,16 @@ export function telegramMembershipIsUnavailable(check: TelegramMembershipCheck) 
 async function redeemReferralCode(telegramId: string, args: string) {
   const code = args.trim().toUpperCase().replace(/[^A-Z0-9]/gu, "");
   if (!/^[A-Z0-9]{6,16}$/u.test(code)) throw new Error("Formato: /redeem CODIGO");
-  const referrer = await dbBinding().prepare(
-    "SELECT id, display_name, telegram_user_id, access_expires_at FROM users WHERE referral_code = ? AND status = 'active' LIMIT 1",
-  ).bind(code).first<{ id: string; display_name: string; telegram_user_id: string | null; access_expires_at: string | null }>();
+  const database = dbBinding();
+  const referrer = await database.prepare(
+    "SELECT id, display_name, telegram_user_id, access_expires_at, referral_redemption_count FROM users WHERE referral_code = ? AND status = 'active' LIMIT 1",
+  ).bind(code).first<{
+    id: string;
+    display_name: string;
+    telegram_user_id: string | null;
+    access_expires_at: string | null;
+    referral_redemption_count: number;
+  }>();
   if (!referrer) throw new Error("Codigo no encontrado.");
   // TRIAL-002: bloquear self-redeem sin telegram ligado o por dueño del referral.
   if (!referrer.telegram_user_id) {
@@ -243,51 +252,107 @@ async function redeemReferralCode(telegramId: string, args: string) {
     throw new Error("Primero debes estar en el grupo.");
   }
 
-  const redeemer = await dbBinding().prepare("SELECT id FROM users WHERE telegram_user_id = ? LIMIT 1")
+  const redeemer = await database.prepare("SELECT id FROM users WHERE telegram_user_id = ? LIMIT 1")
     .bind(telegramId).first<{ id: string }>();
   if (redeemer?.id === referrer.id) {
     throw new Error("No puedes canjear tu propio codigo.");
   }
 
+  if (Number(referrer.referral_redemption_count ?? 0) >= REFERRAL_REDEMPTION_LIMIT) {
+    throw new Error("Esta cuenta ya agoto sus 3 canjes disponibles.");
+  }
+
   const key = monthKey();
-  const current = await dbBinding().prepare(
-    "SELECT COUNT(*) AS total FROM referral_redemptions WHERE referrer_user_id = ? AND month_key = ?",
-  ).bind(referrer.id, key).first<{ total: number }>();
-  if (Number(current?.total ?? 0) >= REFERRAL_MONTHLY_LIMIT) throw new Error("Ese codigo llego al limite mensual.");
 
   const now = new Date().toISOString();
   const nextAccess = addDaysFromCurrent(referrer.access_expires_at, REFERRAL_EXTENSION_DAYS);
   const redemptionId = crypto.randomUUID();
-  const results = await dbBinding().batch([
-    dbBinding().prepare(
-      `INSERT OR IGNORE INTO referral_redemptions (
-        id, referrer_user_id, redeemer_telegram_user_id, redeemed_by_user_id, month_key, created_at
-      )
-      SELECT ?, ?, ?, ?, ?, ?
-      WHERE (
-        SELECT COUNT(*) FROM referral_redemptions
-        WHERE referrer_user_id = ? AND month_key = ?
-      ) < ?`,
-    ).bind(
-      redemptionId,
-      referrer.id,
-      telegramId,
-      redeemer?.id ?? null,
-      key,
-      now,
-      referrer.id,
-      key,
-      REFERRAL_MONTHLY_LIMIT,
-    ),
-    dbBinding().prepare(
-      `UPDATE users SET access_expires_at = ?, updated_at = ?
-       WHERE id = ? AND EXISTS (
-         SELECT 1 FROM referral_redemptions WHERE id = ?
-       )`,
-    ).bind(nextAccess, now, referrer.id, redemptionId),
-  ]);
-  if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {
-    throw new Error("Ese usuario ya canjeo el codigo o se alcanzo el limite mensual.");
+  const statements = isSupabaseDatabase()
+    ? [
+        database.prepare(
+          "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+        ).bind(`referral:${referrer.id}`),
+        database.prepare(
+          `WITH reserved AS (
+             UPDATE users
+             SET referral_redemption_count = referral_redemption_count + 1,
+                 updated_at = ?
+             WHERE id = ?
+               AND access_expires_at IS NOT NULL
+               AND referral_redemption_count < ?
+             RETURNING id
+           ), inserted AS (
+             INSERT INTO referral_redemptions (
+               id, referrer_user_id, redeemer_telegram_user_id, redeemed_by_user_id, month_key, created_at
+             )
+             SELECT ?, ?, ?, ?, ?, ?
+             FROM reserved
+             RETURNING id
+           )
+           UPDATE users
+           SET access_expires_at = ?, updated_at = ?
+           WHERE id = ?
+             AND EXISTS (SELECT 1 FROM inserted)
+           RETURNING id`,
+        ).bind(
+          now,
+          referrer.id,
+          REFERRAL_REDEMPTION_LIMIT,
+          redemptionId,
+          referrer.id,
+          telegramId,
+          redeemer?.id ?? null,
+          key,
+          now,
+          nextAccess,
+          now,
+          referrer.id,
+        ),
+      ]
+    : [
+        database.prepare(
+          `UPDATE users
+           SET referral_redemption_count = referral_redemption_count + 1, updated_at = ?
+           WHERE id = ? AND access_expires_at IS NOT NULL AND referral_redemption_count < ?
+             AND NOT EXISTS (
+               SELECT 1 FROM referral_redemptions
+               WHERE referrer_user_id = ? AND redeemer_telegram_user_id = ? AND month_key = ?
+             )`,
+        ).bind(now, referrer.id, REFERRAL_REDEMPTION_LIMIT, referrer.id, telegramId, key),
+        database.prepare(
+          `INSERT OR IGNORE INTO referral_redemptions (
+            id, referrer_user_id, redeemer_telegram_user_id, redeemed_by_user_id, month_key, created_at
+          )
+          SELECT ?, ?, ?, ?, ?, ?
+          WHERE (SELECT referral_redemption_count FROM users WHERE id = ?) <= ?`,
+        ).bind(
+          redemptionId,
+          referrer.id,
+          telegramId,
+          redeemer?.id ?? null,
+          key,
+          now,
+          referrer.id,
+          REFERRAL_REDEMPTION_LIMIT,
+        ),
+        database.prepare(
+          `UPDATE users SET access_expires_at = ?, updated_at = ?
+           WHERE id = ? AND EXISTS (SELECT 1 FROM referral_redemptions WHERE id = ?)`,
+        ).bind(nextAccess, now, referrer.id, redemptionId),
+      ];
+
+  try {
+    const results = await database.batch(statements);
+    const changes = results.map((result) => Number(result.meta.changes ?? 0));
+    const successful = isSupabaseDatabase()
+      ? changes[1] === 1
+      : changes[0] === 1 && changes[1] === 1 && changes[2] === 1;
+    if (!successful) throw new Error("Esta cuenta ya agoto sus 3 canjes disponibles.");
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new Error("Este codigo ya fue canjeado por esa cuenta.");
+    }
+    throw error;
   }
   return "✅ Activación completada.";
 }

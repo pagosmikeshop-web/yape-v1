@@ -108,7 +108,7 @@ export async function GET(request: Request) {
     }
     const where = `WHERE ${conditions.join(" AND ")}`;
     const database = dbBinding();
-    const [count, summary] = await Promise.all([
+    const [count, summary, sellerSummary] = await Promise.all([
       database.prepare(
         `SELECT COUNT(*) AS total
          FROM users u
@@ -142,6 +142,46 @@ export async function GET(request: Request) {
         total_sales_cents: number;
         total_payments_cents: number;
       }>(),
+      database.prepare(
+        `SELECT
+           s.id AS seller_id,
+           s.display_name AS seller_name,
+           s.seller_code,
+           COUNT(u.id) AS client_count,
+           COALESCE(SUM(COALESCE(a.total_sales_cents, 0)), 0) AS total_sales_cents,
+           COALESCE(SUM(COALESCE(a.total_payments_cents, 0)), 0) AS total_payments_cents,
+           COALESCE(SUM(COALESCE(a.sales_count, 0)), 0) AS sales_count,
+           COALESCE(SUM(COALESCE(a.payment_count, 0)), 0) AS payment_count
+         FROM users u
+         LEFT JOIN payment_directory d ON d.user_id = u.id
+         LEFT JOIN client_crm_profiles p ON p.user_id = u.id
+         LEFT JOIN users s ON s.id = u.owner_id AND (s.role = 'seller' OR EXISTS (
+           SELECT 1 FROM user_roles sr WHERE sr.user_id = s.id AND sr.role = 'seller'
+         )) AND s.deleted_at IS NULL
+         LEFT JOIN (
+           SELECT
+             user_id,
+             COALESCE(SUM(CASE WHEN activity_type = 'purchase' THEN amount_cents ELSE 0 END), 0) AS total_sales_cents,
+             COALESCE(SUM(CASE WHEN activity_type = 'payment' THEN amount_cents ELSE 0 END), 0) AS total_payments_cents,
+             SUM(CASE WHEN activity_type = 'purchase' THEN 1 ELSE 0 END) AS sales_count,
+             SUM(CASE WHEN activity_type = 'payment' THEN 1 ELSE 0 END) AS payment_count
+           FROM client_crm_activities
+           GROUP BY user_id
+         ) a ON a.user_id = u.id
+         ${where}
+           AND s.id IS NOT NULL
+         GROUP BY s.id, s.display_name, s.seller_code
+         ORDER BY total_sales_cents DESC, s.display_name ASC`,
+      ).bind(...values).all<{
+        seller_id: string;
+        seller_name: string;
+        seller_code: string;
+        client_count: number;
+        total_sales_cents: number;
+        total_payments_cents: number;
+        sales_count: number;
+        payment_count: number;
+      }>(),
     ]);
 
     const result = await database.prepare(
@@ -154,6 +194,20 @@ export async function GET(request: Request) {
               COALESCE(p.tags_json, '[]') AS tags_json,
               COALESCE(p.notes, '') AS notes,
               p.last_activity_at,
+              (
+                SELECT r.id
+                FROM password_reset_requests r
+                WHERE r.user_id = u.id AND r.status = 'pending'
+                ORDER BY r.created_at DESC
+                LIMIT 1
+              ) AS password_reset_request_id,
+              (
+                SELECT r.created_at
+                FROM password_reset_requests r
+                WHERE r.user_id = u.id AND r.status = 'pending'
+                ORDER BY r.created_at DESC
+                LIMIT 1
+              ) AS password_reset_requested_at,
               s.display_name AS seller_name,
               COALESCE(a.total_sales_cents, 0) AS total_sales_cents,
               COALESCE(a.activity_count, 0) AS activity_count
@@ -199,6 +253,16 @@ export async function GET(request: Request) {
         totalSalesCents: Number(summary?.total_sales_cents ?? 0),
         totalPaymentsCents: Number(summary?.total_payments_cents ?? 0),
       },
+      sellerSummaries: (sellerSummary.results ?? []).map((seller) => ({
+        id: seller.seller_id,
+        name: seller.seller_name,
+        code: seller.seller_code,
+        clientCount: Number(seller.client_count ?? 0),
+        totalSalesCents: Number(seller.total_sales_cents ?? 0),
+        totalPaymentsCents: Number(seller.total_payments_cents ?? 0),
+        salesCount: Number(seller.sales_count ?? 0),
+        paymentCount: Number(seller.payment_count ?? 0),
+      })),
       viewerRole: actor.isOwner ? "owner" : actor.role,
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

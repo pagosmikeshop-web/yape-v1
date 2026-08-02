@@ -29,46 +29,6 @@ export function subscribeToNetworkState(
   });
 }
 
-export type BackendReachability = {
-  reachable: boolean;
-  status?: number;
-  error?: CapabilityError;
-};
-
-/** Comprueba el backend de forma puntual; no crea polling ni cachea la respuesta. */
-export async function checkBackendReachability(
-  url = "/api/health",
-  signal?: AbortSignal,
-): Promise<BackendReachability> {
-  if (typeof fetch === "undefined") {
-    return {
-      reachable: false,
-      error: new CapabilityError("UNAVAILABLE", "Fetch no está disponible."),
-    };
-  }
-
-  if (!runtimePlatform.get().isOnline) {
-    return {
-      reachable: false,
-      error: new CapabilityError("OFFLINE", "No hay conexión de red."),
-    };
-  }
-
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
-      signal,
-    });
-    return { reachable: response.ok, status: response.status };
-  } catch (error) {
-    const normalized = normalizeCapabilityError(error, "OFFLINE");
-    return { reachable: false, error: normalized };
-  }
-}
-
 export type ClipboardResult =
   | { ok: true }
   | {

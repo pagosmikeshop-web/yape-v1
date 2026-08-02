@@ -34,6 +34,7 @@ function targetAuthUser(actor: AuthUser, target: TargetUser): AuthUser {
     ...actor,
     id: target.id,
     role: target.role,
+    roles: [target.role],
     isOwner: Boolean(target.is_owner),
   };
 }

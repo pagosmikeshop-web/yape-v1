@@ -1,5 +1,8 @@
 "use client";
 
+import { bytesToBase64Url } from "@/app/lib/base64url";
+import { canonicalPublicKey } from "@/app/lib/webauthn-utils";
+
 const DB_NAME = "mi-banco-device";
 const STORE_NAME = "credentials";
 const KEY_ID = "primary-device-key";
@@ -16,12 +19,6 @@ export type DeviceProof = {
   proof: string;
   proofTimestamp: number;
 };
-
-function bytesToBase64Url(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
-}
 
 function openDeviceDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -83,15 +80,6 @@ async function createStoredKey(): Promise<StoredDeviceKey> {
 
 async function getStoredKey() {
   return (await readStoredKey()) ?? createStoredKey();
-}
-
-function canonicalPublicKey(key: JsonWebKey) {
-  return JSON.stringify({
-    crv: key.crv,
-    kty: key.kty,
-    x: key.x,
-    y: key.y,
-  });
 }
 
 export async function createDeviceProof(sellerId: string, username: string): Promise<DeviceProof> {

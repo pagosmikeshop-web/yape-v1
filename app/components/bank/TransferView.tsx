@@ -8,6 +8,7 @@ import { fetchAccountBalance, clearBalanceCache } from "../../lib/balance-cache"
 import { resetIOSViewport } from "../../lib/ios-viewport";
 import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
 import { fetchSession } from "../../lib/session-cache";
+import { maskPhone } from "../../lib/masked-phone";
 import { APK_ASSET_ROOT, AssetIcon, LottiePlayer } from "./primitives";
 import {
   buildVoucherShareText,
@@ -49,10 +50,7 @@ const externalEntities = ["Banco Falabella", "Cmac Arequipa", "Dale", "Plin"];
 
 const DAILY_YAPE_LIMIT = 500;
 
-export function maskPhone(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  return `*** *** ${digits.slice(-3).padStart(3, "0")}`;
-}
+export { maskPhone } from "../../lib/masked-phone";
 
 function formatEditablePhone(phone: string) {
   const digits = phone.replace(/\D/g, "").slice(0, 9);
@@ -119,7 +117,6 @@ export function TransferView() {
   const voucherCaptureRef = useRef<HTMLDivElement>(null);
   const transferSubmittingRef = useRef(false);
   const recipientLookupAbortRef = useRef<AbortController | null>(null);
-  const manualFallbackTimerRef = useRef<number | null>(null);
   const recipientLookupSequenceRef = useRef(0);
   const recipientLookupInFlightRef = useRef(false);
   const transferIdempotencyRef = useRef<{
@@ -239,10 +236,6 @@ export function TransferView() {
 
   useEffect(() => () => {
     recipientLookupAbortRef.current?.abort();
-    if (manualFallbackTimerRef.current !== null) {
-      window.clearTimeout(manualFallbackTimerRef.current);
-      manualFallbackTimerRef.current = null;
-    }
     recipientLookupSequenceRef.current += 1;
     recipientLookupInFlightRef.current = false;
   }, []);
@@ -273,53 +266,6 @@ export function TransferView() {
 
     void (async () => {
       try {
-        let shouldUseAutocomplete = true;
-        try {
-          const entitlementResponse = await fetch("/api/account/tokens/validate", {
-            cache: "no-store",
-            signal: controller.signal,
-          });
-          const entitlementData = (await entitlementResponse.json()) as {
-            autocomplete?: {
-              enabled?: boolean;
-              keyClaimed?: boolean;
-              credits?: number | null;
-            };
-          };
-          if (entitlementResponse.ok && entitlementData.autocomplete) {
-            const autocomplete = entitlementData.autocomplete;
-            shouldUseAutocomplete = Boolean(
-              autocomplete.enabled
-              && (!autocomplete.keyClaimed || Number(autocomplete.credits ?? 0) > 0),
-            );
-          }
-        } catch (error) {
-          if (error instanceof DOMException && error.name === "AbortError") return;
-          // Si no se puede leer el estado, intentamos la consulta real para
-          // no convertir un fallo transitorio del endpoint de estado en un
-          // bloqueo permanente del formulario.
-          shouldUseAutocomplete = true;
-        }
-
-        if (!shouldUseAutocomplete) {
-          await new Promise<void>((resolve) => {
-            manualFallbackTimerRef.current = window.setTimeout(() => {
-              manualFallbackTimerRef.current = null;
-              resolve();
-            }, 2000);
-            controller.signal.addEventListener("abort", () => {
-              if (manualFallbackTimerRef.current !== null) {
-                window.clearTimeout(manualFallbackTimerRef.current);
-                manualFallbackTimerRef.current = null;
-              }
-              resolve();
-            }, { once: true });
-          });
-          if (controller.signal.aborted) return;
-          enableManualRecipientFallback(normalizedPhone);
-          return;
-        }
-
         const response = await fetch("/api/payments/recipient-lookup", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -373,10 +319,6 @@ export function TransferView() {
 
     return () => {
       controller.abort();
-      if (manualFallbackTimerRef.current !== null) {
-        window.clearTimeout(manualFallbackTimerRef.current);
-        manualFallbackTimerRef.current = null;
-      }
       if (requestSequence === recipientLookupSequenceRef.current) {
         recipientLookupSequenceRef.current += 1;
         recipientLookupInFlightRef.current = false;

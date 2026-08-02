@@ -1,5 +1,7 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
+import { findActiveRecipientById, findActiveRecipientByPhone } from "@/app/lib/active-recipient-server";
 import {
+  getAutocompleteStatus,
   refundAutocompleteCredit,
   reserveAutocompleteCredit,
 } from "@/app/lib/autocomplete-credits-server";
@@ -10,6 +12,7 @@ import {
   requestIpRateLimitSubject,
   routeError,
 } from "@/app/lib/auth-server";
+import { lookupGlobalRecipient } from "@/app/lib/global-recipient-directory";
 import { RecipientLookupError } from "@/app/lib/recipient-lookup/errors";
 import { maskRecipientName } from "@/app/lib/recipient-lookup/name-masker";
 import { normalizeRecipientPhone } from "@/app/lib/recipient-lookup/phone";
@@ -17,7 +20,6 @@ import { lookupRecipientPhone } from "@/app/lib/recipient-lookup/service";
 
 export const dynamic = "force-dynamic";
 
-type RecipientRow = { id: string; display_name: string; phone_e164?: string | null };
 type SavedRecipientRow = { id: string; display_name: string };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -97,15 +99,7 @@ export async function POST(request: Request) {
     if (recipientId) {
       if (!UUID_PATTERN.test(recipientId)) return jsonError("El QR no contiene un destinatario válido.");
       if (recipientId === user.id) return jsonError("No puedes transferirte a tu propia cuenta.", 409);
-      const recipient = await dbBinding().prepare(
-        `SELECT u.id, u.display_name, d.phone_e164
-         FROM users u
-         LEFT JOIN payment_directory d ON d.user_id = u.id AND d.discoverable = 1
-         WHERE u.id = ? AND (u.role = 'client' OR EXISTS (
-           SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
-         )) AND u.status = 'active' AND u.deleted_at IS NULL
-         LIMIT 1`,
-      ).bind(recipientId).first<RecipientRow>();
+      const recipient = await findActiveRecipientById(dbBinding(), recipientId);
       if (!recipient) return jsonError("No encontramos un destinatario activo con esos datos.", 404);
       return jsonOk({
         recipient: {
@@ -125,36 +119,98 @@ export async function POST(request: Request) {
     ).bind(normalized.e164, user.id).first<{ id: string }>();
     if (ownRecipient) return jsonError("No puedes transferirte a tu propia cuenta.", 409);
 
-    const reservation = await reserveAutocompleteCredit(user.id);
-    if (!reservation) {
-      return jsonError("El autocompletado no tiene créditos disponibles.", 403);
-    }
-    try {
-      const result = await lookupRecipientPhone({
-        rawPhone,
-      });
-      const internal = await dbBinding().prepare(
-        `SELECT u.id
-         FROM payment_directory d
-         JOIN users u ON u.id = d.user_id
-         WHERE d.phone_e164 = ? AND d.discoverable = 1
-           AND (u.role = 'client' OR EXISTS (
-             SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
-           )) AND u.status = 'active' AND u.deleted_at IS NULL
-         LIMIT 1`,
-      ).bind(normalized.e164).first<{ id: string }>();
-
-      if (!internal) await saveExternalRecipient(user.id, normalized.e164, result.displayName);
+    // Los contactos guardados por la propia cuenta son privados y no gastan
+    // créditos: sirven como autocompletado local, sin volver a consultar al
+    // proveedor externo cada vez que se inicia una transferencia.
+    const saved = await dbBinding().prepare(
+      `SELECT id, display_name
+       FROM saved_payment_recipients
+       WHERE user_id = ? AND phone_e164 = ?
+       LIMIT 1`,
+    ).bind(user.id, normalized.e164).first<SavedRecipientRow>();
+    if (saved) {
       return jsonOk({
         recipient: {
-          displayName: result.displayName,
-          phone: result.phone,
+          displayName: protectedName(saved.display_name),
+          phone: normalized.e164,
         },
       });
-    } catch (error) {
-      await refundAutocompleteCredit(reservation);
-      throw error;
     }
+
+    const internal = await findActiveRecipientByPhone(dbBinding(), normalized.e164);
+    if (internal) {
+      if (internal.id === user.id) return jsonError("No puedes transferirte a tu propia cuenta.", 409);
+      return jsonOk({
+        recipient: {
+          displayName: protectedName(internal.display_name),
+          phone: normalized.e164,
+        },
+      });
+    }
+
+    const freeRecipientResponse = async () => {
+      // El directorio Free se consulta sin gastar créditos. Sus datos ya se
+      // guardaron con consentimiento y el nombre se devuelve protegido.
+      const globalRecipient = await lookupGlobalRecipient(normalized.e164);
+      return globalRecipient
+        ? jsonOk({
+            recipient: {
+              displayName: globalRecipient.displayName,
+              phone: normalized.e164,
+            },
+          })
+        : null;
+    };
+
+    const externalRecipientResponse = async () => {
+      const reservation = await reserveAutocompleteCredit(user.id);
+      if (!reservation) return null;
+      try {
+        const result = await lookupRecipientPhone({ rawPhone });
+        // El proveedor externo solo se persiste como contacto privado de quien
+        // consultó, para que la siguiente consulta no vuelva a gastar crédito.
+        await saveExternalRecipient(user.id, normalized.e164, result.displayName);
+        return jsonOk({
+          recipient: {
+            displayName: result.displayName,
+            phone: result.phone,
+          },
+        });
+      } catch (error) {
+        await refundAutocompleteCredit(reservation);
+        throw error;
+      }
+    };
+
+    const autocompleteStatus = await getAutocompleteStatus(user.id);
+    const hasCreditKey = autocompleteStatus.keyClaimed
+      && Number(autocompleteStatus.credits ?? 0) > 0;
+
+    if (hasCreditKey) {
+      // Con una key con saldo se prioriza la API externa. Si no resuelve el
+      // titular, se devuelve el registro Free sin volver a cobrar crédito.
+      try {
+        const external = await externalRecipientResponse();
+        if (external) return external;
+      } catch (error) {
+        if (error instanceof RecipientLookupError) {
+          const free = await freeRecipientResponse();
+          if (free) return free;
+        }
+        throw error;
+      }
+    }
+
+    // Sin una key con saldo, Free es siempre la primera y única consulta sin
+    // coste. Esto permite usar registros globales aunque la cuenta no tenga
+    // créditos disponibles.
+    const free = await freeRecipientResponse();
+    if (free) return free;
+
+    const external = await externalRecipientResponse();
+    if (external) return external;
+
+    return jsonError("El autocompletado no tiene créditos disponibles.", 403);
   } catch (error) {
     if (error instanceof RecipientLookupError) return lookupErrorResponse(error);
     return routeError(error);

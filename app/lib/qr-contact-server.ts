@@ -1,5 +1,14 @@
 import { dbBinding, normalizePeruvianMobile, routeError } from "@/app/lib/auth-server";
+import { findActiveRecipientById } from "@/app/lib/active-recipient-server";
+import { bytesToBase64Url } from "@/app/lib/base64url";
+import {
+  GLOBAL_DIRECTORY_TERMS_VERSION,
+  GlobalDirectoryError,
+  requireGlobalDirectoryTerms,
+} from "@/app/lib/global-recipient-directory";
 import { parsePaymentQrPayload, UUID_PATTERN } from "@/app/lib/payment-qr";
+import { maskPhoneOrNull } from "@/app/lib/masked-phone";
+import { maskRecipientName } from "@/app/lib/recipient-lookup/name-masker";
 
 export const QR_CONTACT_PROVIDERS = [
   "Yape",
@@ -23,7 +32,6 @@ const HOLDER_NAME_PATTERN = /^[^\u0000-\u001f\u007f]{2,80}$/u;
 const SAFE_QR_PAYLOAD_PATTERN = /^[^\u0000-\u001f\u007f]+$/u;
 const MIN_QR_BYTES = 4;
 const MAX_QR_BYTES = 2_048;
-const MAX_CONTACTS_PER_USER = 50;
 const MIN_ENCRYPTION_SECRET_LENGTH = 32;
 let schemaReady: Promise<void> | null = null;
 
@@ -41,10 +49,14 @@ type QrContactRow = {
   created_at: string;
 };
 
-type VerifiedRecipientRow = {
+type GlobalQrContactRow = {
   id: string;
-  display_name: string;
+  holder_name: string;
   phone_e164: string | null;
+  provider: string;
+  recipient_user_id: string | null;
+  status: "active" | "revoked";
+  created_at: string;
 };
 
 export type QrContact = {
@@ -88,12 +100,6 @@ function encryptionSecret() {
   return secret;
 }
 
-function bytesToBase64Url(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
-}
-
 async function encryptionKey() {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(encryptionSecret()));
   return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt"]);
@@ -113,6 +119,11 @@ async function payloadHash(userId: string, payload: string) {
     new TextEncoder().encode(`mi-banco-qr-contact-hash-v1\n${userId}\n${payload}`),
   );
   return bytesToBase64Url(new Uint8Array(signature));
+}
+
+/** Hash estable del payload usado por el directorio global y el lector. */
+export async function globalQrPayloadHash(payload: string) {
+  return payloadHash("global", payload);
 }
 
 async function encryptPayload(userId: string, payload: string) {
@@ -228,7 +239,7 @@ function rowToContact(row: QrContactRow): QrContact {
   return {
     id: row.id,
     holderName: row.holder_name,
-    phone: maskPhone(row.phone_e164),
+    phone: maskPhoneOrNull(row.phone_e164),
     provider: row.provider === LEGACY_INTERNAL_PROVIDER ? "Yape" : row.provider as QrContactProvider,
     recipientId: row.recipient_user_id,
     verified: Boolean(row.recipient_user_id),
@@ -236,18 +247,12 @@ function rowToContact(row: QrContactRow): QrContact {
   };
 }
 
-function maskPhone(phone: string | null) {
-  if (!phone) return null;
-  const digits = phone.replace(/\D/g, "");
-  return digits.length >= 3 ? `*** *** ${digits.slice(-3)}` : null;
-}
-
 export async function listQrContacts(userId: string) {
   await ensureQrContactSchema();
   const rows = await dbBinding().prepare(
     `SELECT id, holder_name, phone_e164, provider, recipient_user_id, created_at
-     FROM qr_contacts WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT ?`,
-  ).bind(userId, MAX_CONTACTS_PER_USER).all<QrContactRow>();
+     FROM qr_contacts WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 500`,
+  ).bind(userId).all<QrContactRow>();
   return (rows.results ?? []).map(rowToContact);
 }
 
@@ -269,15 +274,7 @@ export async function createQrContact(userId: string, input: {
     if (parsedRecipientId === userId) {
       throw new QrContactError("No puedes guardar tu propio QR como contacto.", 409, "QR_CONTACT_SELF");
     }
-    const recipient = await dbBinding().prepare(
-      `SELECT u.id, u.display_name, d.phone_e164
-       FROM users u
-       LEFT JOIN payment_directory d ON d.user_id = u.id AND d.discoverable = 1
-       WHERE u.id = ? AND (u.role = 'client' OR EXISTS (
-         SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
-       )) AND u.status = 'active'
-       LIMIT 1`,
-    ).bind(parsedRecipientId).first<VerifiedRecipientRow>();
+    const recipient = await findActiveRecipientById(dbBinding(), parsedRecipientId);
     if (!recipient) {
       throw new QrContactError("El destinatario de Yape no está activo.", 404, "QR_RECIPIENT_NOT_FOUND");
     }
@@ -304,13 +301,6 @@ export async function createQrContact(userId: string, input: {
   ).bind(userId, hash).first<{ id: string }>();
   if (existing) throw new QrContactError("Este QR ya está guardado.", 409, "QR_CONTACT_DUPLICATE");
 
-  const usage = await dbBinding().prepare(
-    "SELECT COUNT(*) AS total FROM qr_contacts WHERE user_id = ?",
-  ).bind(userId).first<{ total: number }>();
-  if (Number(usage?.total ?? 0) >= MAX_CONTACTS_PER_USER) {
-    throw new QrContactError("Alcanzaste el límite de 50 contactos QR.", 409, "QR_CONTACT_LIMIT");
-  }
-
   const encrypted = await encryptPayload(userId, payload);
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -320,8 +310,7 @@ export async function createQrContact(userId: string, input: {
         id, user_id, holder_name, phone_e164, provider, recipient_user_id,
         qr_payload_ciphertext, qr_payload_iv, payload_hash, encryption_version,
         created_at, updated_at
-      ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?
-        WHERE (SELECT COUNT(*) FROM qr_contacts WHERE user_id = ?) < ?`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
     ).bind(
       id,
       userId,
@@ -334,11 +323,9 @@ export async function createQrContact(userId: string, input: {
       hash,
       now,
       now,
-      userId,
-      MAX_CONTACTS_PER_USER,
     ).run();
     if (Number(result.meta.changes ?? 0) !== 1) {
-      throw new QrContactError("Alcanzaste el límite de 50 contactos QR.", 409, "QR_CONTACT_LIMIT");
+      throw new QrContactError("No se pudo guardar el QR.", 500, "QR_CONTACT_SAVE_FAILED");
     }
   } catch (error) {
     if (error instanceof QrContactError) throw error;
@@ -352,12 +339,140 @@ export async function createQrContact(userId: string, input: {
   return {
     id,
     holderName,
-    phone: maskPhone(phone),
+    phone: maskPhoneOrNull(phone),
     provider,
     recipientId,
     verified: Boolean(recipientId),
     createdAt: now,
   } satisfies QrContact;
+}
+
+function rowToGlobalContact(row: GlobalQrContactRow): QrContact {
+  return {
+    id: row.id,
+    holderName: row.holder_name,
+    phone: maskPhoneOrNull(row.phone_e164),
+    provider: row.provider as QrContactProvider,
+    recipientId: row.recipient_user_id,
+    verified: Boolean(row.recipient_user_id),
+    createdAt: row.created_at,
+  };
+}
+
+/** Lista las publicaciones globales del usuario sin limitar cuántas puede crear. */
+export async function listGlobalQrContacts(userId: string) {
+  const rows = await dbBinding().prepare(
+    `SELECT id, holder_name, phone_e164, provider, recipient_user_id, status, created_at
+     FROM global_qr_directory
+     WHERE submitted_by_user_id = ?
+     ORDER BY updated_at DESC, id DESC
+     LIMIT 500`,
+  ).bind(userId).all<GlobalQrContactRow>();
+  return (rows.results ?? []).map(rowToGlobalContact);
+}
+
+/**
+ * Publica un QR en el directorio global. No existe un límite de cantidad;
+ * solamente se evita guardar el mismo payload más de una vez.
+ */
+export async function createGlobalQrContact(
+  userId: string,
+  input: {
+    holderName: string;
+    phone: string;
+    provider: string;
+    payload: string;
+    termsAccepted: unknown;
+    termsVersion: unknown;
+  },
+) {
+  try {
+    requireGlobalDirectoryTerms(input.termsAccepted, input.termsVersion);
+  } catch (error) {
+    if (error instanceof GlobalDirectoryError) {
+      throw new QrContactError(error.message, error.status, error.code);
+    }
+    throw error;
+  }
+
+  const provider = parseProvider(input.provider);
+  const payload = validateDecodedPayload(input.payload);
+  let holderName = "";
+  let phone: string | null = null;
+  let recipientId: string | null = null;
+
+  const parsedRecipientId = provider === "Yape" ? parsePaymentQrPayload(payload) : "";
+  if (parsedRecipientId) {
+    if (parsedRecipientId === userId) {
+      throw new QrContactError("No puedes publicar tu propio QR como destinatario.", 409, "QR_CONTACT_SELF");
+    }
+    const recipient = await findActiveRecipientById(dbBinding(), parsedRecipientId);
+    if (!recipient) {
+      throw new QrContactError("El destinatario de Yape no está activo.", 404, "QR_RECIPIENT_NOT_FOUND");
+    }
+    recipientId = recipient.id;
+    holderName = maskRecipientName(parseHolderName(recipient.display_name));
+    phone = recipient.phone_e164;
+  } else {
+    holderName = maskRecipientName(parseHolderName(input.holderName));
+    phone = parsePhone(input.phone);
+    if (!phone) {
+      throw new QrContactError("Añade el celular del destinatario para publicarlo globalmente.", 400, "QR_PHONE_REQUIRED");
+    }
+  }
+
+  const hash = await payloadHash("global", payload);
+  const existing = await dbBinding().prepare(
+    "SELECT id FROM global_qr_directory WHERE payload_hash = ? LIMIT 1",
+  ).bind(hash).first<{ id: string }>();
+  if (existing) throw new QrContactError("Este QR ya está publicado globalmente.", 409, "QR_CONTACT_DUPLICATE");
+
+  const encrypted = await encryptPayload("global", payload);
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  try {
+    const row = await dbBinding().prepare(
+      `INSERT INTO global_qr_directory (
+        id, holder_name, phone_e164, provider, recipient_user_id, submitted_by_user_id,
+        qr_payload_ciphertext, qr_payload_iv, payload_hash, encryption_version,
+        terms_version, terms_accepted_at, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'active', ?, ?)
+      RETURNING id, holder_name, phone_e164, provider, recipient_user_id, status, created_at`,
+    ).bind(
+      id,
+      holderName,
+      phone,
+      provider,
+      recipientId,
+      userId,
+      encrypted.ciphertext,
+      encrypted.iv,
+      hash,
+      GLOBAL_DIRECTORY_TERMS_VERSION,
+      now,
+      now,
+      now,
+    ).first<GlobalQrContactRow>();
+    if (!row) throw new QrContactError("No pudimos publicar el QR.", 503, "QR_PUBLISH_FAILED");
+    return rowToGlobalContact(row);
+  } catch (error) {
+    if (error instanceof QrContactError) throw error;
+    const duplicate = await dbBinding().prepare(
+      "SELECT id FROM global_qr_directory WHERE payload_hash = ? LIMIT 1",
+    ).bind(hash).first<{ id: string }>();
+    if (duplicate) throw new QrContactError("Este QR ya está publicado globalmente.", 409, "QR_CONTACT_DUPLICATE");
+    throw error;
+  }
+}
+
+export async function deleteGlobalQrContact(userId: string, id: string) {
+  if (!UUID_PATTERN.test(id)) throw new QrContactError("Contacto QR inválido.");
+  const result = await dbBinding().prepare(
+    "DELETE FROM global_qr_directory WHERE id = ? AND submitted_by_user_id = ?",
+  ).bind(id, userId).run();
+  if (Number(result.meta.changes ?? 0) !== 1) {
+    throw new QrContactError("Contacto QR no encontrado.", 404, "QR_CONTACT_NOT_FOUND");
+  }
 }
 
 export async function deleteQrContact(userId: string, id: string) {

@@ -1,23 +1,13 @@
 "use client";
 
+import { base64UrlToBytes, bytesToBase64Url } from "@/app/lib/base64url";
+
 const ANCHOR_DB = "yape-registration-anchor";
 const ANCHOR_STORE = "anchors";
 const ANCHOR_KEY = "primary";
 const ANCHOR_LOCAL_KEY = "yape.registration.anchor.v1";
 
 let fingerprintAgent: Promise<{ get: () => Promise<{ visitorId: string }> }> | null = null;
-
-function bytesToBase64Url(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
-}
-
-function base64UrlToBytes(value: string) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
 
 export async function getFingerprintId() {
   fingerprintAgent ??= import("@fingerprintjs/fingerprintjs")

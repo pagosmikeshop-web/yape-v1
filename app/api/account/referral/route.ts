@@ -4,15 +4,11 @@ import {
   ensureReferralCodeForUser,
   getSessionUserIncludingExpired,
   REFERRAL_EXTENSION_DAYS,
-  REFERRAL_MONTHLY_LIMIT,
+  REFERRAL_REDEMPTION_LIMIT,
   routeError,
 } from "@/app/lib/auth-server";
 
 export const dynamic = "force-dynamic";
-
-function currentMonthKey(date = new Date()) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
 
 export async function GET(request: Request) {
   try {
@@ -25,17 +21,17 @@ export async function GET(request: Request) {
     }
     const code = await ensureReferralCodeForUser(session.user.id);
     const usage = await dbBinding().prepare(
-      "SELECT COUNT(*) AS total FROM referral_redemptions WHERE referrer_user_id = ? AND month_key = ?",
-    ).bind(session.user.id, currentMonthKey()).first<{ total: number }>();
-    const usedThisMonth = Math.max(0, Number(usage?.total ?? 0));
+      "SELECT COUNT(*) AS total FROM referral_redemptions WHERE referrer_user_id = ?",
+    ).bind(session.user.id).first<{ total: number }>();
+    const usedRedemptions = Math.max(0, Number(usage?.total ?? 0));
 
     return jsonOk({
       code,
       command: code ? `/redeem ${code}` : null,
       rewardDays: REFERRAL_EXTENSION_DAYS,
-      monthlyLimit: REFERRAL_MONTHLY_LIMIT,
-      usedThisMonth,
-      remainingThisMonth: Math.max(0, REFERRAL_MONTHLY_LIMIT - usedThisMonth),
+      redemptionLimit: REFERRAL_REDEMPTION_LIMIT,
+      usedRedemptions,
+      remainingRedemptions: Math.max(0, REFERRAL_REDEMPTION_LIMIT - usedRedemptions),
       groupUrl: "/api/telegram/group",
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

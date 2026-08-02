@@ -13,8 +13,7 @@ import {
 import { requireManagedAccount } from "@/app/lib/management-server";
 import { hasPermission, requirePermission } from "@/app/lib/rbac";
 import { decryptIssuedToken, encryptIssuedToken } from "@/app/lib/token-vault";
-
-const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+import { randomTokenPart } from "./random-token";
 
 export type AccessCredentialInput = {
   sellerId: string;
@@ -25,13 +24,6 @@ export type AccessCredentialInput = {
   proof: string;
   proofTimestamp: number;
 };
-
-function randomTokenPart(size: number) {
-  const bytes = crypto.getRandomValues(new Uint8Array(size));
-  let value = "";
-  for (const byte of bytes) value += TOKEN_ALPHABET[byte % TOKEN_ALPHABET.length];
-  return value;
-}
 
 export function normalizePermanentAccessToken(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/gu, "");

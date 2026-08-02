@@ -56,6 +56,7 @@ yarn-error.log*
 !/tests/auth-first-attempt.test.ts
 !/tests/security-contracts.test.ts
 !/tests/recipient-lookup.test.ts
+!/tests/password-reset-flow.test.ts
 /.vinext/
 /.wrangler/
 fix.mjs

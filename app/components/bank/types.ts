@@ -8,6 +8,7 @@ export type BankView =
   | "notifications"
   | "account-data"
   | "account-details"
+  | "account-payment-data"
   | "voucher-editor"
   | "high-amount"
   | "limits"

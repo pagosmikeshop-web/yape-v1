@@ -1,5 +1,7 @@
 import { assertTrustedMutation } from "@/app/lib/api-utils";
+import { base64UrlToBytes, bytesToBase64Url } from "@/app/lib/base64url";
 import { databaseForEnvironment, isSupabaseDatabase } from "@/app/lib/database-server";
+import { canonicalPublicKey } from "@/app/lib/webauthn-utils";
 
 export type AppRole = "admin" | "seller" | "client";
 
@@ -17,7 +19,7 @@ type AuthEnv = {
   AUTH_OWNER_PASSWORD_RESET_ENABLED?: string;
   AUTH_OWNER_TELEGRAM_ID?: string;
   AUTH_RATE_LIMIT_PEPPER?: string;
-  AUTH_SESSION_IDLE_MINUTES?: string;
+  AUTH_UNLOCK_IDLE_MINUTES?: string;
   ACCOUNT_SMS_VALIDATION_TOKEN?: string;
   ACCOUNT_AUTO_VALIDATION_TOKEN?: string;
   TELEGRAM_BOT_TOKEN?: string;
@@ -45,6 +47,7 @@ export type AuthUser = {
   ownerId: string | null;
   status: "pending" | "active" | "disabled";
   credits: number;
+  referralRedemptionCount: number;
   deviceId: string | null;
   telegramUserId: string | null;
   referralCode: string | null;
@@ -78,6 +81,7 @@ export type UserRow = {
   referral_code: string | null;
   referred_by_user_id: string | null;
   access_expires_at: string | null;
+  referral_redemption_count: number;
   must_change_password: number;
   must_set_pin: number;
   deleted_at: string | null;
@@ -111,14 +115,16 @@ const LEGACY_PBKDF2_ITERATIONS = 120_000;
 const CURRENT_PBKDF2_ITERATIONS = 600_000;
 const HASH_FORMAT = "pbkdf2-sha256";
 const SESSION_DAYS = 30;
-const DEFAULT_SESSION_IDLE_MINUTES = 12 * 60;
+// Inactivity only locks the UI again; it must not delete the authenticated
+// session. The session itself remains valid for SESSION_DAYS.
+const DEFAULT_UNLOCK_IDLE_MINUTES = 5;
 const MAX_SESSIONS_PER_USER = 5;
-const PIN_UNLOCK_MINUTES = 10;
 const PASSWORD_RESET_MINUTES = 15;
 export const SELF_REGISTRATION_SELLER_CODE = "YAPE";
 export const TRIAL_DAYS = 3;
 export const REFERRAL_EXTENSION_DAYS = 3;
-export const REFERRAL_MONTHLY_LIMIT = 4;
+/** Lifetime limit for /redeem extensions per account. */
+export const REFERRAL_REDEMPTION_LIMIT = 3;
 const MIN_RATE_LIMIT_PEPPER_LENGTH = 32;
 const DEVICE_PROOF_WINDOW_MS = 5 * 60 * 1000;
 let schemaReady: Promise<void> | null = null;
@@ -189,12 +195,12 @@ function isLocalUrl(url: URL) {
     && (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]");
 }
 
-function sessionIdleMinutes() {
-  const configured = authEnv().AUTH_SESSION_IDLE_MINUTES?.trim();
-  if (!configured) return DEFAULT_SESSION_IDLE_MINUTES;
+function unlockIdleMinutes() {
+  const configured = authEnv().AUTH_UNLOCK_IDLE_MINUTES?.trim();
+  if (!configured) return DEFAULT_UNLOCK_IDLE_MINUTES;
   const minutes = Number(configured);
-  if (!Number.isSafeInteger(minutes) || minutes < 5 || minutes > 7 * 24 * 60) {
-    throw new Error("Invalid AUTH_SESSION_IDLE_MINUTES configuration.");
+  if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > SESSION_DAYS * 24 * 60) {
+    throw new Error("Invalid AUTH_UNLOCK_IDLE_MINUTES configuration.");
   }
   return minutes;
 }
@@ -216,18 +222,6 @@ export function normalizePeruvianMobile(value: string) {
   const localNumber = digits.startsWith("51") && digits.length === 11 ? digits.slice(2) : digits;
   if (!/^9\d{8}$/u.test(localNumber)) return "";
   return `+51${localNumber}`;
-}
-
-function bytesToBase64Url(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
-}
-
-function base64UrlToBytes(value: string) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 async function sha256(value: string | Uint8Array) {
@@ -436,7 +430,15 @@ export async function ensureAuthSchema() {
   const db = database();
   if (isSupabaseDatabase(authEnv())) {
     schemaReady = (async () => {
-      const requiredTables = ["users", "sessions", "account_balances", "account_movements"];
+      const requiredTables = [
+        "users",
+        "sessions",
+        "account_balances",
+        "account_movements",
+        "account_payment_profiles",
+        "global_recipient_directory",
+        "global_qr_directory",
+      ];
       const missing: string[] = [];
       for (const table of requiredTables) {
         const row = await db.prepare("SELECT to_regclass(?) AS table_name").bind(`public.${table}`).first<{ table_name: string | null }>();
@@ -476,6 +478,7 @@ export async function ensureAuthSchema() {
         referral_code TEXT,
         referred_by_user_id TEXT,
         access_expires_at TEXT,
+        referral_redemption_count INTEGER NOT NULL DEFAULT 0 CHECK (referral_redemption_count >= 0),
         must_change_password INTEGER NOT NULL DEFAULT 0,
         must_set_pin INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL,
@@ -508,6 +511,20 @@ export async function ensureAuthSchema() {
       )`,
       "CREATE UNIQUE INDEX IF NOT EXISTS payment_directory_user_unique ON payment_directory(user_id)",
       "CREATE UNIQUE INDEX IF NOT EXISTS payment_directory_phone_unique ON payment_directory(phone_e164)",
+      `CREATE TABLE IF NOT EXISTS account_payment_profiles (
+        user_id TEXT PRIMARY KEY,
+        phone_e164 TEXT,
+        qr_payload_ciphertext TEXT,
+        qr_payload_iv TEXT,
+        accuracy_confirmed_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (phone_e164 IS NOT NULL OR qr_payload_ciphertext IS NOT NULL),
+        CHECK ((qr_payload_ciphertext IS NULL AND qr_payload_iv IS NULL) OR (qr_payload_ciphertext IS NOT NULL AND qr_payload_iv IS NOT NULL)),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE UNIQUE INDEX IF NOT EXISTS account_payment_profiles_phone_unique ON account_payment_profiles(phone_e164) WHERE phone_e164 IS NOT NULL",
+      "CREATE INDEX IF NOT EXISTS account_payment_profiles_updated_idx ON account_payment_profiles(updated_at)",
       `CREATE TABLE IF NOT EXISTS recipient_lookup_attempts (
         id TEXT PRIMARY KEY,
         requester_user_id TEXT NOT NULL,
@@ -527,6 +544,51 @@ export async function ensureAuthSchema() {
       )`,
       "CREATE UNIQUE INDEX IF NOT EXISTS saved_payment_recipients_user_phone_unique ON saved_payment_recipients(user_id, phone_e164)",
       "CREATE INDEX IF NOT EXISTS saved_payment_recipients_user_updated_idx ON saved_payment_recipients(user_id, updated_at)",
+      `CREATE TABLE IF NOT EXISTS global_recipient_directory (
+        id TEXT PRIMARY KEY,
+        phone_e164 TEXT NOT NULL UNIQUE,
+        display_name TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','qr')),
+        submitted_by_user_id TEXT NOT NULL,
+        terms_version TEXT NOT NULL,
+        terms_accepted_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        revoked_at TEXT,
+        revoked_reason TEXT,
+        FOREIGN KEY (submitted_by_user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE INDEX IF NOT EXISTS global_recipient_directory_submitter_idx ON global_recipient_directory(submitted_by_user_id, updated_at)",
+      "CREATE INDEX IF NOT EXISTS global_recipient_directory_active_idx ON global_recipient_directory(phone_e164, status)",
+      `CREATE TABLE IF NOT EXISTS global_qr_directory (
+        id TEXT PRIMARY KEY,
+        holder_name TEXT NOT NULL,
+        phone_e164 TEXT,
+        provider TEXT NOT NULL CHECK (provider IN (
+          'Yape','Plin','BCP','BBVA','Interbank','Scotiabank','Bim',
+          'Banco Falabella','Banco Pichincha','Dale!','Izipay','Agora / Oh!','Tunki'
+        )),
+        recipient_user_id TEXT,
+        submitted_by_user_id TEXT NOT NULL,
+        qr_payload_ciphertext TEXT NOT NULL,
+        qr_payload_iv TEXT NOT NULL,
+        payload_hash TEXT NOT NULL UNIQUE,
+        encryption_version INTEGER NOT NULL DEFAULT 1 CHECK (encryption_version = 1),
+        terms_version TEXT NOT NULL,
+        terms_accepted_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        revoked_at TEXT,
+        revoked_reason TEXT,
+        CHECK (phone_e164 IS NOT NULL OR recipient_user_id IS NOT NULL),
+        FOREIGN KEY (recipient_user_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (submitted_by_user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE INDEX IF NOT EXISTS global_qr_directory_submitter_idx ON global_qr_directory(submitted_by_user_id, updated_at)",
+      "CREATE INDEX IF NOT EXISTS global_qr_directory_phone_idx ON global_qr_directory(phone_e164, status)",
+      "CREATE INDEX IF NOT EXISTS global_qr_directory_recipient_idx ON global_qr_directory(recipient_user_id)",
       `CREATE TABLE IF NOT EXISTS account_balances (
         user_id TEXT PRIMARY KEY,
         balance_cents INTEGER NOT NULL DEFAULT 3913 CHECK (balance_cents >= 0 AND balance_cents <= 99999999999),
@@ -675,6 +737,7 @@ export async function ensureAuthSchema() {
         FOREIGN KEY (approved_by) REFERENCES users(id)
       )`,
       "CREATE INDEX IF NOT EXISTS password_reset_seller_idx ON password_reset_requests(seller_id, status)",
+      "CREATE INDEX IF NOT EXISTS password_reset_user_idx ON password_reset_requests(user_id, status, created_at)",
       `CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -947,6 +1010,7 @@ export async function ensureAuthSchema() {
       ["referral_code", "TEXT"],
       ["referred_by_user_id", "TEXT"],
       ["access_expires_at", "TEXT"],
+      ["referral_redemption_count", "INTEGER NOT NULL DEFAULT 0 CHECK (referral_redemption_count >= 0)"],
       ["is_owner", "INTEGER NOT NULL DEFAULT 0 CHECK (is_owner IN (0, 1))"],
       ["deleted_at", "TEXT"],
     ] as const) {
@@ -964,6 +1028,17 @@ export async function ensureAuthSchema() {
       db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_unique ON users(referral_code) WHERE referral_code IS NOT NULL"),
       db.prepare("CREATE INDEX IF NOT EXISTS users_owner_role_idx ON users(owner_id, role, deleted_at)"),
       db.prepare("CREATE INDEX IF NOT EXISTS users_role_deleted_created_idx ON users(role, deleted_at, created_at)"),
+      db.prepare(
+        `UPDATE users
+         SET referral_redemption_count = COALESCE((
+           SELECT COUNT(*) FROM referral_redemptions
+           WHERE referral_redemptions.referrer_user_id = users.id
+         ), 0)
+         WHERE referral_redemption_count < COALESCE((
+           SELECT COUNT(*) FROM referral_redemptions
+           WHERE referral_redemptions.referrer_user_id = users.id
+         ), 0)`,
+      ),
     ];
     const ownerTelegramId = configuredOwnerTelegramId();
     if (ownerTelegramId) {
@@ -995,6 +1070,7 @@ function mapUser(row: UserRow): AuthUser {
     ownerId: row.owner_id,
     status: row.status,
     credits: Number(row.credits),
+    referralRedemptionCount: Number(row.referral_redemption_count ?? 0),
     deviceId: row.device_id,
     telegramUserId: row.telegram_user_id,
     referralCode: row.referral_code,
@@ -1021,24 +1097,26 @@ async function findSessionUser(request: Request, roles?: AppRole[], includeExpir
   if (!token) return null;
   const tokenHash = await sha256(token);
   const now = new Date().toISOString();
-  const idleCutoff = new Date(Date.now() - sessionIdleMinutes() * 60_000).toISOString();
+  const unlockIdleMs = unlockIdleMinutes() * 60_000;
+  const unlockCutoff = new Date(Date.now() - unlockIdleMs).toISOString();
   await database().prepare(
-    "DELETE FROM sessions WHERE token_hash = ? AND (expires_at <= ? OR last_seen_at <= ?)",
-  ).bind(tokenHash, now, idleCutoff).run();
+    "DELETE FROM sessions WHERE token_hash = ? AND expires_at <= ?",
+  ).bind(tokenHash, now).run();
   const statement = database().prepare(
     `SELECT s.id AS session_id, s.token_hash, s.expires_at,
       s.last_seen_at, s.pin_verified_at, s.unlocked_until,
       u.id, u.seller_code, u.username, u.display_name, u.email, u.role, u.is_owner, u.owner_id,
      u.status, u.password_hash, u.password_salt, u.pin_hash, u.pin_salt, u.credits,
       u.device_id, u.device_public_key, u.fingerprint_id_hash, u.telegram_user_id,
-      u.referral_code, u.referred_by_user_id, u.access_expires_at, u.must_change_password, u.must_set_pin,
+      u.referral_code, u.referred_by_user_id, u.access_expires_at, u.referral_redemption_count,
+      u.must_change_password, u.must_set_pin,
       u.deleted_at
      FROM sessions s JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = ? AND s.expires_at > ? AND s.last_seen_at > ?
-       AND u.status = 'active' AND u.deleted_at IS NULL
+     WHERE s.token_hash = ? AND s.expires_at > ?
+        AND u.status = 'active' AND u.deleted_at IS NULL
      LIMIT 1`,
   );
-  const row = await statement.bind(tokenHash, now, idleCutoff).first<SessionRow>();
+  const row = await statement.bind(tokenHash, now).first<SessionRow>();
   if (!row) return null;
   row.roles = await getUserRoles(row.id);
   const effectiveRoles = new Set<AppRole>([row.role, ...(row.roles ?? [])]);
@@ -1047,16 +1125,26 @@ async function findSessionUser(request: Request, roles?: AppRole[], includeExpir
   if (!includeExpiredAccess && !hasStaffRole && row.access_expires_at && Date.parse(row.access_expires_at) <= Date.now()) {
     return null;
   }
-  await database().prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ?").bind(now, row.session_id).run();
+  const unlocked = Boolean(
+    row.unlocked_until
+      && Date.parse(row.unlocked_until) > Date.now()
+      && row.last_seen_at > unlockCutoff,
+  );
+  const refreshedUnlockUntil = unlocked
+    ? new Date(Date.now() + unlockIdleMs).toISOString()
+    : null;
+  await database().prepare(
+    "UPDATE sessions SET last_seen_at = ?, unlocked_until = ? WHERE id = ?",
+  ).bind(now, refreshedUnlockUntil, row.session_id).run();
   return {
     user: {
       ...mapUser(row),
-      unlocked: Boolean(row.unlocked_until && Date.parse(row.unlocked_until) > Date.now()),
+      unlocked,
     },
     row,
     sessionId: row.session_id,
     pinVerifiedAt: row.pin_verified_at,
-    unlockedUntil: row.unlocked_until,
+    unlockedUntil: refreshedUnlockUntil,
   };
 }
 
@@ -1071,6 +1159,25 @@ export async function getSessionUserIncludingExpired(request: Request, roles?: A
 export async function requireSession(request: Request, roles?: AppRole[]) {
   assertTrustedMutation(request);
   const session = await getSessionUser(request, roles);
+  if (!session) throw new Response(JSON.stringify({ error: "Acceso no autorizado." }), {
+    status: 401,
+    headers: {
+      "cache-control": "no-store, max-age=0",
+      "content-type": "application/json; charset=utf-8",
+      pragma: "no-cache",
+      "x-content-type-options": "nosniff",
+    },
+  });
+  return session;
+}
+
+/**
+ * Allows only the access-recovery steps (PIN unlock/redeem) to continue after
+ * a trial expires. Protected data endpoints must keep using requireSession.
+ */
+export async function requireSessionIncludingExpired(request: Request, roles?: AppRole[]) {
+  assertTrustedMutation(request);
+  const session = await getSessionUserIncludingExpired(request, roles);
   if (!session) throw new Response(JSON.stringify({ error: "Acceso no autorizado." }), {
     status: 401,
     headers: {
@@ -1110,7 +1217,7 @@ export async function rotateAndUnlockSession(request: Request, sessionId: string
   const token = randomToken(36);
   const tokenHash = await sha256(token);
   const now = new Date();
-  const unlockedUntil = new Date(now.getTime() + PIN_UNLOCK_MINUTES * 60_000);
+  const unlockedUntil = new Date(now.getTime() + unlockIdleMinutes() * 60_000);
   const result = await database().prepare(
     `UPDATE sessions
      SET token_hash = ?, pin_verified_at = ?, unlocked_until = ?, last_seen_at = ?
@@ -1141,7 +1248,9 @@ export async function createSession(request: Request, userId: string, options: {
   const tokenHash = await sha256(token);
   const now = new Date();
   const expires = new Date(now.getTime() + SESSION_DAYS * 86_400_000);
-  const unlockedUntil = options.unlocked ? new Date(now.getTime() + PIN_UNLOCK_MINUTES * 60_000).toISOString() : null;
+  const unlockedUntil = options.unlocked
+    ? new Date(now.getTime() + unlockIdleMinutes() * 60_000).toISOString()
+    : null;
   await database().batch([
     database().prepare(
       `INSERT INTO sessions (
@@ -1182,10 +1291,6 @@ export async function destroySession(request: Request) {
   }
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${sessionCookieName(request)}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure}`;
-}
-
-function canonicalPublicKey(key: JsonWebKey) {
-  return JSON.stringify({ crv: key.crv, kty: key.kty, x: key.x, y: key.y });
 }
 
 function generateReferralCode() {
@@ -1563,6 +1668,13 @@ export async function completePasswordReset(input: {
        WHERE user_id = (
          SELECT user_id FROM password_reset_tokens WHERE id = ? AND consumed_by = ? LIMIT 1
        )`,
+    ).bind(input.requestId, consumeMarker),
+    database().prepare(
+      `UPDATE password_reset_requests
+       SET status = 'cancelled'
+       WHERE user_id = (
+         SELECT user_id FROM password_reset_tokens WHERE id = ? AND consumed_by = ? LIMIT 1
+       ) AND status = 'approved'`,
     ).bind(input.requestId, consumeMarker),
   ]);
   return Number(results[0]?.meta.changes ?? 0) === 1;
