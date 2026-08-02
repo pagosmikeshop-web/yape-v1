@@ -179,7 +179,12 @@ function supabaseDatabase(url: string) {
     // Vercel puede crear varias instancias en paralelo. Mantener un pool
     // pequeño por instancia evita multiplicar conexiones contra el pooler de
     // Supabase durante un pico de tráfico.
-    max: 2,
+    // La URL de producción usa el pool transaccional de Supavisor (puerto
+    // 6543). Las vistas del panel hacen varias lecturas en paralelo; con dos
+    // conexiones esas lecturas se quedaban en cola hasta que el proxy las
+    // abortaba a los ocho segundos. Ocho conexiones mantienen el flujo sin
+    // abrir una conexión física por cada solicitud.
+    max: 8,
     idle_timeout: 20,
     connect_timeout: 10,
     max_lifetime: 600,

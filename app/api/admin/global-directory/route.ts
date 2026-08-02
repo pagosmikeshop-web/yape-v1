@@ -22,6 +22,7 @@ type DirectoryRow = {
   provider: string | null;
   status: DirectoryStatus;
   submitted_by_user_id: string;
+  submitter_telegram_id: string | null;
   submitter_name: string | null;
   submitter_username: string | null;
   created_at: string;
@@ -58,6 +59,7 @@ function rowDto(row: DirectoryRow) {
     status: row.status,
     submittedBy: {
       id: row.submitted_by_user_id,
+      telegramId: row.submitter_telegram_id,
       name: row.submitter_name || row.submitter_username || "Cuenta no disponible",
       username: row.submitter_username,
     },
@@ -73,6 +75,7 @@ function directoryUnion() {
     SELECT
       d.id, 'recipient' AS kind, d.display_name AS name, d.phone_e164,
       d.source, NULL AS provider, d.status, d.submitted_by_user_id,
+      u.telegram_user_id AS submitter_telegram_id,
       u.display_name AS submitter_name, u.username AS submitter_username,
       d.created_at, d.updated_at, d.revoked_at, d.revoked_reason
     FROM global_recipient_directory d
@@ -81,6 +84,7 @@ function directoryUnion() {
     SELECT
       q.id, 'qr' AS kind, q.holder_name AS name, q.phone_e164,
       'qr' AS source, q.provider, q.status, q.submitted_by_user_id,
+      u.telegram_user_id AS submitter_telegram_id,
       u.display_name AS submitter_name, u.username AS submitter_username,
       q.created_at, q.updated_at, q.revoked_at, q.revoked_reason
     FROM global_qr_directory q
