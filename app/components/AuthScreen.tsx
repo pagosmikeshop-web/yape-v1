@@ -605,7 +605,6 @@ export function AuthScreen({ screen }: { screen: Screen }) {
           username: String(formData.get("username") ?? ""),
           displayName: String(formData.get("display-name") ?? ""),
           phone: String(formData.get("phone") ?? ""),
-          email: String(formData.get("email") ?? ""),
           referralCode: String(formData.get("referral-code") ?? ""),
           password,
           pin,
@@ -813,7 +812,6 @@ export function AuthScreen({ screen }: { screen: Screen }) {
                   <Field id="username" label="Usuario" autoComplete="username" minLength={3} maxLength={40} />
                   <Field id="display-name" label="Nombre completo" autoComplete="name" minLength={2} maxLength={80} />
                   <Field id="phone" label="Celular" inputMode="numeric" pattern="9[0-9]{8}" maxLength={9} required={false} />
-                  <Field id="email" label="Correo opcional" type="email" autoComplete="email" required={false} />
                   <Field id="referral-code" label="Codigo de invitacion opcional" maxLength={16} required={false} />
                   <PasswordField id="new-password" label="Contrasena" autoComplete="new-password" />
                   <PasswordField id="confirm-password" label="Confirmar contrasena" autoComplete="new-password" />

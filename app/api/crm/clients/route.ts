@@ -11,7 +11,6 @@ import {
   routeError,
   SELF_REGISTRATION_SELLER_CODE,
   validateDisplayName,
-  validateOptionalEmail,
   validateUsername,
 } from "@/app/lib/auth-server";
 import { createInvitation } from "@/app/lib/invitation-server";
@@ -291,16 +290,16 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const username = asString(body.username);
     const displayName = asString(body.displayName).trim();
-    const email = asString(body.email).trim().toLowerCase();
+    const telegramUserId = asString(body.telegramUserId).trim();
     const phone = normalizePeruvianMobile(asString(body.phone));
     const crmStatus = asString(body.crmStatus) || "new";
     const clientType = CLIENT_TYPES.has(asString(body.clientType)) ? asString(body.clientType) : "individual";
     const category = asString(body.category).trim().slice(0, 40) || "general";
     const tags = cleanTags(body.tags);
-    const saleAmountCents = Math.round(Number(body.saleAmount) * 100);
+    let saleAmountCents = 0;
 
-    if (!validateUsername(username) || !validateDisplayName(displayName) || !validateOptionalEmail(email) || !phone) {
-      return jsonError("Completa un usuario, nombre y celular peruano válidos.");
+    if (!/^\d{4,24}$/u.test(telegramUserId) || !validateUsername(username) || !validateDisplayName(displayName) || !phone) {
+      return jsonError("Completa un Telegram ID, usuario, nombre y celular peruano válidos.");
     }
     if (!CRM_STATUSES.has(crmStatus)) {
       return jsonError("El estado CRM debe ser Nuevo o VIP.");
@@ -308,9 +307,17 @@ export async function POST(request: Request) {
     if (actor.role === "seller" && crmStatus === "vip") {
       return jsonError("Para otorgar acceso VIP, genera una key permanente usando un crédito.", 403);
     }
-    if (!Number.isSafeInteger(saleAmountCents) || saleAmountCents <= 0 || saleAmountCents > 100_000_000_00) {
-      return jsonError("Ingresa un monto de venta mayor a S/ 0.");
+    if (crmStatus === "vip") {
+      saleAmountCents = Math.round(Number(body.saleAmount) * 100);
+      if (!Number.isSafeInteger(saleAmountCents) || saleAmountCents <= 0 || saleAmountCents > 100_000_000_00) {
+        return jsonError("Ingresa un monto de venta mayor a S/ 0.");
+      }
     }
+
+    const existingTelegram = await dbBinding().prepare(
+      "SELECT id FROM users WHERE telegram_user_id = ? AND deleted_at IS NULL LIMIT 1",
+    ).bind(telegramUserId).first<{ id: string }>();
+    if (existingTelegram) return jsonError("Ese Telegram ID ya está vinculado a una cuenta.", 409);
 
     let ownerId: string | null = actor.role === "seller" ? actor.id : null;
     let sellerCode = actor.role === "seller" ? actor.sellerCode : SELF_REGISTRATION_SELLER_CODE;
@@ -335,9 +342,10 @@ export async function POST(request: Request) {
       sellerCode,
       username,
       displayName,
-      email,
+      email: "",
       password: generateTemporaryPassword(),
       phone,
+      telegramUserId,
       role: "client",
       ownerId,
       status: grantsPermanentAccess ? "active" : "pending",
@@ -345,17 +353,12 @@ export async function POST(request: Request) {
       mustChangePassword: true,
     });
     const now = new Date().toISOString();
-    await dbBinding().batch([
+    const statements = [
       dbBinding().prepare(
         `INSERT INTO client_crm_profiles
            (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
          VALUES (?, ?, ?, ?, ?, '', ?, ?, ?)`,
       ).bind(id, crmStatus, clientType, category, JSON.stringify(tags), now, actor.id, now),
-      dbBinding().prepare(
-        `INSERT INTO client_crm_activities
-           (id, user_id, activity_type, title, description, amount_cents, created_by, created_at)
-         VALUES (?, ?, 'purchase', 'Venta inicial', 'Venta registrada al crear el cliente.', ?, ?, ?)`,
-      ).bind(crypto.randomUUID(), id, saleAmountCents, actor.id, now),
       dbBinding().prepare(
         `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
          VALUES (?, ?, 'crm_client_create', ?, ?)`,
@@ -365,7 +368,15 @@ export async function POST(request: Request) {
         `${id}:${ownerId ?? "unassigned"}:${saleAmountCents}`,
         now,
       ),
-    ]);
+    ];
+    if (saleAmountCents > 0) {
+      statements.splice(1, 0, dbBinding().prepare(
+        `INSERT INTO client_crm_activities
+           (id, user_id, activity_type, title, description, amount_cents, created_by, created_at)
+         VALUES (?, ?, 'purchase', 'Venta inicial', 'Venta registrada al crear el cliente.', ?, ?, ?)`,
+      ).bind(crypto.randomUUID(), id, saleAmountCents, actor.id, now));
+    }
+    await dbBinding().batch(statements);
     const invitation = await createInvitation(id);
     const activationUrl = new URL(invitation.activationPath, publicAppBaseUrl(request)).toString();
 

@@ -11,7 +11,6 @@ import {
   routeError,
   SELF_REGISTRATION_SELLER_CODE,
   validateDisplayName,
-  validateOptionalEmail,
   validateSellerCode,
   validateUsername,
 } from "@/app/lib/auth-server";
@@ -107,18 +106,23 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const username = asString(body.username);
     const displayName = asString(body.displayName);
-    const email = asString(body.email);
+    const telegramUserId = asString(body.telegramUserId).trim();
     const phone = normalizePeruvianMobile(asString(body.phone));
     const requestedSellerCode = asString(body.sellerCode);
 
     if (
       !validateUsername(username)
       || !validateDisplayName(displayName)
-      || !validateOptionalEmail(email)
+      || !/^\d{4,24}$/u.test(telegramUserId)
       || !phone
     ) {
-      return jsonError("Completa un usuario, nombre y celular peruano válidos.");
+      return jsonError("Completa un Telegram ID, usuario, nombre y celular peruano válidos.");
     }
+
+    const existingTelegram = await dbBinding().prepare(
+      "SELECT id FROM users WHERE telegram_user_id = ? AND deleted_at IS NULL LIMIT 1",
+    ).bind(telegramUserId).first<{ id: string }>();
+    if (existingTelegram) return jsonError("Ese Telegram ID ya está vinculado a una cuenta.", 409);
 
     let ownerId: string | null = actor.role === "seller" ? actor.id : null;
     let sellerCode = actor.role === "seller" ? actor.sellerCode : SELF_REGISTRATION_SELLER_CODE;
@@ -143,9 +147,10 @@ export async function POST(request: Request) {
       sellerCode,
       username,
       displayName,
-      email,
+      email: "",
       password: generateTemporaryPassword(),
       phone,
+      telegramUserId,
       role: "client",
       ownerId,
       status: "pending",

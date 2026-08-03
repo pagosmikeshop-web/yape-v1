@@ -15,6 +15,8 @@ export function InvitationScreen() {
   const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinConfirmation, setPinConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [ready, setReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -56,6 +58,14 @@ export function InvitationScreen() {
       setError("Las contraseñas no coinciden.");
       return;
     }
+    if (!/^\d{6}$/u.test(pin)) {
+      setError("El PIN debe tener exactamente 6 dígitos.");
+      return;
+    }
+    if (pin !== pinConfirmation) {
+      setError("Los PIN no coinciden.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -63,7 +73,7 @@ export function InvitationScreen() {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ token, password, confirmPassword: confirmation }),
+        body: JSON.stringify({ token, password, confirmPassword: confirmation, pin, confirmPin: pinConfirmation }),
       });
       const data = await response.json() as RedeemResponse;
       if (!response.ok || !data.ok) throw new Error(safeApiMessage(data.error, "No se pudo activar la cuenta."));
@@ -71,6 +81,8 @@ export function InvitationScreen() {
       setToken("");
       setPassword("");
       setConfirmation("");
+      setPin("");
+      setPinConfirmation("");
       setSuccess(true);
     } catch (caught) {
       setError(safeClientMessage(caught, "No se pudo activar la cuenta."));
@@ -97,14 +109,14 @@ export function InvitationScreen() {
         {success ? (
           <div className={styles.success} role="status">
             <span className={styles.successIcon} aria-hidden="true">✓</span>
-            <p>Tu contraseña fue creada correctamente.</p>
+            <p>Tu contraseña y PIN fueron creados correctamente.</p>
             <small>Por seguridad, inicia sesión desde tu dispositivo. Este enlace ya no puede volver a usarse.</small>
             <Link className={styles.primaryLink} href="/">Ir a iniciar sesión</Link>
           </div>
         ) : (
           <form className={styles.form} onSubmit={submit} noValidate>
             <p className={styles.intro}>
-              Elige una contraseña personal. La invitación vence en 24 horas y funciona una sola vez.
+              Elige una contraseña y un PIN de 6 dígitos. La invitación vence en 24 horas y funciona una sola vez.
             </p>
 
             {!token && (
@@ -147,10 +159,40 @@ export function InvitationScreen() {
               />
             </label>
 
+            <label className={styles.field}>
+              <span>PIN de 6 dígitos</span>
+              <input
+                type="password"
+                value={pin}
+                onChange={(event) => setPin(event.target.value.replace(/\D/gu, "").slice(0, 6))}
+                inputMode="numeric"
+                minLength={6}
+                maxLength={6}
+                autoComplete="new-password"
+                required
+                disabled={submitting || !token}
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span>Confirma tu PIN</span>
+              <input
+                type="password"
+                value={pinConfirmation}
+                onChange={(event) => setPinConfirmation(event.target.value.replace(/\D/gu, "").slice(0, 6))}
+                inputMode="numeric"
+                minLength={6}
+                maxLength={6}
+                autoComplete="new-password"
+                required
+                disabled={submitting || !token}
+              />
+            </label>
+
             {error && <p className={styles.error} role="alert">{error}</p>}
 
             <button className={styles.submit} type="submit" disabled={submitting || !token}>
-              {submitting ? "Guardando…" : "Crear contraseña"}
+              {submitting ? "Guardando…" : "Crear contraseña y PIN"}
             </button>
             <p className={styles.securityNote}>Yape nunca te pedirá compartir esta contraseña.</p>
           </form>

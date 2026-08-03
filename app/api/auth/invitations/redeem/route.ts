@@ -22,6 +22,8 @@ export async function POST(request: Request) {
     const token = asString(body.token).trim();
     const password = asString(body.password);
     const confirmPassword = asString(body.confirmPassword);
+    const pin = asString(body.pin).replace(/\D/gu, "");
+    const confirmPin = asString(body.confirmPin).replace(/\D/gu, "");
 
     if (!INVITATION_TOKEN_PATTERN.test(token)) {
       return invitationError("La invitación no es válida, ya fue utilizada o ha vencido.");
@@ -31,6 +33,12 @@ export async function POST(request: Request) {
     }
     if (password !== confirmPassword) {
       return invitationError("Las contraseñas no coinciden.");
+    }
+    if (!/^\d{6}$/u.test(pin)) {
+      return invitationError("El PIN debe tener exactamente 6 dígitos.");
+    }
+    if (pin !== confirmPin) {
+      return invitationError("Los PIN no coinciden.");
     }
 
     await enforceAuthRateLimits([
@@ -48,13 +56,13 @@ export async function POST(request: Request) {
       },
     ]);
 
-    const redeemed = await redeemInvitation(token, password);
+    const redeemed = await redeemInvitation(token, password, pin);
     if (!redeemed) {
       return invitationError("La invitación no es válida, ya fue utilizada o ha vencido.");
     }
 
     return jsonOk(
-      { message: "Tu contraseña fue creada. Ya puedes iniciar sesión." },
+      { message: "Tu contraseña y PIN fueron creados. Ya puedes iniciar sesión." },
       { headers: NO_STORE_HEADERS },
     );
   } catch (error) {

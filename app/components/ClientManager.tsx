@@ -198,7 +198,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
           sellerCode: String(formData.get("sellerCode") ?? ""),
           username: String(formData.get("username") ?? ""),
           displayName: String(formData.get("displayName") ?? ""),
-          email: String(formData.get("email") ?? ""),
+          telegramUserId: String(formData.get("telegramUserId") ?? ""),
           phone: String(formData.get("phone") ?? ""),
         }),
       }));
@@ -422,7 +422,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
           <label>Usuario<input name="username" required minLength={3} maxLength={40} autoComplete="off" /></label>
           <label>Nombre completo<input name="displayName" required minLength={2} maxLength={80} autoComplete="name" /></label>
           <label>Número celular<input name="phone" required inputMode="numeric" pattern="9[0-9]{8}" maxLength={9} placeholder="900000000" /></label>
-          <label>Correo opcional<input name="email" type="email" autoComplete="email" /></label>
+          <label>Telegram ID del cliente<input name="telegramUserId" required inputMode="numeric" pattern="[0-9]{4,24}" minLength={4} maxLength={24} /></label>
           <button type="submit" disabled={busyId === "create"}>{busyId === "create" ? "Creando..." : "Crear cliente"}</button>
         </form>
 

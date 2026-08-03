@@ -67,20 +67,21 @@ export async function createInvitation(userId: string): Promise<AccountInvitatio
 }
 
 /**
- * Consumes an invitation and sets the password selected by its recipient.
+ * Consumes an invitation and sets the password and PIN selected by its recipient.
  *
  * D1 executes batch statements atomically. The random consume marker makes all
  * subsequent statements no-ops unless the first statement consumed this exact,
  * unexpired token. No session is created by this operation.
  */
-export async function redeemInvitation(token: string, newPassword: string) {
+export async function redeemInvitation(token: string, newPassword: string, pin: string) {
   await ensureAuthSchema();
   const normalizedToken = token.trim();
-  if (!TOKEN_PATTERN.test(normalizedToken) || !validatePassword(newPassword)) return false;
+  if (!TOKEN_PATTERN.test(normalizedToken) || !validatePassword(newPassword) || !/^\d{6}$/u.test(pin)) return false;
 
-  const [tokenHash, password] = await Promise.all([
+  const [tokenHash, password, pinSecret] = await Promise.all([
     sha256(normalizedToken),
     hashSecret(newPassword),
+    hashSecret(pin),
   ]);
   const now = new Date().toISOString();
   const consumeMarker = crypto.randomUUID();
@@ -95,7 +96,7 @@ export async function redeemInvitation(token: string, newPassword: string) {
     database.prepare(
       `UPDATE users
        SET password_hash = ?, password_salt = ?, must_change_password = 0,
-           pin_hash = NULL, pin_salt = NULL, must_set_pin = 1,
+           pin_hash = ?, pin_salt = ?, must_set_pin = 0,
            device_id = NULL, device_public_key = NULL, updated_at = ?
        WHERE id = (
          SELECT user_id
@@ -103,7 +104,7 @@ export async function redeemInvitation(token: string, newPassword: string) {
          WHERE token_hash = ? AND consumed_by = ?
          LIMIT 1
        )`,
-    ).bind(password.hash, password.salt, now, tokenHash, consumeMarker),
+    ).bind(password.hash, password.salt, pinSecret.hash, pinSecret.salt, now, tokenHash, consumeMarker),
     database.prepare(
       `DELETE FROM sessions
        WHERE user_id = (
