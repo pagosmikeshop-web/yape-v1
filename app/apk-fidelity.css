@@ -2899,7 +2899,7 @@
   border-radius: 0 !important;
   clip-path: none !important;
   pointer-events: none !important;
-  background: rgba(0, 0, 0, 0.42) !important;
+  background: transparent !important;
 }
 
 .mobile-bank-shell.view-scanner .scanner-live-frame::after {
@@ -2912,12 +2912,13 @@
   width: var(--scanner-size) !important;
   height: var(--scanner-size) !important;
   box-sizing: border-box !important;
-  transform: translate(-50%, -58%) !important;
-  border: 2px solid rgba(248, 228, 255, 0.96) !important;
+  transform: translate(-50%, -50%) !important;
+  border: 0 !important;
   border-radius: 18px !important;
   clip-path: none !important;
   pointer-events: none !important;
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(248, 228, 255, 0.22), 0 0 24px rgba(212, 108, 238, 0.2), inset 0 0 18px rgba(255, 255, 255, 0.06) !important;
+  background: transparent !important;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.42) !important;
 }
 
 .mobile-bank-shell.view-scanner .scanner-live-frame .scanner-video,
@@ -2941,9 +2942,9 @@
   height: 2px !important;
   margin: 0 !important;
   transform: translate(-50%, -50%) !important;
-  border-radius: 999px !important;
-  background: linear-gradient(90deg, transparent, #e7a6f6 16%, #f9e5ff 50%, #e7a6f6 84%, transparent) !important;
-  box-shadow: 0 0 13px rgba(222, 113, 242, 0.92) !important;
+  border-radius: 0 !important;
+  background: #b866d4 !important;
+  box-shadow: none !important;
   animation: none !important;
 }
 

@@ -1,41 +1,67 @@
 /*
- * El decodificador usa toda la señal del vídeo. El marco solo ayuda a
- * encuadrar el QR y no limita la zona que analiza ZXing.
+ * El lector continúa procesando el fotograma completo de la cámara. Estas
+ * reglas solo cambian la capa visual del escáner: no hay recorte ni región de
+ * interés para ZXing.
  */
-@keyframes qr-scanner-line-sweep {
-  0%,
-  100% {
-    top: 33%;
-    opacity: 0.58;
-  }
 
-  50% {
-    top: 67%;
-    opacity: 1;
-  }
+/* Oscurece suavemente los bordes sin dibujar un marco cuadrado visible. */
+.mobile-bank-shell.view-scanner .scanner-live-frame::before {
+  display: block !important;
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  border-radius: 0 !important;
+  clip-path: none !important;
+  pointer-events: none !important;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0 30%,
+    rgba(0, 0, 0, 0.08) 52%,
+    rgba(0, 0, 0, 0.3) 100%
+  ) !important;
+  box-shadow: none !important;
 }
 
-.mobile-bank-shell .scanner-live-frame::before {
+/* El recuadro es únicamente una guía: no se muestra ningún borde. */
+.mobile-bank-shell.view-scanner .scanner-live-frame::after {
   display: none !important;
+  content: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
 }
 
-.mobile-bank-shell .scanner-live-frame::after {
-  display: none !important;
-}
-
-.mobile-bank-shell .scanner-live-frame i {
-  top: 33% !important;
+/* Línea central, fina y mate, sin resplandor ni movimiento. */
+.mobile-bank-shell.view-scanner .scanner-live-frame > i {
+  top: 50% !important;
   right: auto !important;
   left: 50% !important;
-  width: min(74vw, 56vh) !important;
-  z-index: 3 !important;
-  height: 3px !important;
-  transform: translateX(-50%) !important;
-  animation: qr-scanner-line-sweep 2.4s ease-in-out infinite !important;
+  width: clamp(180px, 58vw, 260px) !important;
+  height: 2px !important;
+  z-index: 4 !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #a85dbd !important;
+  box-shadow: none !important;
+  filter: none !important;
+  opacity: 0.95 !important;
+  animation: none !important;
 }
 
-.mobile-bank-shell .scanner-live-frame p {
-  z-index: 3 !important;
+.mobile-bank-shell.view-scanner .scanner-live-frame > i::before,
+.mobile-bank-shell.view-scanner .scanner-live-frame > i::after {
+  display: none !important;
+  content: none !important;
+  box-shadow: none !important;
+}
+
+.mobile-bank-shell.view-scanner .scanner-live-frame > p {
+  z-index: 5 !important;
 }
 
 /* iOS transforma un select de cámaras en un picker visible. */
@@ -58,7 +84,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mobile-bank-shell .scanner-live-frame i {
+  .mobile-bank-shell.view-scanner .scanner-live-frame > i {
     animation: none !important;
   }
 }
