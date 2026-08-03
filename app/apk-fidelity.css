@@ -2895,6 +2895,9 @@
   position: absolute !important;
   z-index: 1 !important;
   inset: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  clip-path: none !important;
   pointer-events: none !important;
   background: rgba(0, 0, 0, 0.42) !important;
 }
@@ -2912,6 +2915,7 @@
   transform: translate(-50%, -58%) !important;
   border: 1px solid rgba(246, 220, 255, 0.9) !important;
   border-radius: 18px !important;
+  clip-path: none !important;
   pointer-events: none !important;
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.2), 0 0 28px rgba(212, 108, 238, 0.24), inset 0 0 22px rgba(255, 255, 255, 0.08) !important;
 }
