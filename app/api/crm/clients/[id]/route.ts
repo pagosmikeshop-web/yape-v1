@@ -88,8 +88,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!/^(pending|active|disabled)$/u.test(accountStatus)) return jsonError("Estado de cuenta inválido.");
     if (!CRM_STATUSES.has(crmStatus)) return jsonError("Estado CRM inválido.");
     if (!CLIENT_TYPES.has(clientType)) return jsonError("Tipo de cliente inválido.");
-    if (actor.role === "seller" && crmStatus === "vip" && String(current.crm_status) !== "vip") {
-      return jsonError("Para otorgar acceso VIP, genera una key permanente usando un crédito.", 403);
+    const crmStatusChanging =
+      Object.prototype.hasOwnProperty.call(body, "crmStatus")
+      && crmStatus !== String(current.crm_status);
+    if (crmStatusChanging && !actor.isOwner) {
+      return jsonError("Solo el Owner puede cambiar manualmente el tipo de acceso.", 403);
     }
 
     // AUTH-003: sellers no togglean status libremente; activación vía /activate; disabled vía clients:suspend.
@@ -97,13 +100,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       Object.prototype.hasOwnProperty.call(body, "accountStatus")
       && accountStatus !== String(current.status);
     if (statusChanging) {
+      if (actor.role === "seller") {
+        return jsonError("Los vendedores no pueden cambiar el estado de cuenta.", 403);
+      }
       if (accountStatus === "disabled") {
         await requirePermission(actor, "clients:suspend");
-      } else if (actor.role === "seller") {
-        if (accountStatus === "active") {
-          return jsonError("Para activar al cliente usa la acción Activar 3 días.", 403);
-        }
-        return jsonError("Los vendedores no pueden cambiar el estado de cuenta de forma arbitraria.", 403);
       }
     }
 
