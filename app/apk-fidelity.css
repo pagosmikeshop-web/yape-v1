@@ -2913,11 +2913,11 @@
   height: var(--scanner-size) !important;
   box-sizing: border-box !important;
   transform: translate(-50%, -58%) !important;
-  border: 1px solid rgba(246, 220, 255, 0.9) !important;
+  border: 2px solid rgba(248, 228, 255, 0.96) !important;
   border-radius: 18px !important;
   clip-path: none !important;
   pointer-events: none !important;
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.2), 0 0 28px rgba(212, 108, 238, 0.24), inset 0 0 22px rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(248, 228, 255, 0.22), 0 0 24px rgba(212, 108, 238, 0.2), inset 0 0 18px rgba(255, 255, 255, 0.06) !important;
 }
 
 .mobile-bank-shell.view-scanner .scanner-live-frame .scanner-video,
@@ -2934,17 +2934,17 @@
 .mobile-bank-shell.view-scanner .scanner-live-frame > i {
   position: absolute !important;
   z-index: 4 !important;
-  top: calc(50% - (var(--scanner-size) * 0.58) + 13px) !important;
+  top: 50% !important;
   left: 50% !important;
   right: auto !important;
   width: calc(var(--scanner-size) - 24px) !important;
   height: 2px !important;
   margin: 0 !important;
-  transform: translateX(-50%) !important;
+  transform: translate(-50%, -50%) !important;
   border-radius: 999px !important;
   background: linear-gradient(90deg, transparent, #e7a6f6 16%, #f9e5ff 50%, #e7a6f6 84%, transparent) !important;
   box-shadow: 0 0 13px rgba(222, 113, 242, 0.92) !important;
-  animation: qr-scanner-line 2.8s ease-in-out infinite !important;
+  animation: none !important;
 }
 
 .mobile-bank-shell.view-scanner .scanner-live-frame > p {
