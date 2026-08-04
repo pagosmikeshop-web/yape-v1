@@ -58,7 +58,12 @@ export async function authenticateAccessCredentials(input: AccessCredentialInput
 export async function issuePermanentAccessToken(actor: AuthUser, clientId: string) {
   await requirePermission(actor, "keys:create");
   const database = dbBinding();
-  if (actor.role === "admin") {
+  // The primary role is kept for backwards compatibility, while additional
+  // roles are stored in user_roles. Always derive the effective staff role so
+  // a seller granted through that table is not treated as an owner override.
+  const isSeller = userHasRole(actor, "seller") && !userHasRole(actor, "admin") && !actor.isOwner;
+  const isAdmin = userHasRole(actor, "admin") && !actor.isOwner;
+  if (isAdmin) {
     const managed = await requireManagedAccount(actor, clientId);
     if (managed.role !== "client") {
       throw Response.json({ ok: false, error: "Cliente no encontrado." }, { status: 404 });
@@ -78,7 +83,7 @@ export async function issuePermanentAccessToken(actor: AuthUser, clientId: strin
     access_expires_at: string | null;
   }>();
 
-  if (!client || (actor.role === "seller" && client.owner_id !== actor.id)) {
+  if (!client || (isSeller && client.owner_id !== actor.id)) {
     throw Response.json({ ok: false, error: "Cliente no encontrado." }, { status: 404 });
   }
   if (client.status !== "active") {
@@ -88,7 +93,7 @@ export async function issuePermanentAccessToken(actor: AuthUser, clientId: strin
     throw Response.json({ ok: false, error: "Este cliente ya tiene acceso permanente." }, { status: 409 });
   }
 
-  const sellerPays = actor.role === "seller";
+  const sellerPays = isSeller;
   const raw = `YAPE${randomTokenPart(12)}`;
   const formattedToken = formatPermanentAccessToken(raw);
   const tokenHash = await permanentTokenHash(raw);
@@ -102,8 +107,10 @@ export async function issuePermanentAccessToken(actor: AuthUser, clientId: strin
         `INSERT INTO permanent_access_tokens (
           id, token_hash, token_hint, seller_id, user_id, created_by, created_at, redeemed_at
         ) SELECT ?, ?, ?, id, ?, ?, ?, NULL
-          FROM users
-          WHERE id = ? AND role = 'seller' AND status = 'active' AND credits > 0`,
+         FROM users
+          WHERE id = ? AND (role = 'seller' OR EXISTS (
+            SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'seller'
+          )) AND status = 'active' AND credits > 0`,
       ).bind(tokenId, tokenHash, raw.slice(-4), client.id, actor.id, now, actor.id),
       database.prepare(
         `UPDATE users SET credits = credits - 1, updated_at = ?
@@ -168,7 +175,8 @@ export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
   const tokenId = crypto.randomUUID();
   const now = new Date().toISOString();
   const database = dbBinding();
-  if (actor.role === "seller") {
+  const sellerPays = userHasRole(actor, "seller") && !userHasRole(actor, "admin") && !actor.isOwner;
+  if (sellerPays) {
     const ledgerId = crypto.randomUUID();
     const results = await database.batch([
       database.prepare(
@@ -176,11 +184,15 @@ export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
            id, token_hash, token_hint, created_by, created_at, redeemed_at, redeemed_by_user_id, token_ciphertext
          ) SELECT ?, ?, ?, id, ?, NULL, NULL, ?
          FROM users
-         WHERE id = ? AND role = 'seller' AND status = 'active' AND credits > 0`,
+         WHERE id = ? AND (role = 'seller' OR EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'seller'
+         )) AND status = 'active' AND credits > 0`,
       ).bind(tokenId, tokenHash, raw.slice(-4), now, tokenCiphertext, actor.id),
       database.prepare(
         `UPDATE users SET credits = credits - 1, updated_at = ?
-         WHERE id = ? AND role = 'seller' AND status = 'active' AND credits > 0
+         WHERE id = ? AND (role = 'seller' OR EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'seller'
+         )) AND status = 'active' AND credits > 0
            AND EXISTS (
              SELECT 1 FROM global_permanent_access_tokens
              WHERE id = ? AND created_by = ?
@@ -223,20 +235,25 @@ export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
   ).bind(
     crypto.randomUUID(),
     actor.telegramUserId ?? actor.id,
-    `${tokenId}:${actor.isOwner ? "owner" : actor.role}`,
+    `${tokenId}:${actor.isOwner ? "owner" : sellerPays ? "seller" : actor.role}`,
     now,
   ).run();
 
   return {
     token: formattedToken,
     credits: Number(issuer?.credits ?? 0),
-    chargedCredits: actor.role === "seller" ? 1 : 0,
-    issuerRole: actor.isOwner ? "owner" : actor.role,
+    chargedCredits: sellerPays ? 1 : 0,
+    issuerRole: actor.isOwner ? "owner" : sellerPays ? "seller" : actor.role,
   };
 }
 
 export async function listGlobalPermanentAccessTokens(actor: AuthUser) {
-  await requirePermission(actor, "keys:view");
+  // Creating a key necessarily requires seeing the key workspace. This also
+  // supports older seller sessions that carry `keys:create` but have not yet
+  // refreshed the derived `keys:view` permission. Scope the query below to
+  // the caller unless they explicitly have the all-keys permission.
+  const canView = await hasPermission(actor, "keys:view") || await hasPermission(actor, "keys:create");
+  if (!canView) await requirePermission(actor, "keys:view");
   const database = dbBinding();
   const select = `SELECT t.id, t.token_hint, t.token_ciphertext, t.created_at, t.redeemed_at,
                          issuer.display_name AS created_by_name,
@@ -323,7 +340,16 @@ export async function redeemPermanentAccessToken(userId: string, token: string) 
 
   const global = await database.prepare(
     `SELECT t.id, t.redeemed_at, t.created_by,
-            issuer.role AS issuer_role, issuer.seller_code AS issuer_seller_code
+            CASE
+              WHEN issuer.is_owner = 1 THEN 'owner'
+              WHEN issuer.role = 'seller' OR EXISTS (
+                SELECT 1 FROM user_roles issuer_role_grant
+                WHERE issuer_role_grant.user_id = issuer.id
+                  AND issuer_role_grant.role = 'seller'
+              ) THEN 'seller'
+              ELSE issuer.role
+            END AS issuer_role,
+            issuer.seller_code AS issuer_seller_code
      FROM global_permanent_access_tokens t
      JOIN users issuer ON issuer.id = t.created_by
      WHERE t.token_hash = ? LIMIT 1`,
