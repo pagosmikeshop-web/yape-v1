@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const { user } = await requireUnlockedSession(request, ["admin"]);
+    const { user } = await requireUnlockedSession(request, ["seller", "admin"]);
     const keys = await listGlobalPermanentAccessTokens(user);
     return jsonOk({ keys }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { user } = await requireUnlockedSession(request, ["admin"]);
+    const { user } = await requireUnlockedSession(request, ["seller", "admin"]);
     await requirePermission(user, "keys:create");
     await enforceAuthRateLimits([{
       bucket: "global-access-token-create",

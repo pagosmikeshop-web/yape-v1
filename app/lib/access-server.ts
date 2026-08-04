@@ -155,14 +155,11 @@ export async function issuePermanentAccessToken(actor: AuthUser, clientId: strin
 /**
  * Creates a single-use key that is intentionally not assigned to a client.
  * The first authenticated client account that redeems it becomes permanent.
- * Sellers cannot issue these keys because they bypass the seller/client
- * relationship used by the regular key flow.
+ * Sellers spend one of their allocated credits when issuing these keys. The
+ * first client redemption can then be linked to the issuing seller.
  */
 export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
   await requirePermission(actor, "keys:create");
-  if (actor.role === "seller") {
-    throw Response.json({ ok: false, error: "Solo un administrador puede generar una key global." }, { status: 403 });
-  }
 
   const raw = `YAPE${randomTokenPart(12)}`;
   const formattedToken = formatPermanentAccessToken(raw);
@@ -171,13 +168,51 @@ export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
   const tokenId = crypto.randomUUID();
   const now = new Date().toISOString();
   const database = dbBinding();
-  const result = await database.prepare(
-    `INSERT INTO global_permanent_access_tokens (
-       id, token_hash, token_hint, created_by, created_at, redeemed_at, redeemed_by_user_id, token_ciphertext
-     ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)`,
-  ).bind(tokenId, tokenHash, raw.slice(-4), actor.id, now, tokenCiphertext).run();
-  if (Number(result.meta.changes ?? 0) !== 1) {
-    throw Response.json({ ok: false, error: "No se pudo generar la key global." }, { status: 409 });
+  if (actor.role === "seller") {
+    const ledgerId = crypto.randomUUID();
+    const results = await database.batch([
+      database.prepare(
+        `INSERT INTO global_permanent_access_tokens (
+           id, token_hash, token_hint, created_by, created_at, redeemed_at, redeemed_by_user_id, token_ciphertext
+         ) SELECT ?, ?, ?, id, ?, NULL, NULL, ?
+         FROM users
+         WHERE id = ? AND role = 'seller' AND status = 'active' AND credits > 0`,
+      ).bind(tokenId, tokenHash, raw.slice(-4), now, tokenCiphertext, actor.id),
+      database.prepare(
+        `UPDATE users SET credits = credits - 1, updated_at = ?
+         WHERE id = ? AND role = 'seller' AND status = 'active' AND credits > 0
+           AND EXISTS (
+             SELECT 1 FROM global_permanent_access_tokens
+             WHERE id = ? AND created_by = ?
+           )`,
+      ).bind(now, actor.id, tokenId, actor.id),
+      database.prepare(
+        `INSERT INTO credit_ledger (
+           id, seller_id, delta, balance_after, reason, reference_id, created_by, created_at
+         ) SELECT ?, id, -1, credits, 'global_permanent_access_token', ?, ?, ?
+         FROM users WHERE id = ?
+           AND EXISTS (
+             SELECT 1 FROM global_permanent_access_tokens
+             WHERE id = ? AND created_by = ?
+           )`,
+      ).bind(ledgerId, tokenId, actor.id, now, actor.id, tokenId, actor.id),
+    ]);
+    if (
+      Number(results[0]?.meta.changes ?? 0) !== 1
+      || Number(results[1]?.meta.changes ?? 0) !== 1
+      || Number(results[2]?.meta.changes ?? 0) !== 1
+    ) {
+      throw Response.json({ ok: false, error: "No tienes créditos disponibles para generar esta key." }, { status: 409 });
+    }
+  } else {
+    const result = await database.prepare(
+      `INSERT INTO global_permanent_access_tokens (
+         id, token_hash, token_hint, created_by, created_at, redeemed_at, redeemed_by_user_id, token_ciphertext
+       ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)`,
+    ).bind(tokenId, tokenHash, raw.slice(-4), actor.id, now, tokenCiphertext).run();
+    if (Number(result.meta.changes ?? 0) !== 1) {
+      throw Response.json({ ok: false, error: "No se pudo generar la key global." }, { status: 409 });
+    }
   }
 
   const issuer = await database.prepare("SELECT credits FROM users WHERE id = ? LIMIT 1")
@@ -188,14 +223,14 @@ export async function issueGlobalPermanentAccessToken(actor: AuthUser) {
   ).bind(
     crypto.randomUUID(),
     actor.telegramUserId ?? actor.id,
-    `${tokenId}:${actor.isOwner ? "owner" : "admin"}`,
+    `${tokenId}:${actor.isOwner ? "owner" : actor.role}`,
     now,
   ).run();
 
   return {
     token: formattedToken,
     credits: Number(issuer?.credits ?? 0),
-    chargedCredits: 0,
+    chargedCredits: actor.role === "seller" ? 1 : 0,
     issuerRole: actor.isOwner ? "owner" : actor.role,
   };
 }
@@ -287,10 +322,18 @@ export async function redeemPermanentAccessToken(userId: string, token: string) 
   }
 
   const global = await database.prepare(
-    `SELECT id, redeemed_at
-     FROM global_permanent_access_tokens
-     WHERE token_hash = ? LIMIT 1`,
-  ).bind(tokenHash).first<{ id: string; redeemed_at: string | null }>();
+    `SELECT t.id, t.redeemed_at, t.created_by,
+            issuer.role AS issuer_role, issuer.seller_code AS issuer_seller_code
+     FROM global_permanent_access_tokens t
+     JOIN users issuer ON issuer.id = t.created_by
+     WHERE t.token_hash = ? LIMIT 1`,
+  ).bind(tokenHash).first<{
+    id: string;
+    redeemed_at: string | null;
+    created_by: string;
+    issuer_role: string;
+    issuer_seller_code: string;
+  }>();
   if (!global || global.redeemed_at) {
     throw Response.json({ ok: false, error: "El token no corresponde a esta cuenta o ya fue utilizado." }, { status: 403 });
   }
@@ -310,12 +353,25 @@ export async function redeemPermanentAccessToken(userId: string, token: string) 
        WHERE id = ? AND redeemed_at IS NULL`,
     ).bind(now, userId, global.id),
     database.prepare(
-      `UPDATE users SET access_expires_at = NULL, updated_at = ?
+      `UPDATE users SET access_expires_at = NULL,
+         owner_id = CASE WHEN owner_id IS NULL AND ? = 'seller' THEN ? ELSE owner_id END,
+         seller_code = CASE WHEN owner_id IS NULL AND ? = 'seller' THEN ? ELSE seller_code END,
+         updated_at = ?
        WHERE id = ? AND EXISTS (
          SELECT 1 FROM global_permanent_access_tokens
          WHERE id = ? AND redeemed_by_user_id = ? AND redeemed_at = ?
        )`,
-    ).bind(now, userId, global.id, userId, now),
+    ).bind(
+      global.issuer_role,
+      global.created_by,
+      global.issuer_role,
+      global.issuer_seller_code,
+      now,
+      userId,
+      global.id,
+      userId,
+      now,
+    ),
     database.prepare(
       `INSERT INTO client_crm_profiles
          (user_id, crm_status, client_type, category, tags_json, notes, last_activity_at, updated_by, updated_at)
