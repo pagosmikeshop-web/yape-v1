@@ -276,37 +276,40 @@ async function redeemReferralCode(telegramId: string, args: string) {
           `WITH reserved AS (
              UPDATE users
              SET referral_redemption_count = referral_redemption_count + 1,
+                 access_expires_at = ?,
                  updated_at = ?
              WHERE id = ?
                AND access_expires_at IS NOT NULL
                AND referral_redemption_count < ?
-             RETURNING id
-           ), inserted AS (
-             INSERT INTO referral_redemptions (
-               id, referrer_user_id, redeemer_telegram_user_id, redeemed_by_user_id, month_key, created_at
-             )
-             SELECT ?, ?, ?, ?, ?, ?
-             FROM reserved
+               AND NOT EXISTS (
+                 SELECT 1
+                 FROM referral_redemptions
+                 WHERE referrer_user_id = ?
+                   AND redeemer_telegram_user_id = ?
+                   AND month_key = ?
+               )
              RETURNING id
            )
-           UPDATE users
-           SET access_expires_at = ?, updated_at = ?
-           WHERE id = ?
-             AND EXISTS (SELECT 1 FROM inserted)
+           INSERT INTO referral_redemptions (
+             id, referrer_user_id, redeemer_telegram_user_id, redeemed_by_user_id, month_key, created_at
+           )
+           SELECT ?, ?, ?, ?, ?, ?
+           FROM reserved
            RETURNING id`,
         ).bind(
+          nextAccess,
           now,
           referrer.id,
           REFERRAL_REDEMPTION_LIMIT,
+          referrer.id,
+          telegramId,
+          key,
           redemptionId,
           referrer.id,
           telegramId,
           redeemer?.id ?? null,
           key,
           now,
-          nextAccess,
-          now,
-          referrer.id,
         ),
       ]
     : [
@@ -347,7 +350,23 @@ async function redeemReferralCode(telegramId: string, args: string) {
     const successful = isSupabaseDatabase()
       ? changes[1] === 1
       : changes[0] === 1 && changes[1] === 1 && changes[2] === 1;
-    if (!successful) throw new Error("Esta cuenta ya agoto sus 3 canjes disponibles.");
+    if (!successful) {
+      const existing = await database.prepare(
+        `SELECT 1 AS found
+         FROM referral_redemptions
+         WHERE referrer_user_id = ? AND redeemer_telegram_user_id = ? AND month_key = ?
+         LIMIT 1`,
+      ).bind(referrer.id, telegramId, key).first<{ found: number }>();
+      if (existing) throw new Error("Este codigo ya fue canjeado por esa cuenta.");
+
+      const current = await database.prepare(
+        "SELECT referral_redemption_count FROM users WHERE id = ? AND status = 'active' LIMIT 1",
+      ).bind(referrer.id).first<{ referral_redemption_count: number }>();
+      if (Number(current?.referral_redemption_count ?? 0) >= REFERRAL_REDEMPTION_LIMIT) {
+        throw new Error("Esta cuenta ya agoto sus 3 canjes disponibles.");
+      }
+      throw new Error("No se pudo registrar el canje. Intenta nuevamente.");
+    }
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       throw new Error("Este codigo ya fue canjeado por esa cuenta.");
