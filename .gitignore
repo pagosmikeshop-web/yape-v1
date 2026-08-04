@@ -43,6 +43,11 @@ yarn-error.log*
 .env*
 .dev.vars
 
+# Documentation kept locally; not published to the application repository.
+README.md
+PRODUCT.md
+docs/
+
 # local-only workspace and tool metadata
 /.cursor/
 /.agents/
