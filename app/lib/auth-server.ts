@@ -124,6 +124,9 @@ const SESSION_DAYS = 30;
 // session. The session itself remains valid for SESSION_DAYS.
 const DEFAULT_UNLOCK_IDLE_MINUTES = 5;
 const MAX_SESSIONS_PER_USER = 5;
+// PostgreSQL rejects SQLite's `LIMIT -1` syntax. A positive upper bound keeps
+// the cleanup portable while still deleting every session beyond the cap.
+const SESSION_CLEANUP_LIMIT = 2_147_483_647;
 const PASSWORD_RESET_MINUTES = 15;
 export const SELF_REGISTRATION_SELLER_CODE = "YAPE";
 export const TRIAL_DAYS = 3;
@@ -1391,9 +1394,9 @@ export async function createSession(request: Request, userId: string, options: {
          )) AND deleted_at IS NULL)
          AND id IN (
          SELECT id FROM sessions WHERE user_id = ?
-         ORDER BY created_at DESC LIMIT -1 OFFSET ?
+         ORDER BY created_at DESC LIMIT ? OFFSET ?
        )`,
-    ).bind(userId, userId, userId, MAX_SESSIONS_PER_USER),
+    ).bind(userId, userId, userId, SESSION_CLEANUP_LIMIT, MAX_SESSIONS_PER_USER),
   ]);
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${sessionCookieName(request)}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_DAYS * 86_400}${secure}`;

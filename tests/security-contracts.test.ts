@@ -43,4 +43,10 @@ describe("security contracts", () => {
   it("keeps session cookies HttpOnly and SameSite=Strict", () => {
     expect(authServer).toContain("HttpOnly; SameSite=Strict");
   });
+
+  it("cleans up old sessions with PostgreSQL-compatible pagination", () => {
+    expect(authServer).toContain("ORDER BY created_at DESC LIMIT ? OFFSET ?");
+    expect(authServer).not.toContain("LIMIT -1 OFFSET ?");
+    expect(authServer).toContain("SESSION_CLEANUP_LIMIT");
+  });
 });
