@@ -97,12 +97,14 @@ export async function POST(request: Request) {
     const sellerId = asString(body.sellerId);
     const username = asString(body.username);
     const password = asString(body.password);
+    const clientType = asString(body.clientType).trim().toLowerCase();
+    const isPanelLogin = clientType === "panel";
     const deviceId = asString(body.deviceId);
     const proof = asString(body.proof);
     const proofTimestamp = Number(body.proofTimestamp);
     const publicKey = body.publicKey as JsonWebKey | undefined;
 
-    if (!sellerId || !username || !password || !deviceId || !proof || !publicKey) {
+    if (!sellerId || !username || !password || (!isPanelLogin && (!deviceId || !proof || !publicKey))) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "invalid_input" });
       return jsonError("Completa tus credenciales.");
     }
@@ -121,10 +123,12 @@ export async function POST(request: Request) {
         windowSeconds: 15 * 60,
       },
     ]);
-    const validDevice = await verifyDeviceProof({ sellerId, username, deviceId, publicKey, proof, proofTimestamp });
-    if (!validDevice) {
-      writeSecurityEvent(request, "auth.login", "denied", { reason: "device_proof" });
-      return jsonError("No se pudo verificar este dispositivo.", 403);
+    if (!isPanelLogin) {
+      const validDevice = await verifyDeviceProof({ sellerId, username, deviceId, publicKey: publicKey!, proof, proofTimestamp });
+      if (!validDevice) {
+        writeSecurityEvent(request, "auth.login", "denied", { reason: "device_proof" });
+        return jsonError("No se pudo verificar este dispositivo.", 403);
+      }
     }
 
     let user = await findLoginUser(sellerId, username);
@@ -157,8 +161,16 @@ export async function POST(request: Request) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "account_inactive", actorId: user.id });
       return jsonError("Tu cuenta no está activa. Contacta al administrador.", 403);
     }
-    if (userHasRole(user, "client")) {
-      const bound = await bindDevice(user, deviceId, publicKey);
+    // El panel administrativo no vincula dispositivos. La app de clientes sÃ­.
+    // El rol se comprueba en el servidor para impedir que una cuenta cliente
+    // omita su vinculaciÃ³n enviando clientType=panel.
+    const isPanelStaff = isPanelLogin && (userHasRole(user, "admin") || userHasRole(user, "seller"));
+    if (isPanelLogin && !isPanelStaff) {
+      writeSecurityEvent(request, "auth.login", "denied", { reason: "panel_role_required", actorId: user.id });
+      return jsonError("El panel solo estÃ¡ disponible para cuentas internas.", 403);
+    }
+    if (userHasRole(user, "client") && !isPanelLogin) {
+      const bound = await bindDevice(user, deviceId, publicKey!);
       if (!bound) {
         writeSecurityEvent(request, "auth.login", "denied", { reason: "device_binding", actorId: user.id });
         return jsonError("Esta cuenta ya esta vinculada a otro dispositivo. Contacta a tu vendedor.", 423);
