@@ -11,7 +11,6 @@ import {
   routeError,
   safeUser,
   SELF_REGISTRATION_SELLER_CODE,
-  validateDisplayName,
   validatePassword,
   validateUsername,
   trialExpiresAt,
@@ -41,10 +40,8 @@ export async function POST(request: Request) {
     const telegramUserId = cleanTelegramId(asString(body.telegramUserId));
     const fingerprintId = asString(body.fingerprintId).trim();
     const username = asString(body.username);
-    const displayName = asString(body.displayName).trim();
     const password = asString(body.password);
     const pin = asString(body.pin).replace(/\D/gu, "");
-    const phone = asString(body.phone).replace(/\D/gu, "");
     const referralCode = normalizeReferralCode(asString(body.referralCode));
 
     await enforceAuthRateLimits([
@@ -67,7 +64,6 @@ export async function POST(request: Request) {
       return jsonError("No se pudo validar este dispositivo.", 403);
     }
     if (!validateUsername(username)) return jsonError("El usuario debe tener de 3 a 40 caracteres.");
-    if (!validateDisplayName(displayName)) return jsonError("Ingresa tu nombre completo.");
     if (!validatePassword(password)) return jsonError("La contraseña debe tener entre 8 y 128 caracteres.");
     if (!/^\d{6}$/u.test(pin)) {
       return jsonError("La clave de ingreso debe tener exactamente 6 dígitos.");
@@ -110,10 +106,11 @@ export async function POST(request: Request) {
     const id = await createUser({
       sellerCode: SELF_REGISTRATION_SELLER_CODE,
       username,
-      displayName,
+      // El usuario es el identificador visible inicial; el nombre y el
+      // celular se completan después desde los datos de la cuenta.
+      displayName: username.trim(),
       email: "",
       password,
-      phone,
       pin,
       role: "client",
       ownerId: null,
