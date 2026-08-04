@@ -12,12 +12,22 @@ describe("password reset approval flow", () => {
     expect(source).toContain("password_reset_requests");
     expect(source).toContain("pending: requestCreated");
     expect(source).not.toContain("resetToken: challenge.token");
+    expect(source).not.toContain("verifyDeviceProof");
+    expect(source).toContain("!Boolean(user.is_owner)");
   });
 
   it("requires approval before issuing the short-lived challenge", () => {
     const source = read("app/api/auth/password/reset/status/route.ts");
     expect(source).toContain('reset.status === "pending"');
     expect(source).toContain("issuePasswordResetChallenge");
+    expect(source).not.toContain("verifyDeviceProof");
+    expect(source).toContain("!user || user.status !== \"active\" || Boolean(user.is_owner)");
+  });
+
+  it("does not require device storage while requesting or polling recovery", () => {
+    const source = read("app/components/AuthScreen.tsx");
+    expect(source).not.toMatch(/\/api\/auth\/password\/reset\/request"[\s\S]{0,300}createDeviceProof/u);
+    expect(source).not.toMatch(/\/api\/auth\/password\/reset\/status"[\s\S]{0,300}createDeviceProof/u);
   });
 
   it("keeps the approval endpoint server-authorized", () => {

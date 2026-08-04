@@ -6,8 +6,6 @@ import {
   findLoginUser,
   requestIpRateLimitSubject,
   routeError,
-  verifyDeviceProof,
-  userHasRole,
 } from "@/app/lib/auth-server";
 import { writeSecurityEvent } from "@/app/lib/security-log";
 
@@ -18,12 +16,6 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const sellerId = asString(body.sellerId);
     const username = asString(body.username);
-    const deviceId = asString(body.deviceId);
-    const proof = asString(body.proof);
-    const proofTimestamp = Number(body.proofTimestamp);
-    const publicKey = body.publicKey && typeof body.publicKey === "object"
-      ? body.publicKey as JsonWebKey
-      : {} as JsonWebKey;
     const accountSubject = accountRateLimitSubject(sellerId, username);
 
     await enforceAuthRateLimits([
@@ -41,18 +33,15 @@ export async function POST(request: Request) {
       },
     ]);
 
-    const [user, validDeviceProof] = await Promise.all([
-      findLoginUser(sellerId, username),
-      deviceId && proof
-        ? verifyDeviceProof({ sellerId, username, deviceId, publicKey, proof, proofTimestamp })
-        : Promise.resolve(false),
-    ]);
+    // La recuperación no debe depender de la clave del dispositivo original:
+    // precisamente se usa cuando el usuario cambió de teléfono o perdió el
+    // almacenamiento local. La identidad se vuelve a comprobar por sus datos
+    // de acceso y la solicitud queda pendiente de aprobación server-side.
+    const user = await findLoginUser(sellerId, username);
     const eligible = Boolean(
       user
-      && userHasRole(user, "client")
       && user.status === "active"
-      && user.device_id === deviceId
-      && validDeviceProof,
+      && !Boolean(user.is_owner),
     );
     let requestId = crypto.randomUUID();
     let requestCreated = false;

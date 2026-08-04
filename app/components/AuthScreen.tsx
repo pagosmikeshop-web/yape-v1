@@ -48,7 +48,7 @@ const screenContent: Record<Screen, { title: string; subtitle: string }> = {
   login: { title: "Iniciar Sesión", subtitle: "Ingresa con el usuario autorizado por tu vendedor" },
   register: { title: "Crear cuenta", subtitle: "Valida tu Telegram y configura tu clave de ingreso" },
   "change-password": { title: "Restablecer Contraseña", subtitle: "Cambia tu contraseña de forma segura" },
-  recover: { title: "Recuperar Contraseña", subtitle: "Restablece el acceso desde tu dispositivo verificado" },
+  recover: { title: "Recuperar Contraseña", subtitle: "Solicita el restablecimiento desde cualquier dispositivo" },
   "change-number": { title: "Acceso y cambio de número", subtitle: "Consulta tu suscripción, usa tu token o contacta a soporte" },
 };
 
@@ -489,12 +489,10 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       if (polling) return;
       polling = true;
       try {
-        const proof = await createDeviceProof(recoveryRequest.sellerId, recoveryRequest.username);
         const data = await apiPost("/api/auth/password/reset/status", {
           requestId: recoveryRequest.id,
           sellerId: recoveryRequest.sellerId,
           username: recoveryRequest.username,
-          ...proof,
         });
         if (cancelled) return;
         if (data.status === "approved" && data.requestId && data.resetToken) {
@@ -666,11 +664,9 @@ export function AuthScreen({ screen }: { screen: Screen }) {
         if (!recoveryChallenge) {
           const sellerId = String(formData.get("recover-seller-id") ?? "");
           const username = String(formData.get("recover-username") ?? "");
-          const proof = await createDeviceProof(sellerId, username);
           const data = await apiPost("/api/auth/password/reset/request", {
             sellerId,
             username,
-            ...proof,
           }, attemptId);
           const requestId = String(data.requestId ?? "");
           if (!requestId || data.pending !== true) {

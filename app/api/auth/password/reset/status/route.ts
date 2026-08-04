@@ -8,16 +8,14 @@ import {
   issuePasswordResetChallenge,
   requestIpRateLimitSubject,
   routeError,
-  verifyDeviceProof,
-  userHasRole,
 } from "@/app/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
 /**
  * The client polls this endpoint while its seller reviews the request. No
- * reset secret is returned until the request is approved and the same bound
- * device proves ownership again.
+ * reset secret is returned until the request is approved. Recovery requests
+ * are intentionally device-independent so a user can finish on a new device.
  */
 export async function POST(request: Request) {
   try {
@@ -25,12 +23,6 @@ export async function POST(request: Request) {
     const requestId = asString(body.requestId).trim();
     const sellerId = asString(body.sellerId);
     const username = asString(body.username);
-    const deviceId = asString(body.deviceId);
-    const proof = asString(body.proof);
-    const proofTimestamp = Number(body.proofTimestamp);
-    const publicKey = body.publicKey && typeof body.publicKey === "object"
-      ? body.publicKey as JsonWebKey
-      : {} as JsonWebKey;
     if (!/^[0-9a-f-]{36}$/iu.test(requestId)) {
       return jsonOk({ status: "unavailable" }, { headers: { "cache-control": "no-store" } });
     }
@@ -50,13 +42,8 @@ export async function POST(request: Request) {
       },
     ]);
 
-    const [user, validDeviceProof] = await Promise.all([
-      findLoginUser(sellerId, username),
-      deviceId && proof
-        ? verifyDeviceProof({ sellerId, username, deviceId, publicKey, proof, proofTimestamp })
-        : Promise.resolve(false),
-    ]);
-    if (!user || !userHasRole(user, "client") || user.status !== "active" || user.device_id !== deviceId || !validDeviceProof) {
+    const user = await findLoginUser(sellerId, username);
+    if (!user || user.status !== "active" || Boolean(user.is_owner)) {
       return jsonOk({ status: "unavailable" }, { headers: { "cache-control": "no-store" } });
     }
 

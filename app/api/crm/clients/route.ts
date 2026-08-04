@@ -289,18 +289,23 @@ export async function POST(request: Request) {
     ]);
     const body = await readJson(request);
     const username = asString(body.username);
-    const displayName = asString(body.displayName).trim();
+    // El nombre y el celular se completan desde los datos de la cuenta del cliente.
+    // En el alta CRM usamos el usuario como nombre inicial y solo creamos el
+    // registro de pago cuando se recibe un celular explícito.
+    const displayName = asString(body.displayName).trim() || username.trim();
     const telegramUserId = asString(body.telegramUserId).trim();
-    const phone = normalizePeruvianMobile(asString(body.phone));
+    const rawPhone = asString(body.phone).trim();
+    const phone = rawPhone ? normalizePeruvianMobile(rawPhone) : "";
     const crmStatus = asString(body.crmStatus) || "new";
     const clientType = CLIENT_TYPES.has(asString(body.clientType)) ? asString(body.clientType) : "individual";
     const category = asString(body.category).trim().slice(0, 40) || "general";
     const tags = cleanTags(body.tags);
     let saleAmountCents = 0;
 
-    if (!/^\d{4,24}$/u.test(telegramUserId) || !validateUsername(username) || !validateDisplayName(displayName) || !phone) {
-      return jsonError("Completa un Telegram ID, usuario, nombre y celular peruano válidos.");
+    if (!/^\d{4,24}$/u.test(telegramUserId) || !validateUsername(username) || !validateDisplayName(displayName)) {
+      return jsonError("Completa un Telegram ID y usuario válidos.");
     }
+    if (rawPhone && !phone) return jsonError("El celular peruano no es válido.");
     if (!CRM_STATUSES.has(crmStatus)) {
       return jsonError("El estado CRM debe ser Nuevo o VIP.");
     }
