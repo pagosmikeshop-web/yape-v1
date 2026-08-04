@@ -41,7 +41,6 @@ yarn-error.log*
 
 # env files and local secrets
 .env*
-!.env.example
 .dev.vars
 
 # local-only workspace and tool metadata
