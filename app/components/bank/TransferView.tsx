@@ -432,7 +432,7 @@ export function TransferView() {
   const voucherRecipientName = recipientName;
   const recipientDisplayReference =
     recipientQrId && !recipientId && !recipientPhone
-      ? `QR ${recipientQrProvider || "bancario"}`
+      ? "Destinatario verificado"
       : recipientId && !recipientPhone
         ? "QR Yape"
         : maskPhone(recipientPhone);
@@ -678,11 +678,6 @@ export function TransferView() {
   }
 
   function requestOtherBanks() {
-    if (recipientQrId && !recipientId && recipientQrProvider && recipientQrProvider !== "Yape") {
-      setDestination(recipientQrProvider);
-      setStage("entity-loading");
-      return;
-    }
     setStage("entities");
   }
 
@@ -1096,7 +1091,7 @@ export function TransferView() {
                 type="button"
                 className="transfer-primary-button"
                 onClick={requestYapear}
-                disabled={!yapearEnabled || transferSubmitting || Boolean(recipientQrId && !recipientId)}
+                disabled={!yapearEnabled || transferSubmitting}
               >
                 {transferSubmitting ? "Validando…" : "Yapear"}
               </button>

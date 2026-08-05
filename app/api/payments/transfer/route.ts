@@ -93,7 +93,7 @@ async function resolveRecipient(
     if (!qr || qr.recipient_user_id === requesterUserId) return null;
     return {
       name: maskRecipientName(qr.holder_name),
-      reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : `QR ${qr.provider}`,
+      reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : "Destinatario verificado",
       recipientUserId: qr.recipient_user_id,
       savedRecipientId: null,
     };
