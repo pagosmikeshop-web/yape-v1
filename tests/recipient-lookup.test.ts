@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RecipientLookupError } from "../app/lib/recipient-lookup/errors";
+import { normalizePaymentProvider } from "../app/lib/payment-providers";
 import {
   protectRecipientName,
   tryMaskRecipientName,
@@ -17,6 +18,12 @@ describe("lookup seguro de destinatarios", () => {
       local: "996111333",
     });
     expect(() => normalizeRecipientPhone("12345678")).toThrowError(RecipientLookupError);
+  });
+
+  it("mantiene el proveedor configurado para el destino", () => {
+    expect(normalizePaymentProvider("plin")).toBe("Plin");
+    expect(normalizePaymentProvider("Banco Falabella")).toBe("Banco Falabella");
+    expect(normalizePaymentProvider("proveedor-desconocido")).toBe("Yape");
   });
 
   it.each([

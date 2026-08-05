@@ -9,6 +9,7 @@ import { resetIOSViewport } from "../../lib/ios-viewport";
 import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
 import { fetchSession } from "../../lib/session-cache";
 import { maskPhone } from "../../lib/masked-phone";
+import { normalizePaymentProvider } from "../../lib/payment-providers";
 import { QR_TRANSFER_SESSION_KEY } from "../../lib/qr-scanning";
 import { APK_ASSET_ROOT, AssetIcon, LottiePlayer } from "./primitives";
 import {
@@ -48,9 +49,8 @@ function normalizeMobileNumber(value: string) {
   return localNumber.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3");
 }
 
-const externalEntities = ["Banco Falabella", "Cmac Arequipa", "Dale", "Plin"];
-
 const DAILY_YAPE_LIMIT = 500;
+const externalEntities: string[] = [];
 
 export { maskPhone } from "../../lib/masked-phone";
 
@@ -90,7 +90,7 @@ export function TransferView() {
   const [stage, setStage] = useState<TransferStage>("contact");
   const [recipientId, setRecipientId] = useState("");
   const [recipientQrId, setRecipientQrId] = useState("");
-  const [recipientQrProvider, setRecipientQrProvider] = useState("");
+  const [recipientProvider, setRecipientProvider] = useState("Yape");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [recipientIsNewNumber, setRecipientIsNewNumber] = useState(false);
@@ -127,10 +127,7 @@ export function TransferView() {
     key: string;
     payload: string;
   } | null>(null);
-  const confirmDialogRef = useModalLayer<HTMLDivElement>(
-    stage === "confirm",
-    () => setStage("entities"),
-  );
+  const confirmDialogRef = useRef<HTMLDivElement>(null);
   const insufficientDialogRef = useModalLayer<HTMLDivElement>(
     insufficientBalance,
     () => setInsufficientBalance(false),
@@ -175,13 +172,11 @@ export function TransferView() {
       const requestedQrId = typeof payload.qrId === "string"
         ? payload.qrId.trim()
         : "";
-      const requestedQrProvider = typeof payload.provider === "string"
-        ? payload.provider.trim()
-        : "";
+      const requestedProvider = normalizePaymentProvider(payload.provider);
       const requestedRecipientId = typeof payload.recipientId === "string"
         ? payload.recipientId.trim()
         : "";
-      const requestedPhone = typeof payload.phone === "string"
+      const requestedPhone = requestedProvider === "Yape" && typeof payload.phone === "string"
         ? payload.phone.replace(/\D/gu, "").slice(-9)
         : "";
       const requestedName = typeof payload.displayName === "string"
@@ -190,18 +185,14 @@ export function TransferView() {
       if (!requestedName || (!requestedQrId && !requestedRecipientId && !/^9\d{8}$/u.test(requestedPhone))) return;
 
       setRecipientQrId(requestedQrId);
-      setRecipientQrProvider(requestedQrProvider);
+      setRecipientProvider(requestedProvider);
       setRecipientId(requestedRecipientId);
       setRecipientName(requestedName);
       setRecipientPhone(requestedPhone);
       setRecipientIsNewNumber(false);
       setManualRecipientMode(false);
       setPhoneIsEditing(false);
-      setDestination(
-        requestedQrId && requestedQrProvider && requestedQrProvider !== "Yape"
-          ? requestedQrProvider
-          : "Yape",
-      );
+      setDestination(requestedProvider);
       setNotice("");
       setStage("amount");
     } catch {
@@ -240,12 +231,12 @@ export function TransferView() {
       .then((recipient) => {
         if (cancelled) return;
         setRecipientQrId("");
-        setRecipientQrProvider("");
         setRecipientId(recipient.id);
         setRecipientName(recipient.displayName);
         setRecipientPhone(recipient.phone ?? "");
         setRecipientIsNewNumber(false);
         setManualRecipientMode(false);
+        setRecipientProvider("Yape");
         setDestination("Yape");
         setNotice("");
         setStage("amount");
@@ -342,6 +333,7 @@ export function TransferView() {
             id?: string;
             displayName?: string;
             phone?: string;
+            provider?: string;
           };
         };
 
@@ -366,7 +358,9 @@ export function TransferView() {
         setManualRecipientMode(false);
         setRecipientIsNewNumber(false);
         setPhoneIsEditing(false);
-        setDestination("Yape");
+        const provider = normalizePaymentProvider(data.recipient.provider);
+        setRecipientProvider(provider);
+        setDestination(provider);
         setNotice("");
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -494,7 +488,7 @@ export function TransferView() {
     const normalizedPhone = normalizeMobileNumber(phone);
     setRecipientId("");
     setRecipientQrId("");
-    setRecipientQrProvider("");
+    setRecipientProvider("Yape");
     setRecipientName(name.trim());
     setRecipientPhone(normalizedPhone || phone);
     setManualRecipientMode(false);
@@ -511,7 +505,7 @@ export function TransferView() {
   function enableManualRecipientFallback(phone: string) {
     setRecipientId("");
     setRecipientQrId("");
-    setRecipientQrProvider("");
+    setRecipientProvider("Yape");
     setRecipientName("");
     setRecipientPhone(phone);
     setManualRecipientMode(true);
@@ -537,7 +531,7 @@ export function TransferView() {
     setNotice("");
     setRecipientId("");
     setRecipientQrId("");
-    setRecipientQrProvider("");
+    setRecipientProvider("Yape");
     setRecipientName("");
     setRecipientPhone(normalizedPhone);
     setManualRecipientMode(false);
@@ -674,16 +668,7 @@ export function TransferView() {
   }
 
   function requestYapear() {
-    void submitTransfer("Yape", "amount-processing");
-  }
-
-  function requestOtherBanks() {
-    if (recipientQrId && !recipientId && recipientQrProvider && recipientQrProvider !== "Yape") {
-      setDestination(recipientQrProvider);
-      setStage("entity-loading");
-      return;
-    }
-    setStage("entities");
+    void submitTransfer(recipientProvider, "amount-processing");
   }
 
   function chooseEntity(entity: string) {
@@ -699,7 +684,7 @@ export function TransferView() {
     setStage("contact");
     setRecipientId("");
     setRecipientQrId("");
-    setRecipientQrProvider("");
+    setRecipientProvider("Yape");
     setRecipientName("");
     setRecipientPhone("");
     setManualRecipientMode(false);
@@ -757,12 +742,6 @@ export function TransferView() {
       }, TRANSFER_LOADING_MS);
       return () => window.clearTimeout(timer);
     }
-    if (stage === "entity-loading") {
-      const timer = window.setTimeout(() => {
-        setStage("confirm");
-      }, TRANSFER_LOADING_MS);
-      return () => window.clearTimeout(timer);
-    }
   }, [stage, destination, voucher]);
 
   useLayoutEffect(() => {
@@ -771,11 +750,9 @@ export function TransferView() {
   }, [stage]);
 
   const showAmountScreen = stage === "amount" || stage === "amount-processing";
-  const showEntitiesScreen =
-    stage === "entities" ||
-    stage === "entity-loading" ||
-    stage === "confirm" ||
-    stage === "confirm-processing";
+  // El banco de destino llega de un QR o de Autocompletado Free. La selección
+  // manual antigua queda fuera del flujo para no ofrecer bancos duplicados.
+  const showEntitiesScreen = false;
   const formattedDate = voucher ? formatVoucherDate(voucher.completedAt) : "";
   const formattedTime = voucher ? formatVoucherTime(voucher.completedAt) : "";
   const voucherHero = getVoucherHero(amountValue);
@@ -1037,19 +1014,20 @@ export function TransferView() {
                   event.currentTarget.select();
                 }}
                 onBlur={() => setPhoneIsEditing(false)}
-                onChange={(event) => {
-                  recipientLookupAbortRef.current?.abort();
-                  recipientLookupSequenceRef.current += 1;
-                  recipientLookupInFlightRef.current = false;
-                  setRecipientLookupLoading(false);
-                  setRecipientId("");
-                  setRecipientQrId("");
-                  setRecipientQrProvider("");
-                  setRecipientName("");
-                  setManualRecipientMode(false);
-                  setRecipientIsNewNumber(true);
-                  setRecipientPhone(formatEditablePhone(event.target.value));
-                }}
+                  onChange={(event) => {
+                    recipientLookupAbortRef.current?.abort();
+                    recipientLookupSequenceRef.current += 1;
+                    recipientLookupInFlightRef.current = false;
+                    setRecipientLookupLoading(false);
+                    setRecipientId("");
+                    setRecipientQrId("");
+                    setRecipientProvider("Yape");
+                    setRecipientName("");
+                    setManualRecipientMode(false);
+                    setRecipientIsNewNumber(true);
+                    setRecipientPhone(formatEditablePhone(event.target.value));
+                    setDestination("Yape");
+                  }}
               />
             </div>
             {notice ? (
@@ -1086,17 +1064,9 @@ export function TransferView() {
             <div className="transfer-amount-actions">
               <button
                 type="button"
-                className="transfer-secondary-button"
-                onClick={requestOtherBanks}
-                disabled={!recipientIsValid || !amountIsInRange}
-              >
-                Otros bancos
-              </button>
-              <button
-                type="button"
                 className="transfer-primary-button"
                 onClick={requestYapear}
-                disabled={!yapearEnabled || transferSubmitting || Boolean(recipientQrId && !recipientId)}
+                disabled={!yapearEnabled || transferSubmitting}
               >
                 {transferSubmitting ? "Validando…" : "Yapear"}
               </button>

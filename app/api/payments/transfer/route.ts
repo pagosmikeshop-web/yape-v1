@@ -11,7 +11,10 @@ import {
 } from "@/app/lib/auth-server";
 import { lookupGlobalRecipient } from "@/app/lib/global-recipient-directory";
 import { maskPhone } from "@/app/lib/masked-phone";
-import { PAYMENT_PROVIDERS } from "@/app/lib/payment-providers";
+import {
+  normalizePaymentProvider,
+  PAYMENT_PROVIDERS,
+} from "@/app/lib/payment-providers";
 import {
   maskRecipientName,
   tryMaskRecipientName,
@@ -49,6 +52,7 @@ type MovementRow = {
 type ResolvedRecipient = {
   name: string;
   reference: string;
+  provider: string | null;
   recipientUserId: string | null;
   savedRecipientId: string | null;
 };
@@ -94,6 +98,7 @@ async function resolveRecipient(
     return {
       name: maskRecipientName(qr.holder_name),
       reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : "Destinatario verificado",
+      provider: normalizePaymentProvider(qr.provider),
       recipientUserId: qr.recipient_user_id,
       savedRecipientId: null,
     };
@@ -106,6 +111,7 @@ async function resolveRecipient(
     return {
       name: displayName,
       reference: row.phone_e164 ? maskPhone(row.phone_e164) : "QR Yape",
+      provider: "Yape",
       recipientUserId: row.id,
       savedRecipientId: null,
     };
@@ -119,6 +125,7 @@ async function resolveRecipient(
     return {
       name: displayName,
       reference: maskPhone(phoneE164),
+      provider: "Yape",
       recipientUserId: internal.id,
       savedRecipientId: null,
     };
@@ -129,6 +136,7 @@ async function resolveRecipient(
     return {
       name: globalRecipient.displayName,
       reference: maskPhone(phoneE164),
+      provider: globalRecipient.provider,
       recipientUserId: null,
       savedRecipientId: null,
     };
@@ -163,6 +171,7 @@ async function resolveRecipient(
   return {
     name: displayName,
     reference: maskPhone(phoneE164),
+    provider: null,
     recipientUserId: null,
     savedRecipientId: saved.id,
   };
@@ -274,6 +283,9 @@ export async function POST(request: Request) {
       recipientSource,
     );
     if (!recipient) return jsonError("No se pudo verificar el destinatario.", 400);
+    if (recipient.provider && recipient.provider !== destination) {
+      return jsonError(`Este destinatario está configurado para ${recipient.provider}.`, 409);
+    }
 
     const existing = await findIdempotentMovement(user.id, idempotencyKey);
     if (existing) {

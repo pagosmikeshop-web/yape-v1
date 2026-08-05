@@ -1,7 +1,6 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import { findActiveRecipientById, findActiveRecipientByPhone } from "@/app/lib/active-recipient-server";
 import {
-  getAutocompleteStatus,
   refundAutocompleteCredit,
   reserveAutocompleteCredit,
 } from "@/app/lib/autocomplete-credits-server";
@@ -157,6 +156,7 @@ export async function POST(request: Request) {
         ? jsonOk({
             recipient: {
               displayName: globalRecipient.displayName,
+              provider: globalRecipient.provider,
               phone: normalized.e164,
             },
           })
@@ -174,6 +174,7 @@ export async function POST(request: Request) {
         return jsonOk({
           recipient: {
             displayName: result.displayName,
+            provider: "Yape",
             phone: result.phone,
           },
         });
@@ -183,28 +184,9 @@ export async function POST(request: Request) {
       }
     };
 
-    const autocompleteStatus = await getAutocompleteStatus(user.id);
-    const hasCreditKey = autocompleteStatus.keyClaimed
-      && Number(autocompleteStatus.credits ?? 0) > 0;
-
-    if (hasCreditKey) {
-      // Con una key con saldo se prioriza la API externa. Si no resuelve el
-      // titular, se devuelve el registro Free sin volver a cobrar crédito.
-      try {
-        const external = await externalRecipientResponse();
-        if (external) return external;
-      } catch (error) {
-        if (error instanceof RecipientLookupError) {
-          const free = await freeRecipientResponse();
-          if (free) return free;
-        }
-        throw error;
-      }
-    }
-
-    // Sin una key con saldo, Free es siempre la primera y única consulta sin
-    // coste. Esto permite usar registros globales aunque la cuenta no tenga
-    // créditos disponibles.
+    // El registro Free es la configuración explícita del usuario para ese
+    // número (incluido Plin u otro banco), por lo que debe ganar a cualquier
+    // consulta externa que no conoce ese destino.
     const free = await freeRecipientResponse();
     if (free) return free;
 

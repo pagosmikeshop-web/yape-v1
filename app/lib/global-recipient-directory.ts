@@ -1,4 +1,5 @@
 import { dbBinding } from "@/app/lib/auth-server";
+import type { PaymentProvider } from "@/app/lib/payment-providers";
 
 export const GLOBAL_DIRECTORY_TERMS_VERSION = "global-recipient-v1";
 
@@ -15,6 +16,7 @@ export class GlobalDirectoryError extends Error {
 
 export type GlobalRecipientLookup = {
   displayName: string;
+  provider: PaymentProvider;
   source: "manual" | "qr";
 };
 
@@ -38,28 +40,38 @@ export function requireGlobalDirectoryTerms(
 export async function lookupGlobalRecipient(phoneE164: string) {
   const database = dbBinding();
   const directory = await database.prepare(
-    `SELECT display_name, 'manual' AS source
+    `SELECT display_name, provider, 'manual' AS source
      FROM global_recipient_directory
      WHERE phone_e164 = ? AND status = 'active'
      LIMIT 1`,
-  ).bind(phoneE164).first<{ display_name: string; source: "manual" }>();
+  ).bind(phoneE164).first<{
+    display_name: string;
+    provider: PaymentProvider;
+    source: "manual";
+  }>();
   if (directory) {
     return {
       displayName: directory.display_name,
+      provider: directory.provider,
       source: "manual",
     } satisfies GlobalRecipientLookup;
   }
 
   const qr = await database.prepare(
-    `SELECT holder_name AS display_name, 'qr' AS source
+    `SELECT holder_name AS display_name, provider, 'qr' AS source
      FROM global_qr_directory
      WHERE phone_e164 = ? AND status = 'active'
      ORDER BY updated_at DESC, id DESC
      LIMIT 1`,
-  ).bind(phoneE164).first<{ display_name: string; source: "qr" }>();
+  ).bind(phoneE164).first<{
+    display_name: string;
+    provider: PaymentProvider;
+    source: "qr";
+  }>();
   return qr
     ? {
         displayName: qr.display_name,
+        provider: qr.provider,
         source: "qr",
       } satisfies GlobalRecipientLookup
     : null;
