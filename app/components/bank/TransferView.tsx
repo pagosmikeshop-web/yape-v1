@@ -424,12 +424,9 @@ export function TransferView() {
     ));
   const yapearEnabled = recipientIsValid && amountIsInRange;
   const voucherRecipientName = recipientName;
-  const recipientDisplayReference =
-    recipientQrId && !recipientId && !recipientPhone
-      ? "Destinatario verificado"
-      : recipientId && !recipientPhone
-        ? "QR Yape"
-        : maskPhone(recipientPhone);
+  // Un QR de banco no tiene celular que mostrar: dejamos el campo vacío en
+  // lugar de inventar una referencia visual como “Destinatario verificado”.
+  const recipientDisplayReference = recipientPhone ? maskPhone(recipientPhone) : "";
   const normalizedContactSearch = contactSearch.trim().toLocaleLowerCase("es");
   const filteredPhoneContacts = phoneContacts.filter((contact) => {
     if (!normalizedContactSearch) return true;
@@ -999,13 +996,9 @@ export function TransferView() {
                 aria-label="Número del destinatario"
                 inputMode="numeric"
                 value={
-                  recipientQrId && !recipientId && !recipientPhone
-                    ? recipientDisplayReference
-                    : recipientId && !recipientPhone
-                      ? "Destinatario verificado por QR"
-                      : phoneIsEditing
-                        ? formatEditablePhone(recipientPhone)
-                        : maskPhone(recipientPhone)
+                  phoneIsEditing && !recipientId && !recipientQrId
+                    ? formatEditablePhone(recipientPhone)
+                    : recipientDisplayReference
                 }
                 readOnly={Boolean(recipientId || recipientQrId)}
                 onFocus={(event) => {
@@ -1014,20 +1007,20 @@ export function TransferView() {
                   event.currentTarget.select();
                 }}
                 onBlur={() => setPhoneIsEditing(false)}
-                  onChange={(event) => {
-                    recipientLookupAbortRef.current?.abort();
-                    recipientLookupSequenceRef.current += 1;
-                    recipientLookupInFlightRef.current = false;
-                    setRecipientLookupLoading(false);
-                    setRecipientId("");
-                    setRecipientQrId("");
-                    setRecipientProvider("Yape");
-                    setRecipientName("");
-                    setManualRecipientMode(false);
-                    setRecipientIsNewNumber(true);
-                    setRecipientPhone(formatEditablePhone(event.target.value));
-                    setDestination("Yape");
-                  }}
+                onChange={(event) => {
+                  recipientLookupAbortRef.current?.abort();
+                  recipientLookupSequenceRef.current += 1;
+                  recipientLookupInFlightRef.current = false;
+                  setRecipientLookupLoading(false);
+                  setRecipientId("");
+                  setRecipientQrId("");
+                  setRecipientProvider("Yape");
+                  setRecipientName("");
+                  setManualRecipientMode(false);
+                  setRecipientIsNewNumber(true);
+                  setRecipientPhone(formatEditablePhone(event.target.value));
+                  setDestination("Yape");
+                }}
               />
             </div>
             {notice ? (
@@ -1270,7 +1263,7 @@ export function TransferView() {
                   <span className="voucher-section-label">
                     DATOS DE LA TRANSACCIÓN
                   </span>
-                  {isYapeDestination(destination) ? (
+                  {isYapeDestination(destination) && recipientDisplayReference ? (
                     <div>
                       <span>Nro. de celular</span>
                       <strong>{recipientDisplayReference}</strong>
