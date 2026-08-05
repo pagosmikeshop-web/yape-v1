@@ -126,11 +126,13 @@ export function QRCodeScanner() {
         setNotice(data.message ?? statusCopy(data.status));
         return;
       }
-      if (!data.qr || (!data.qr.recipientId && !data.qr.phone)) {
+      if (!data.qr || (!data.qr.recipientId && !data.qr.phone && !data.qr.id)) {
         throw new Error("El QR no contiene un destinatario válido.");
       }
 
       const transferPayload = JSON.stringify({
+        qrId: data.qr.id === "payment" ? "" : data.qr.id,
+        provider: data.qr.provider,
         recipientId: data.qr.recipientId,
         phone: data.qr.phone,
         displayName: data.qr.name,

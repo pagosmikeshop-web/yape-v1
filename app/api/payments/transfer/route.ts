@@ -11,6 +11,7 @@ import {
 } from "@/app/lib/auth-server";
 import { lookupGlobalRecipient } from "@/app/lib/global-recipient-directory";
 import { maskPhone } from "@/app/lib/masked-phone";
+import { PAYMENT_PROVIDERS } from "@/app/lib/payment-providers";
 import {
   maskRecipientName,
   tryMaskRecipientName,
@@ -28,6 +29,7 @@ const ALLOWED_DESTINATIONS = new Set([
   "Cmac Arequipa",
   "Dale",
   "Plin",
+  ...PAYMENT_PROVIDERS,
 ]);
 
 type MovementRow = {
@@ -51,6 +53,13 @@ type ResolvedRecipient = {
   savedRecipientId: string | null;
 };
 
+type GlobalQrRecipientRow = {
+  holder_name: string;
+  phone_e164: string | null;
+  provider: string;
+  recipient_user_id: string | null;
+};
+
 function cleanText(value: unknown, maximum: number) {
   return asString(value).trim().replace(/[\u0000-\u001f\u007f]/gu, "").slice(0, maximum);
 }
@@ -66,11 +75,29 @@ async function persistSavedRecipientName(savedRecipientId: string, displayName: 
 async function resolveRecipient(
   requesterUserId: string,
   recipientId: string,
+  recipientQrId: string,
   rawPhone: string,
   displayName = "",
   recipientSource = "claro",
 ): Promise<ResolvedRecipient | null> {
   const database = dbBinding();
+  if (recipientQrId) {
+    if (!UUID_PATTERN.test(recipientQrId)) return null;
+    const qr = await database.prepare(
+      `SELECT holder_name, phone_e164, provider, recipient_user_id
+       FROM global_qr_directory
+       WHERE id = ? AND status = 'active'
+         AND (expires_at IS NULL OR expires_at > ?)
+       LIMIT 1`,
+    ).bind(recipientQrId, new Date().toISOString()).first<GlobalQrRecipientRow>();
+    if (!qr || qr.recipient_user_id === requesterUserId) return null;
+    return {
+      name: maskRecipientName(qr.holder_name),
+      reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : `QR ${qr.provider}`,
+      recipientUserId: qr.recipient_user_id,
+      savedRecipientId: null,
+    };
+  }
   if (recipientId) {
     if (!UUID_PATTERN.test(recipientId) || recipientId === requesterUserId) return null;
     const row = await findActiveRecipientById(database, recipientId);
@@ -217,6 +244,7 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const amountCents = typeof body.amountCents === "number" ? body.amountCents : Number.NaN;
     const recipientId = asString(body.recipientId).trim();
+    const recipientQrId = asString(body.recipientQrId).trim();
     const recipientPhone = asString(body.recipientPhone).trim();
     const recipientManualName = asString(body.recipientManualName).trim();
     const destination = cleanText(body.destination, 48) || "Yape";
@@ -226,11 +254,11 @@ export async function POST(request: Request) {
       return jsonError("Ingresa un monto válido de hasta S/ 500.");
     }
     if (!ALLOWED_DESTINATIONS.has(destination)) return jsonError("Selecciona un destino permitido.");
-    if (!recipientId && !recipientPhone) return jsonError("Verifica el destinatario antes de continuar.", 400);
-    if (recipientId && recipientPhone) return jsonError("Indica un solo destinatario.", 400);
+    if (!recipientId && !recipientQrId && !recipientPhone) return jsonError("Verifica el destinatario antes de continuar.", 400);
+    if ([recipientId, recipientQrId, recipientPhone].filter(Boolean).length > 1) return jsonError("Indica un solo destinatario.", 400);
     let recipientDisplayName = "";
     const recipientSource = "manual";
-    if (!recipientId) {
+    if (!recipientId && !recipientQrId) {
       normalizeRecipientPhone(recipientPhone);
       recipientDisplayName = tryMaskRecipientName(recipientManualName);
       if (!recipientDisplayName) {
@@ -240,6 +268,7 @@ export async function POST(request: Request) {
     const recipient = await resolveRecipient(
       user.id,
       recipientId,
+      recipientQrId,
       recipientPhone,
       recipientDisplayName,
       recipientSource,

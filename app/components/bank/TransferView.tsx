@@ -89,6 +89,8 @@ function LoadingOverlay({ text }: { text: string }) {
 export function TransferView() {
   const [stage, setStage] = useState<TransferStage>("contact");
   const [recipientId, setRecipientId] = useState("");
+  const [recipientQrId, setRecipientQrId] = useState("");
+  const [recipientQrProvider, setRecipientQrProvider] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [recipientIsNewNumber, setRecipientIsNewNumber] = useState(false);
@@ -164,10 +166,18 @@ export function TransferView() {
 
     try {
       const payload = JSON.parse(rawPayload) as {
+        qrId?: unknown;
+        provider?: unknown;
         recipientId?: unknown;
         phone?: unknown;
         displayName?: unknown;
       };
+      const requestedQrId = typeof payload.qrId === "string"
+        ? payload.qrId.trim()
+        : "";
+      const requestedQrProvider = typeof payload.provider === "string"
+        ? payload.provider.trim()
+        : "";
       const requestedRecipientId = typeof payload.recipientId === "string"
         ? payload.recipientId.trim()
         : "";
@@ -177,15 +187,21 @@ export function TransferView() {
       const requestedName = typeof payload.displayName === "string"
         ? payload.displayName.trim().slice(0, 48)
         : "";
-      if (!requestedName || (!requestedRecipientId && !/^9\d{8}$/u.test(requestedPhone))) return;
+      if (!requestedName || (!requestedQrId && !requestedRecipientId && !/^9\d{8}$/u.test(requestedPhone))) return;
 
+      setRecipientQrId(requestedQrId);
+      setRecipientQrProvider(requestedQrProvider);
       setRecipientId(requestedRecipientId);
       setRecipientName(requestedName);
       setRecipientPhone(requestedPhone);
       setRecipientIsNewNumber(false);
       setManualRecipientMode(false);
       setPhoneIsEditing(false);
-      setDestination("Yape");
+      setDestination(
+        requestedQrId && requestedQrProvider && requestedQrProvider !== "Yape"
+          ? requestedQrProvider
+          : "Yape",
+      );
       setNotice("");
       setStage("amount");
     } catch {
@@ -223,6 +239,8 @@ export function TransferView() {
       })
       .then((recipient) => {
         if (cancelled) return;
+        setRecipientQrId("");
+        setRecipientQrProvider("");
         setRecipientId(recipient.id);
         setRecipientName(recipient.displayName);
         setRecipientPhone(recipient.phone ?? "");
@@ -290,6 +308,7 @@ export function TransferView() {
       stage !== "amount" ||
       !recipientIsNewNumber ||
       Boolean(recipientId) ||
+      Boolean(recipientQrId) ||
       manualRecipientMode
     ) {
       return;
@@ -373,6 +392,7 @@ export function TransferView() {
   }, [
     manualRecipientMode,
     recipientId,
+    recipientQrId,
     recipientIsNewNumber,
     recipientPhone,
     stage,
@@ -405,13 +425,17 @@ export function TransferView() {
     amount !== "" && amountValue > 0 && amountValue <= DAILY_YAPE_LIMIT;
   const recipientIsValid =
     recipientName.trim().length >= 2 &&
-    (Boolean(recipientId) || (
+    (Boolean(recipientId) || Boolean(recipientQrId) || (
       recipientPhone.replace(/\D/g, "").length === 9
     ));
   const yapearEnabled = recipientIsValid && amountIsInRange;
   const voucherRecipientName = recipientName;
   const recipientDisplayReference =
-    recipientId && !recipientPhone ? "QR Yape" : maskPhone(recipientPhone);
+    recipientQrId && !recipientId && !recipientPhone
+      ? `QR ${recipientQrProvider || "bancario"}`
+      : recipientId && !recipientPhone
+        ? "QR Yape"
+        : maskPhone(recipientPhone);
   const normalizedContactSearch = contactSearch.trim().toLocaleLowerCase("es");
   const filteredPhoneContacts = phoneContacts.filter((contact) => {
     if (!normalizedContactSearch) return true;
@@ -469,6 +493,8 @@ export function TransferView() {
   function pickContact(name: string, phone: string) {
     const normalizedPhone = normalizeMobileNumber(phone);
     setRecipientId("");
+    setRecipientQrId("");
+    setRecipientQrProvider("");
     setRecipientName(name.trim());
     setRecipientPhone(normalizedPhone || phone);
     setManualRecipientMode(false);
@@ -484,6 +510,8 @@ export function TransferView() {
 
   function enableManualRecipientFallback(phone: string) {
     setRecipientId("");
+    setRecipientQrId("");
+    setRecipientQrProvider("");
     setRecipientName("");
     setRecipientPhone(phone);
     setManualRecipientMode(true);
@@ -508,6 +536,8 @@ export function TransferView() {
     setRecipientLookupLoading(false);
     setNotice("");
     setRecipientId("");
+    setRecipientQrId("");
+    setRecipientQrProvider("");
     setRecipientName("");
     setRecipientPhone(normalizedPhone);
     setManualRecipientMode(false);
@@ -537,10 +567,11 @@ export function TransferView() {
     setTransferSubmitting(true);
     setNotice("");
     try {
-      const transferRecipientPhone = recipientId ? "" : recipientPhone;
+      const transferRecipientPhone = recipientId || recipientQrId ? "" : recipientPhone;
       const transferPayload = JSON.stringify({
         amountCents: Math.round(amountValue * 100),
         recipientId,
+        recipientQrId,
         recipientPhone: transferRecipientPhone,
         recipientManualName: recipientName.trim(),
         destination: destinationValue,
@@ -647,6 +678,11 @@ export function TransferView() {
   }
 
   function requestOtherBanks() {
+    if (recipientQrId && !recipientId && recipientQrProvider && recipientQrProvider !== "Yape") {
+      setDestination(recipientQrProvider);
+      setStage("entity-loading");
+      return;
+    }
     setStage("entities");
   }
 
@@ -662,6 +698,8 @@ export function TransferView() {
   function startNewYape() {
     setStage("contact");
     setRecipientId("");
+    setRecipientQrId("");
+    setRecipientQrProvider("");
     setRecipientName("");
     setRecipientPhone("");
     setManualRecipientMode(false);
@@ -972,7 +1010,7 @@ export function TransferView() {
                     aria-label="Nombre del destinatario"
                     placeholder="Nombre del destinatario"
                     value={recipientName}
-                    readOnly={Boolean(recipientId)}
+                    readOnly={Boolean(recipientId || recipientQrId)}
                     onChange={(event) =>
                       setRecipientName(event.target.value.slice(0, 48))
                     }
@@ -984,15 +1022,17 @@ export function TransferView() {
                 aria-label="Número del destinatario"
                 inputMode="numeric"
                 value={
-                  recipientId && !recipientPhone
-                    ? "Destinatario verificado por QR"
-                    : phoneIsEditing
-                      ? formatEditablePhone(recipientPhone)
-                      : maskPhone(recipientPhone)
+                  recipientQrId && !recipientId && !recipientPhone
+                    ? recipientDisplayReference
+                    : recipientId && !recipientPhone
+                      ? "Destinatario verificado por QR"
+                      : phoneIsEditing
+                        ? formatEditablePhone(recipientPhone)
+                        : maskPhone(recipientPhone)
                 }
-                readOnly={Boolean(recipientId)}
+                readOnly={Boolean(recipientId || recipientQrId)}
                 onFocus={(event) => {
-                  if (recipientId) return;
+                  if (recipientId || recipientQrId) return;
                   setPhoneIsEditing(true);
                   event.currentTarget.select();
                 }}
@@ -1003,6 +1043,8 @@ export function TransferView() {
                   recipientLookupInFlightRef.current = false;
                   setRecipientLookupLoading(false);
                   setRecipientId("");
+                  setRecipientQrId("");
+                  setRecipientQrProvider("");
                   setRecipientName("");
                   setManualRecipientMode(false);
                   setRecipientIsNewNumber(true);
@@ -1054,7 +1096,7 @@ export function TransferView() {
                 type="button"
                 className="transfer-primary-button"
                 onClick={requestYapear}
-                disabled={!yapearEnabled || transferSubmitting}
+                disabled={!yapearEnabled || transferSubmitting || Boolean(recipientQrId && !recipientId)}
               >
                 {transferSubmitting ? "Validando…" : "Yapear"}
               </button>
