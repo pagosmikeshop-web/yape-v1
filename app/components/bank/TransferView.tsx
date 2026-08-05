@@ -678,6 +678,11 @@ export function TransferView() {
   }
 
   function requestOtherBanks() {
+    if (recipientQrId && !recipientId && recipientQrProvider && recipientQrProvider !== "Yape") {
+      setDestination(recipientQrProvider);
+      setStage("entity-loading");
+      return;
+    }
     setStage("entities");
   }
 
@@ -1091,7 +1096,7 @@ export function TransferView() {
                 type="button"
                 className="transfer-primary-button"
                 onClick={requestYapear}
-                disabled={!yapearEnabled || transferSubmitting}
+                disabled={!yapearEnabled || transferSubmitting || Boolean(recipientQrId && !recipientId)}
               >
                 {transferSubmitting ? "Validando…" : "Yapear"}
               </button>
