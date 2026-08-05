@@ -18,6 +18,7 @@ import {
   formatVoucherDate,
   formatVoucherTime,
   getVoucherHero,
+  isYapeDestination,
   shareVoucherImage,
   VoucherSinglePromo,
 } from "./MovementVoucher";
@@ -206,7 +207,7 @@ export function TransferView() {
     })
       .then(async (response) => {
         const data = (await response.json()) as {
-          recipient?: { id?: string; displayName?: string };
+          recipient?: { id?: string; displayName?: string; phone?: string };
           error?: string;
         };
         if (
@@ -218,13 +219,13 @@ export function TransferView() {
             safeApiMessage(data.error, "No encontramos al destinatario de este QR."),
           );
         }
-        return data.recipient as { id: string; displayName: string };
+        return data.recipient as { id: string; displayName: string; phone?: string };
       })
       .then((recipient) => {
         if (cancelled) return;
         setRecipientId(recipient.id);
         setRecipientName(recipient.displayName);
-        setRecipientPhone("");
+        setRecipientPhone(recipient.phone ?? "");
         setRecipientIsNewNumber(false);
         setManualRecipientMode(false);
         setDestination("Yape");
@@ -536,10 +537,11 @@ export function TransferView() {
     setTransferSubmitting(true);
     setNotice("");
     try {
+      const transferRecipientPhone = recipientId ? "" : recipientPhone;
       const transferPayload = JSON.stringify({
         amountCents: Math.round(amountValue * 100),
         recipientId,
-        recipientPhone,
+        recipientPhone: transferRecipientPhone,
         recipientManualName: recipientName.trim(),
         destination: destinationValue,
         message,
@@ -611,8 +613,6 @@ export function TransferView() {
           return next;
         });
       }
-      if (data.movement?.recipientReference && recipientId)
-        setRecipientPhone("");
       setAvailableBalance(
         typeof data.balance === "number"
           ? data.balance
@@ -1046,9 +1046,7 @@ export function TransferView() {
                 type="button"
                 className="transfer-secondary-button"
                 onClick={requestOtherBanks}
-                disabled={
-                  Boolean(recipientId) || !recipientIsValid || !amountIsInRange
-                }
+                disabled={!recipientIsValid || !amountIsInRange}
               >
                 Otros bancos
               </button>
@@ -1260,14 +1258,12 @@ export function TransferView() {
                   <span className="voucher-section-label">
                     DATOS DE LA TRANSACCIÓN
                   </span>
-                  <div>
-                    <span>
-                      {recipientId && !recipientPhone
-                        ? "Origen"
-                        : "Nro. de celular"}
-                    </span>
-                    <strong>{recipientDisplayReference}</strong>
-                  </div>
+                  {isYapeDestination(destination) ? (
+                    <div>
+                      <span>Nro. de celular</span>
+                      <strong>{recipientDisplayReference}</strong>
+                    </div>
+                  ) : null}
                   <div>
                     <span>Destino</span>
                     <strong>{destination}</strong>

@@ -6,6 +6,10 @@ import { useEffect, useRef, useState } from "react";
 import { APK_ASSET_ROOT, AssetIcon } from "./primitives";
 import type { Movement } from "./types";
 
+export function isYapeDestination(destination: string) {
+  return destination.trim().toLocaleLowerCase("es-PE") === "yape";
+}
+
 export function splitMovementVoucherDate(date: string): [string, string] {
   const dashMatch = date.match(/^(.+?)\s+-\s+(.+)$/u);
   if (dashMatch) return [dashMatch[1], dashMatch[2]];
@@ -126,7 +130,7 @@ export function buildVoucherShareText({
     recipient,
     `${date} | ${time}`,
     `Código de seguridad: ${securityCode.split("").join(" ")}`,
-    `Nro. de celular: ${phone}`,
+    ...(isYapeDestination(destination) ? [`Nro. de celular: ${phone}`] : []),
     `Destino: ${destination}`,
     `Nro. de operación: ${operation}`,
   ].join("\n");
@@ -345,10 +349,12 @@ export function MovementVoucher({
               <span className="voucher-section-label">
                 DATOS DE LA TRANSACCIÓN
               </span>
-              <div>
-                <span>Nro. de celular</span>
-                <strong>{movement.detail}</strong>
-              </div>
+              {isYapeDestination(movement.destination ?? "Yape") ? (
+                <div>
+                  <span>Nro. de celular</span>
+                  <strong>{movement.detail}</strong>
+                </div>
+              ) : null}
               <div>
                 <span>{sent ? "Destino" : "Origen"}</span>
                 <strong>{movement.destination ?? "Yape"}</strong>

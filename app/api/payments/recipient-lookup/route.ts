@@ -105,6 +105,7 @@ export async function POST(request: Request) {
         recipient: {
           id: recipient.id,
           displayName: protectedName(recipient.display_name),
+          phone: recipient.phone_e164,
         },
       });
     }

@@ -664,6 +664,10 @@ export async function ensureAuthSchema() {
         id TEXT PRIMARY KEY,
         phone_e164 TEXT NOT NULL UNIQUE,
         display_name TEXT NOT NULL,
+        provider TEXT NOT NULL DEFAULT 'Yape' CHECK (provider IN (
+          'Yape','Plin','BCP','BBVA','Interbank','Scotiabank','Bim',
+          'Banco Falabella','Banco Pichincha','Dale!','Izipay','Agora / Oh!','Tunki'
+        )),
         source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','qr')),
         submitted_by_user_id TEXT NOT NULL,
         terms_version TEXT NOT NULL,
@@ -698,7 +702,6 @@ export async function ensureAuthSchema() {
         updated_at TEXT NOT NULL,
         revoked_at TEXT,
         revoked_reason TEXT,
-        CHECK (phone_e164 IS NOT NULL OR recipient_user_id IS NOT NULL),
         FOREIGN KEY (recipient_user_id) REFERENCES users(id) ON DELETE SET NULL,
         FOREIGN KEY (submitted_by_user_id) REFERENCES users(id) ON DELETE CASCADE
       )`,
@@ -999,6 +1002,16 @@ export async function ensureAuthSchema() {
       "CREATE INDEX IF NOT EXISTS webauthn_challenges_expiry_idx ON webauthn_challenges(expires_at)",
     ];
     await db.batch(statements.map((sql) => db.prepare(sql)));
+
+    const recipientDirectoryColumns = await db.prepare("PRAGMA table_info(global_recipient_directory)").all<{ name: string }>();
+    const knownRecipientDirectoryColumns = new Set((recipientDirectoryColumns.results ?? []).map((column) => column.name));
+    if (!knownRecipientDirectoryColumns.has("provider")) {
+      try {
+        await db.prepare("ALTER TABLE global_recipient_directory ADD COLUMN provider TEXT NOT NULL DEFAULT 'Yape'").run();
+      } catch (error) {
+        if (!/duplicate column name/iu.test(error instanceof Error ? error.message : "")) throw error;
+      }
+    }
 
     // Backfill idempotente para las cuentas existentes antes de habilitar
     // cuentas con más de un rol.

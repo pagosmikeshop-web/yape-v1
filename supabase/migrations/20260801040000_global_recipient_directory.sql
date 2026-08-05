@@ -6,6 +6,7 @@ create table if not exists public.global_recipient_directory (
   id text primary key,
   phone_e164 text not null,
   display_name text not null,
+  provider text not null default 'Yape' check (provider in ('Yape', 'Plin', 'BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Bim', 'Banco Falabella', 'Banco Pichincha', 'Dale!', 'Izipay', 'Agora / Oh!', 'Tunki')),
   source text not null default 'manual' check (source in ('manual', 'qr')),
   submitted_by_user_id text not null references public.users(id) on delete cascade,
   terms_version text not null,
@@ -42,7 +43,6 @@ create table if not exists public.global_qr_directory (
   updated_at text not null,
   revoked_at text,
   revoked_reason text,
-  check (phone_e164 is not null or recipient_user_id is not null),
   check (provider in ('Yape', 'Plin', 'BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Bim', 'Banco Falabella', 'Banco Pichincha', 'Dale!', 'Izipay', 'Agora / Oh!', 'Tunki'))
 );
 
@@ -57,4 +57,3 @@ create index if not exists global_qr_directory_recipient_idx
 
 alter table public.global_recipient_directory enable row level security;
 alter table public.global_qr_directory enable row level security;
-

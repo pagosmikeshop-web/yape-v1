@@ -424,10 +424,13 @@ export async function createGlobalQrContact(
     phone = recipient.phone_e164;
   } else {
     holderName = maskRecipientName(parseHolderName(input.holderName));
-    phone = parsePhone(input.phone);
-    if (!phone) {
-      throw new QrContactError("Añade el celular del destinatario para publicarlo globalmente.", 400, "QR_PHONE_REQUIRED");
-    }
+    // Los QR de otros bancos se registran con el payload y el banco elegido;
+    // no se debe pedir ni guardar un celular. Para Yape, el formulario solo
+    // usa los últimos 3 dígitos como referencia visual.
+    const inputDigits = input.phone.replace(/\D/gu, "");
+    phone = provider === "Yape" && inputDigits.length !== 3
+      ? parsePhone(input.phone)
+      : null;
   }
 
   const hash = await payloadHash("global", payload);

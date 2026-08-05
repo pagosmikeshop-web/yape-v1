@@ -12,6 +12,7 @@ import {
   GLOBAL_DIRECTORY_TERMS_VERSION,
   requireGlobalDirectoryTerms,
 } from "@/app/lib/global-recipient-directory";
+import { PAYMENT_PROVIDERS, type PaymentProvider } from "@/app/lib/payment-providers";
 import { RecipientLookupError } from "@/app/lib/recipient-lookup/errors";
 import { tryMaskRecipientName } from "@/app/lib/recipient-lookup/name-masker";
 import { normalizeRecipientPhone } from "@/app/lib/recipient-lookup/phone";
@@ -22,6 +23,7 @@ type GlobalRecipientRow = {
   id: string;
   phone_e164: string;
   display_name: string;
+  provider: PaymentProvider;
   source: "manual" | "qr";
   status: "active" | "revoked";
   updated_at: string;
@@ -32,11 +34,14 @@ function contactDto(row: GlobalRecipientRow) {
     id: row.id,
     phone: row.phone_e164,
     displayName: row.display_name,
+    provider: row.provider,
     source: row.source,
     status: row.status,
     updatedAt: row.updated_at,
   };
 }
+
+const PROVIDER_SET = new Set<string>(PAYMENT_PROVIDERS);
 
 async function enforceContactLimits(userId: string, request: Request) {
   await enforceAuthRateLimits([
@@ -59,7 +64,7 @@ export async function GET(request: Request) {
   try {
     const { user } = await requireUnlockedSession(request, ["admin", "seller", "client"]);
     const rows = await dbBinding().prepare(
-      `SELECT id, phone_e164, display_name, source, status, updated_at
+      `SELECT id, phone_e164, display_name, provider, source, status, updated_at
        FROM global_recipient_directory
        WHERE submitted_by_user_id = ?
        ORDER BY updated_at DESC, id DESC
@@ -77,12 +82,17 @@ export async function POST(request: Request) {
     const { user } = await requireUnlockedSession(request, ["admin", "seller", "client"]);
     await enforceContactLimits(user.id, request);
     const body = await readJson(request);
-    if (Object.keys(body).some((key) => !["phone", "name", "termsAccepted", "termsVersion"].includes(key))) {
+    if (Object.keys(body).some((key) => !["phone", "name", "provider", "termsAccepted", "termsVersion"].includes(key))) {
       return jsonError("La solicitud contiene campos no permitidos.", 400);
     }
     requireGlobalDirectoryTerms(body.termsAccepted, body.termsVersion);
 
     const normalized = normalizeRecipientPhone(asString(body.phone));
+    const providerValue = asString(body.provider).trim() || "Yape";
+    if (!PROVIDER_SET.has(providerValue)) {
+      return jsonError("Selecciona una app o banco de destino válido.", 400);
+    }
+    const provider = providerValue as PaymentProvider;
     const displayName = tryMaskRecipientName(asString(body.name));
     if (!displayName) return jsonError("Ingresa un nombre válido para el destinatario.", 400);
 
@@ -108,19 +118,19 @@ export async function POST(request: Request) {
     const contact = await database.prepare(
       existing
         ? `UPDATE global_recipient_directory
-           SET display_name = ?, source = 'manual', terms_version = ?, terms_accepted_at = ?,
+           SET display_name = ?, provider = ?, source = 'manual', terms_version = ?, terms_accepted_at = ?,
                status = 'active', revoked_at = NULL, revoked_reason = NULL, updated_at = ?
            WHERE id = ? AND submitted_by_user_id = ?
-           RETURNING id, phone_e164, display_name, source, status, updated_at`
+           RETURNING id, phone_e164, display_name, provider, source, status, updated_at`
         : `INSERT INTO global_recipient_directory (
-             id, phone_e164, display_name, source, submitted_by_user_id,
+             id, phone_e164, display_name, provider, source, submitted_by_user_id,
              terms_version, terms_accepted_at, status, created_at, updated_at
-           ) VALUES (?, ?, ?, 'manual', ?, ?, ?, 'active', ?, ?)
-           RETURNING id, phone_e164, display_name, source, status, updated_at`,
+           ) VALUES (?, ?, ?, ?, 'manual', ?, ?, ?, 'active', ?, ?)
+           RETURNING id, phone_e164, display_name, provider, source, status, updated_at`,
     ).bind(
       ...(existing
-        ? [displayName, GLOBAL_DIRECTORY_TERMS_VERSION, now, now, existing.id, user.id]
-        : [id, normalized.e164, displayName, user.id, GLOBAL_DIRECTORY_TERMS_VERSION, now, now, now]),
+        ? [displayName, provider, GLOBAL_DIRECTORY_TERMS_VERSION, now, now, existing.id, user.id]
+        : [id, normalized.e164, displayName, provider, user.id, GLOBAL_DIRECTORY_TERMS_VERSION, now, now, now]),
     ).first<GlobalRecipientRow>();
 
     if (!contact) return jsonError("No pudimos publicar el destinatario.", 503);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
+import { PAYMENT_PROVIDERS, type PaymentProvider } from "../../lib/payment-providers";
 import { AssetIcon } from "./primitives";
 import { GlobalDirectoryTermsDialog } from "./GlobalDirectoryTermsDialog";
 
@@ -12,10 +13,13 @@ type RecipientContact = {
   id: string;
   phone: string;
   displayName: string;
+  provider: PaymentProvider;
   source: "manual" | "qr";
   status: "active" | "revoked";
   updatedAt: string;
 };
+
+const INVALID_PHONE_MESSAGE = "El número de celular es obligatorio y debe tener 9 dígitos.";
 
 function normalizePhoneInput(value: string) {
   return value
@@ -28,6 +32,7 @@ export function RecipientContactsView() {
   const [contacts, setContacts] = useState<RecipientContact[]>([]);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
+  const [provider, setProvider] = useState<PaymentProvider>("Yape");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -59,11 +64,25 @@ export function RecipientContactsView() {
   function requestPublish(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    if (!/^9\d{8}$/u.test(phone)) {
+      setMessage(INVALID_PHONE_MESSAGE);
+      return;
+    }
+    if (name.trim().length < 2) {
+      setMessage("Ingresa el nombre del destinatario.");
+      return;
+    }
+    setMessage("");
     setTermsOpen(true);
   }
 
   async function publishContact() {
     if (saving) return;
+    if (!/^9\d{8}$/u.test(phone)) {
+      setTermsOpen(false);
+      setMessage(INVALID_PHONE_MESSAGE);
+      return;
+    }
     setTermsOpen(false);
     setSaving(true);
     setMessage("");
@@ -74,6 +93,7 @@ export function RecipientContactsView() {
         body: JSON.stringify({
           phone,
           name,
+          provider,
           termsAccepted: true,
           termsVersion: GLOBAL_DIRECTORY_TERMS_VERSION,
         }),
@@ -87,6 +107,7 @@ export function RecipientContactsView() {
       }
       setPhone("");
       setName("");
+      setProvider("Yape");
       setMessage("Autocompletado registrado.");
       await loadContacts();
     } catch (error) {
@@ -144,7 +165,7 @@ export function RecipientContactsView() {
           <span>NUEVO REGISTRO</span>
           <h2>Agregar teléfono y nombre</h2>
         </div>
-        <form className="account-payment-data-card" onSubmit={requestPublish}>
+        <form className="account-payment-data-card" onSubmit={requestPublish} noValidate>
           <div className="account-payment-data-fields">
             <label className="account-details-field">
               <span>Número de celular</span>
@@ -156,6 +177,7 @@ export function RecipientContactsView() {
                   inputMode="numeric"
                   placeholder="9XXXXXXXX"
                   autoComplete="tel"
+                  maxLength={9}
                   required
                 />
               </div>
@@ -172,6 +194,23 @@ export function RecipientContactsView() {
                   required
                   minLength={2}
                 />
+              </div>
+            </label>
+            <label className="account-details-field recipient-provider-field">
+              <span>App / Banco de destino</span>
+              <div>
+                <AssetIcon name="ic_duotone_money_arrows_around" />
+                <select
+                  value={provider}
+                  onChange={(event) => setProvider(event.target.value as PaymentProvider)}
+                  aria-label="App o banco de destino"
+                >
+                  {PAYMENT_PROVIDERS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
             </label>
           </div>
@@ -218,7 +257,9 @@ export function RecipientContactsView() {
             <article className="recipient-contact-item" key={contact.id}>
               <div>
                 <strong>{contact.displayName}</strong>
-                <span>{contact.phone} · {contact.status === "active" ? "Activo" : "Retirado"}</span>
+                <span>
+                  {contact.phone} · {contact.provider} · {contact.status === "active" ? "Activo" : "Retirado"}
+                </span>
               </div>
               <button
                 type="button"

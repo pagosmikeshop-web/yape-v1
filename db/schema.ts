@@ -114,6 +114,7 @@ export const globalRecipientDirectory = pgTable("global_recipient_directory", {
   id: text("id").primaryKey(),
   phoneE164: text("phone_e164").notNull(),
   displayName: text("display_name").notNull(),
+  provider: text("provider").notNull().default("Yape"),
   source: text("source").notNull().default("manual"),
   submittedByUserId: text("submitted_by_user_id").notNull(),
   termsVersion: text("terms_version").notNull(),
@@ -128,6 +129,7 @@ export const globalRecipientDirectory = pgTable("global_recipient_directory", {
   index("global_recipient_directory_submitter_idx").on(table.submittedByUserId, table.updatedAt),
   index("global_recipient_directory_active_idx").on(table.phoneE164, table.status),
   check("global_recipient_directory_source_check", sql`${table.source} in ('manual', 'qr')`),
+  check("global_recipient_directory_provider_check", sql`${table.provider} in ('Yape', 'Plin', 'BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Bim', 'Banco Falabella', 'Banco Pichincha', 'Dale!', 'Izipay', 'Agora / Oh!', 'Tunki')`),
   check("global_recipient_directory_status_check", sql`${table.status} in ('active', 'revoked')`),
 ]);
 

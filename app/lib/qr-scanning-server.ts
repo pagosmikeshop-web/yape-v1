@@ -44,7 +44,7 @@ type ExistingEvent = {
   response_payload: string | null;
 };
 
-type RecipientRow = { id: string; display_name: string };
+type RecipientRow = { id: string; display_name: string; phone_e164: string | null };
 
 function normalizeQrValue(value: unknown) {
   const normalized = normalizeQrPayload(value);
@@ -223,7 +223,8 @@ export async function scanQr(input: {
       return invalidResult(input.user, scanId, valueHash, null, input.request, "QR_NOT_FOUND");
     }
     const recipient = await database.prepare(
-      `SELECT u.id, u.display_name FROM users u
+      `SELECT u.id, u.display_name, d.phone_e164 FROM users u
+       LEFT JOIN payment_directory d ON d.user_id = u.id AND d.discoverable = 1
        WHERE u.id = ? AND (u.role = 'client' OR EXISTS (
          SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'client'
        )) AND u.status = 'active' AND u.deleted_at IS NULL LIMIT 1`,
@@ -240,7 +241,7 @@ export async function scanQr(input: {
         name: maskRecipientName(recipient.display_name),
         provider: "Yape",
         recipientId: recipient.id,
-        phone: null,
+        phone: recipient.phone_e164,
       }),
       request: input.request,
     });

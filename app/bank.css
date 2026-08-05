@@ -3847,6 +3847,19 @@ input:focus-visible {
 .account-details-field input:disabled { color: #9e969f; cursor: not-allowed; }
 .account-details-field > div:has(input:disabled) { opacity: 0.58; }
 
+.account-details-field select {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  color: #322038;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+}
+
+.recipient-provider-field { grid-column: 1 / -1; }
+
 .account-token-entry {
   min-width: 0;
   display: grid;

@@ -30,6 +30,7 @@ import {
   formatVoucherDate,
   formatVoucherTime,
   getVoucherHero,
+  isYapeDestination,
   MovementVoucher,
   shareVoucherImage,
   VoucherSinglePromo,
@@ -649,8 +650,12 @@ function QrView() {
     }
   }
 
+  const isYapeProvider = provider === "Yape";
   const canSave = Boolean(
-    qrPayload && holderName.trim().length >= 2 && !saving,
+    qrPayload
+      && holderName.trim().length >= 2
+      && (!isYapeProvider || /^\d{3}$/u.test(phone))
+      && !saving,
   );
 
   return (
@@ -752,33 +757,39 @@ function QrView() {
             minLength={2}
           />
         </label>
-        <label className="qrc-field">
-          <span className="qrc-label">
-            Número de celular <small className="qrc-optional">(necesario si el QR no incluye celular)</small>
-          </span>
-          <input
-            className="qrc-input"
-            type="tel"
-            inputMode="numeric"
-            value={phone}
-            onChange={(event) =>
-              setPhone(event.target.value.replace(/\D/g, "").slice(0, 9))
-            }
-            placeholder="9XXXXXXXX"
-            autoComplete="tel"
-          />
-        </label>
+        {isYapeProvider ? (
+          <label className="qrc-field">
+            <span className="qrc-label">
+              Últimos 3 dígitos del celular
+              <small className="qrc-optional">(solo para identificar el QR)</small>
+            </span>
+            <input
+              className="qrc-input"
+              type="tel"
+              inputMode="numeric"
+              value={phone}
+              onChange={(event) =>
+                setPhone(event.target.value.replace(/\D/g, "").slice(0, 3))
+              }
+              placeholder="000"
+              maxLength={3}
+              pattern="[0-9]{3}"
+              autoComplete="off"
+              required
+            />
+          </label>
+        ) : null}
         <label className="qrc-field">
           <span className="qrc-label">App / Banco de destino</span>
           <span className="qrc-select-wrap">
             <select
               className="qrc-select"
               value={provider}
-              onChange={(event) =>
-                setProvider(
-                  event.target.value as (typeof QR_CONTACT_PROVIDERS)[number],
-                )
-              }
+              onChange={(event) => {
+                const nextProvider = event.target.value as (typeof QR_CONTACT_PROVIDERS)[number];
+                setProvider(nextProvider);
+                if (nextProvider !== "Yape") setPhone("");
+              }}
             >
               {QR_CONTACT_PROVIDERS.map((item) => (
                 <option key={item} value={item}>
@@ -1875,10 +1886,12 @@ function ConfiguredVoucherReceipt({
               <span className="voucher-section-label">
                 DATOS DE LA TRANSACCIÓN
               </span>
-              <div>
-                <span>Nro. de celular</span>
-                <strong>{maskPhone(voucher.phone)}</strong>
-              </div>
+              {isYapeDestination(voucher.destination) ? (
+                <div>
+                  <span>Nro. de celular</span>
+                  <strong>{maskPhone(voucher.phone)}</strong>
+                </div>
+              ) : null}
               <div>
                 <span>Destino</span>
                 <strong>{voucher.destination}</strong>

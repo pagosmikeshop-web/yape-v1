@@ -74,7 +74,7 @@ function directoryUnion() {
   return `
     SELECT
       d.id, 'recipient' AS kind, d.display_name AS name, d.phone_e164,
-      d.source, NULL AS provider, d.status, d.submitted_by_user_id,
+      d.source, d.provider, d.status, d.submitted_by_user_id,
       u.telegram_user_id AS submitter_telegram_id,
       u.display_name AS submitter_name, u.username AS submitter_username,
       d.created_at, d.updated_at, d.revoked_at, d.revoked_reason
