@@ -50,8 +50,6 @@ function normalizeMobileNumber(value: string) {
 }
 
 const DAILY_YAPE_LIMIT = 500;
-const externalEntities: string[] = [];
-
 export { maskPhone } from "../../lib/masked-phone";
 
 function formatEditablePhone(phone: string) {
@@ -90,6 +88,7 @@ export function TransferView() {
   const [stage, setStage] = useState<TransferStage>("contact");
   const [recipientId, setRecipientId] = useState("");
   const [recipientQrId, setRecipientQrId] = useState("");
+  const [recipientFromQr, setRecipientFromQr] = useState(false);
   const [recipientProvider, setRecipientProvider] = useState("Yape");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -185,6 +184,7 @@ export function TransferView() {
       if (!requestedName || (!requestedQrId && !requestedRecipientId && !/^9\d{8}$/u.test(requestedPhone))) return;
 
       setRecipientQrId(requestedQrId);
+      setRecipientFromQr(true);
       setRecipientProvider(requestedProvider);
       setRecipientId(requestedRecipientId);
       setRecipientName(requestedName);
@@ -214,7 +214,12 @@ export function TransferView() {
     })
       .then(async (response) => {
         const data = (await response.json()) as {
-          recipient?: { id?: string; displayName?: string; phone?: string };
+          recipient?: {
+            id?: string;
+            displayName?: string;
+            phone?: string;
+            provider?: string;
+          };
           error?: string;
         };
         if (
@@ -226,18 +231,25 @@ export function TransferView() {
             safeApiMessage(data.error, "No encontramos al destinatario de este QR."),
           );
         }
-        return data.recipient as { id: string; displayName: string; phone?: string };
+        return data.recipient as {
+          id: string;
+          displayName: string;
+          phone?: string;
+          provider?: string;
+        };
       })
       .then((recipient) => {
         if (cancelled) return;
         setRecipientQrId("");
+        setRecipientFromQr(true);
         setRecipientId(recipient.id);
         setRecipientName(recipient.displayName);
         setRecipientPhone(recipient.phone ?? "");
         setRecipientIsNewNumber(false);
         setManualRecipientMode(false);
-        setRecipientProvider("Yape");
-        setDestination("Yape");
+        const provider = normalizePaymentProvider(recipient.provider);
+        setRecipientProvider(provider);
+        setDestination(provider);
         setNotice("");
         setStage("amount");
       })
@@ -353,6 +365,7 @@ export function TransferView() {
         }
 
         setRecipientId(data.recipient.id || "");
+        setRecipientFromQr(false);
         setRecipientName(data.recipient.displayName);
         setRecipientPhone(data.recipient.phone);
         setManualRecipientMode(false);
@@ -425,7 +438,7 @@ export function TransferView() {
   const yapearEnabled = recipientIsValid && amountIsInRange;
   const voucherRecipientName = recipientName;
   // Un QR de banco no tiene celular que mostrar: dejamos el campo vacío en
-  // lugar de inventar una referencia visual como “Destinatario verificado”.
+  // lugar de inventar una referencia visual.
   const recipientDisplayReference = recipientPhone ? maskPhone(recipientPhone) : "";
   const normalizedContactSearch = contactSearch.trim().toLocaleLowerCase("es");
   const filteredPhoneContacts = phoneContacts.filter((contact) => {
@@ -485,6 +498,7 @@ export function TransferView() {
     const normalizedPhone = normalizeMobileNumber(phone);
     setRecipientId("");
     setRecipientQrId("");
+    setRecipientFromQr(false);
     setRecipientProvider("Yape");
     setRecipientName(name.trim());
     setRecipientPhone(normalizedPhone || phone);
@@ -502,6 +516,7 @@ export function TransferView() {
   function enableManualRecipientFallback(phone: string) {
     setRecipientId("");
     setRecipientQrId("");
+    setRecipientFromQr(false);
     setRecipientProvider("Yape");
     setRecipientName("");
     setRecipientPhone(phone);
@@ -528,6 +543,7 @@ export function TransferView() {
     setNotice("");
     setRecipientId("");
     setRecipientQrId("");
+    setRecipientFromQr(false);
     setRecipientProvider("Yape");
     setRecipientName("");
     setRecipientPhone(normalizedPhone);
@@ -668,6 +684,12 @@ export function TransferView() {
     void submitTransfer(recipientProvider, "amount-processing");
   }
 
+  function requestOtherBanks() {
+    if (!yapearEnabled || recipientProvider === "Yape") return;
+    setDestination(recipientProvider);
+    setStage("entities");
+  }
+
   function chooseEntity(entity: string) {
     setDestination(entity);
     setStage("entity-loading");
@@ -681,6 +703,7 @@ export function TransferView() {
     setStage("contact");
     setRecipientId("");
     setRecipientQrId("");
+    setRecipientFromQr(false);
     setRecipientProvider("Yape");
     setRecipientName("");
     setRecipientPhone("");
@@ -729,6 +752,12 @@ export function TransferView() {
   }
 
   useEffect(() => {
+    if (stage !== "entity-loading") return undefined;
+    const timer = window.setTimeout(() => setStage("confirm"), TRANSFER_LOADING_MS);
+    return () => window.clearTimeout(timer);
+  }, [stage]);
+
+  useEffect(() => {
     if (
       (stage === "amount-processing" || stage === "confirm-processing") &&
       voucher
@@ -749,7 +778,14 @@ export function TransferView() {
   const showAmountScreen = stage === "amount" || stage === "amount-processing";
   // El banco de destino llega de un QR o de Autocompletado Free. La selección
   // manual antigua queda fuera del flujo para no ofrecer bancos duplicados.
-  const showEntitiesScreen = false;
+  const directProviderQr = recipientFromQr && recipientProvider !== "Yape";
+  const showEntitiesScreen =
+    stage === "entities" ||
+    stage === "entity-loading" ||
+    stage === "confirm" ||
+    stage === "confirm-processing";
+  const availableEntities =
+    recipientProvider !== "Yape" ? [recipientProvider] : [];
   const formattedDate = voucher ? formatVoucherDate(voucher.completedAt) : "";
   const formattedTime = voucher ? formatVoucherTime(voucher.completedAt) : "";
   const voucherHero = getVoucherHero(amountValue);
@@ -1014,6 +1050,7 @@ export function TransferView() {
                   setRecipientLookupLoading(false);
                   setRecipientId("");
                   setRecipientQrId("");
+                  setRecipientFromQr(false);
                   setRecipientProvider("Yape");
                   setRecipientName("");
                   setManualRecipientMode(false);
@@ -1055,14 +1092,29 @@ export function TransferView() {
               />
             </label>
             <div className="transfer-amount-actions">
+              {recipientProvider === "Yape" || directProviderQr ? (
               <button
                 type="button"
-                className="transfer-primary-button"
+                className="transfer-primary-button transfer-full-width-button"
                 onClick={requestYapear}
                 disabled={!yapearEnabled || transferSubmitting}
               >
-                {transferSubmitting ? "Validando…" : "Yapear"}
+                {transferSubmitting
+                  ? "Validando…"
+                  : directProviderQr
+                    ? recipientProvider
+                    : "Yapear"}
               </button>
+              ) : (
+                <button
+                  type="button"
+                  className="transfer-primary-button transfer-full-width-button"
+                  onClick={requestOtherBanks}
+                  disabled={!yapearEnabled || transferSubmitting}
+                >
+                  Otros bancos
+                </button>
+              )}
             </div>
           </div>
           {stage === "amount-processing" ? (
@@ -1109,7 +1161,7 @@ export function TransferView() {
               Selecciona una entidad financiera
             </h2>
             <div className="entities-list">
-              {externalEntities.map((entity) => (
+              {availableEntities.map((entity) => (
                 <button
                   type="button"
                   className="entity-row"

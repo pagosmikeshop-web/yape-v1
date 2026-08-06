@@ -42,7 +42,7 @@ export function maskRecipientName(value: string) {
   try {
     return protectRecipientName(trimmed);
   } catch {
-    return "Destinatario verificado";
+    return "";
   }
 }
 

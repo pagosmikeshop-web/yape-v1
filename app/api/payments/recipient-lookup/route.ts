@@ -105,6 +105,7 @@ export async function POST(request: Request) {
           id: recipient.id,
           displayName: protectedName(recipient.display_name),
           phone: recipient.phone_e164,
+          provider: "Yape",
         },
       });
     }
@@ -119,6 +120,17 @@ export async function POST(request: Request) {
     ).bind(normalized.e164, user.id).first<{ id: string }>();
     if (ownRecipient) return jsonError("No puedes transferirte a tu propia cuenta.", 409);
 
+    const globalRecipient = await lookupGlobalRecipient(normalized.e164);
+    if (globalRecipient) {
+      return jsonOk({
+        recipient: {
+          displayName: globalRecipient.displayName,
+          provider: globalRecipient.provider,
+          phone: normalized.e164,
+        },
+      });
+    }
+
     // Los contactos guardados por la propia cuenta son privados y no gastan
     // créditos: sirven como autocompletado local, sin volver a consultar al
     // proveedor externo cada vez que se inicia una transferencia.
@@ -132,6 +144,7 @@ export async function POST(request: Request) {
       return jsonOk({
         recipient: {
           displayName: protectedName(saved.display_name),
+          provider: "Yape",
           phone: normalized.e164,
         },
       });
@@ -143,6 +156,7 @@ export async function POST(request: Request) {
       return jsonOk({
         recipient: {
           displayName: protectedName(internal.display_name),
+          provider: "Yape",
           phone: normalized.e164,
         },
       });

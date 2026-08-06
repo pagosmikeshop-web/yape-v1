@@ -97,7 +97,7 @@ async function resolveRecipient(
     if (!qr || qr.recipient_user_id === requesterUserId) return null;
     return {
       name: maskRecipientName(qr.holder_name),
-      reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : "Destinatario verificado",
+      reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : "",
       provider: normalizePaymentProvider(qr.provider),
       recipientUserId: qr.recipient_user_id,
       savedRecipientId: null,
@@ -110,7 +110,7 @@ async function resolveRecipient(
     const displayName = maskRecipientName(row.display_name);
     return {
       name: displayName,
-      reference: row.phone_e164 ? maskPhone(row.phone_e164) : "QR Yape",
+      reference: row.phone_e164 ? maskPhone(row.phone_e164) : "",
       provider: "Yape",
       recipientUserId: row.id,
       savedRecipientId: null,
@@ -194,7 +194,7 @@ async function currentBalance(userId: string) {
 }
 
 function movementPayload(row: MovementRow) {
-  let recipientName = "Destinatario verificado";
+  let recipientName = "";
   try {
     recipientName = maskRecipientName(row.recipient_name);
   } catch {
