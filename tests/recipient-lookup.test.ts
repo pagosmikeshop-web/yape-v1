@@ -45,6 +45,14 @@ describe("lookup seguro de destinatarios", () => {
     expect(actions.primaryProvider).toBe("Plin");
   });
 
+  it("mantiene Otros bancos visible cuando solo existe Yape", () => {
+    const actions = getRecipientProviderActions(["Yape"]);
+
+    expect(actions.directYapear).toBe(true);
+    expect(actions.showOtherBanks).toBe(true);
+    expect(actions.primaryProvider).toBe("Yape");
+  });
+
   it("mantiene un banco distinto en Otros bancos si no existe Yape", () => {
     const actions = getRecipientProviderActions(["Banco Falabella"]);
 

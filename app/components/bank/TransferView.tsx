@@ -56,6 +56,13 @@ function normalizeMobileNumber(value: string) {
 const DAILY_YAPE_LIMIT = 500;
 export { maskPhone } from "../../lib/masked-phone";
 
+const FINANCIAL_ENTITY_OPTIONS = [
+  { value: "Banco Falabella", label: "Banco Falabella" },
+  { value: "Cmac Arequipa", label: "Cmac Arequipa" },
+  { value: "Dale", label: "Dale" },
+  { value: "Plin", label: "Plin" },
+] as const;
+
 function formatEditablePhone(phone: string) {
   const digits = phone.replace(/\D/g, "").slice(0, 9);
   return digits.replace(/(\d{3})(?=\d)/g, "$1 ");
@@ -134,6 +141,9 @@ export function TransferView() {
     payload: string;
   } | null>(null);
   const confirmDialogRef = useRef<HTMLDivElement>(null);
+  const confirmationCloseTimerRef = useRef<number | null>(null);
+  const confirmationReturnFocusRef = useRef<HTMLElement | null>(null);
+  const [confirmationClosing, setConfirmationClosing] = useState(false);
   const insufficientDialogRef = useModalLayer<HTMLDivElement>(
     insufficientBalance,
     () => setInsufficientBalance(false),
@@ -318,7 +328,37 @@ export function TransferView() {
     recipientLookupInFlightRef.current = false;
     frequentProviderLookupAbortRef.current?.abort();
     frequentProviderLookupSequenceRef.current += 1;
+    if (confirmationCloseTimerRef.current !== null) {
+      window.clearTimeout(confirmationCloseTimerRef.current);
+    }
   }, []);
+
+  useEffect(() => {
+    if (stage !== "confirm") return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      confirmDialogRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [stage]);
+
+  useEffect(() => {
+    const confirmationOpen =
+      stage === "confirm" || stage === "confirm-processing";
+    if (!confirmationOpen) return undefined;
+
+    const scrollContainer = document.querySelector<HTMLElement>(
+      ".mobile-bank-shell.view-transfer .bank-scroll-area",
+    );
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousContainerOverflow = scrollContainer?.style.overflow ?? "";
+    document.body.style.overflow = "hidden";
+    if (scrollContainer) scrollContainer.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      if (scrollContainer) scrollContainer.style.overflow = previousContainerOverflow;
+    };
+  }, [stage]);
 
   useLayoutEffect(() => {
     if (
@@ -763,12 +803,33 @@ export function TransferView() {
   function requestOtherBanks() {
     if (!yapearEnabled || availableEntities.length === 0) return;
     setDestination(availableEntities[0]);
+    setConfirmationClosing(false);
     setStage("entities");
   }
 
   function chooseEntity(entity: string) {
+    confirmationReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     setDestination(entity);
-    setStage("entity-loading");
+    setConfirmationClosing(false);
+    setStage("confirm");
+  }
+
+  function closeConfirmation() {
+    if (confirmationClosing) return;
+    setConfirmationClosing(true);
+    if (confirmationCloseTimerRef.current !== null) {
+      window.clearTimeout(confirmationCloseTimerRef.current);
+    }
+    confirmationCloseTimerRef.current = window.setTimeout(() => {
+      confirmationCloseTimerRef.current = null;
+      setConfirmationClosing(false);
+      setStage("entities");
+      confirmationReturnFocusRef.current?.focus();
+      confirmationReturnFocusRef.current = null;
+    }, 300);
   }
 
   function confirmTransfer() {
@@ -777,6 +838,11 @@ export function TransferView() {
 
   function startNewYape() {
     cancelFrequentProviderLookup();
+    if (confirmationCloseTimerRef.current !== null) {
+      window.clearTimeout(confirmationCloseTimerRef.current);
+      confirmationCloseTimerRef.current = null;
+    }
+    setConfirmationClosing(false);
     setStage("contact");
     setRecipientId("");
     setRecipientQrId("");
@@ -863,7 +929,7 @@ export function TransferView() {
     stage === "entity-loading" ||
     stage === "confirm" ||
     stage === "confirm-processing";
-  const availableEntities = providerActions.otherProviders;
+  const availableEntities = FINANCIAL_ENTITY_OPTIONS.map((entity) => entity.value);
   const formattedDate = voucher ? formatVoucherDate(voucher.completedAt) : "";
   const formattedTime = voucher ? formatVoucherTime(voucher.completedAt) : "";
   const voucherHero = getVoucherHero(amountValue);
@@ -1179,7 +1245,7 @@ export function TransferView() {
               className="transfer-amount-actions"
               aria-busy={recipientProviderLoading}
             >
-              {providerActions.showOtherBanks || recipientProviderLoading ? (
+              {providerActions.showOtherBanks ? (
                 <button
                   type="button"
                   className="transfer-secondary-button"
@@ -1216,7 +1282,7 @@ export function TransferView() {
       ) : null}
 
       {showEntitiesScreen ? (
-        <>
+        <section className="transfer-entities-screen">
           <header className="transfer-flow-header">
             <button
               type="button"
@@ -1236,6 +1302,7 @@ export function TransferView() {
             </Link>
           </header>
           <div className="transfer-flow-content">
+            <h1 className="entity-screen-title">Yapear a</h1>
             <div className="entity-recipient-card">
               <span>
                 <strong>{recipientName.trim() || "Número nuevo"}</strong>
@@ -1249,52 +1316,63 @@ export function TransferView() {
                 </button>
               ) : null}
             </div>
+            <div className="entity-screen-divider" aria-hidden="true" />
             <h2 className="transfer-section-title">
               Selecciona una entidad financiera
             </h2>
             <div className="entities-list">
-              {availableEntities.map((entity) => (
+              {FINANCIAL_ENTITY_OPTIONS.map(({ value, label }) => (
                 <button
                   type="button"
                   className="entity-row"
-                  key={entity}
-                  onClick={() => chooseEntity(entity)}
+                  key={value}
+                  onClick={() => chooseEntity(value)}
                 >
                   <span className="entity-icon">
                     <AssetIcon name="ic_duotone_money_arrows_around" />
                   </span>
-                  <strong>{entity}</strong>
+                  <strong>{label}</strong>
                 </button>
               ))}
             </div>
           </div>
 
-          {stage === "entity-loading" ? (
-            <LoadingOverlay text="Cargando..." />
-          ) : null}
-
           {stage === "confirm" ? (
             <div
-              ref={confirmDialogRef}
-              className="transfer-confirm-overlay"
+              className={`transfer-confirm-overlay${
+                confirmationClosing ? " is-closing" : ""
+              }`}
               role="dialog"
               aria-modal="true"
               aria-labelledby="transfer-confirm-title"
-              tabIndex={-1}
+              onClick={(event) => {
+                if (event.target === event.currentTarget) closeConfirmation();
+              }}
             >
-              <div className="transfer-confirm-modal">
+              <div
+                ref={confirmDialogRef}
+                className="transfer-confirm-modal"
+                tabIndex={-1}
+              >
                 <span className="entity-icon confirm-modal-icon">
                   <AssetIcon name="ic_duotone_money_arrows_around" />
                 </span>
                 <p>Vas a yapear a:</p>
                 <h2 id="transfer-confirm-title">{voucherRecipientName}</h2>
+                <div className="transfer-confirm-warning">
+                  <span className="transfer-confirm-warning-icon">i</span>
+                  <span>
+                    Este tipo de yapeo puede necesitar más tiempo para llegar a
+                    la entidad destino.
+                  </span>
+                </div>
                 <div className="transfer-confirm-summary">
                   <div>
-                    <span>Monto</span>
+                    <span>Monto:</span>
                     <strong>S/ {amountValue.toFixed(2)}</strong>
                   </div>
                   <div>
-                    <span>Destino</span>
+                    <span>Destino:</span>
                     <strong>{destination}</strong>
                   </div>
                 </div>
@@ -1309,7 +1387,7 @@ export function TransferView() {
                 <button
                   type="button"
                   className="transfer-confirm-cancel"
-                  onClick={() => setStage("entities")}
+                  onClick={closeConfirmation}
                 >
                   Cancelar
                 </button>
@@ -1320,7 +1398,7 @@ export function TransferView() {
           {stage === "confirm-processing" ? (
             <LoadingOverlay text="Yapeando..." />
           ) : null}
-        </>
+        </section>
       ) : null}
 
       {stage === "success" ? (

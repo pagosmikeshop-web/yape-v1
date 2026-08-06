@@ -3019,3 +3019,421 @@
 @media (prefers-reduced-motion: reduce) {
   .mobile-bank-shell.view-scanner .scanner-live-frame > i { animation: none !important; }
 }
+
+/*
+ * Financial entity selection and confirmation sheet.
+ * The flow keeps the existing transfer service, while matching the clean
+ * frontal mobile composition of the supplied reference screens.
+ */
+.mobile-bank-shell.view-transfer .transfer-entities-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  color: #363342;
+  background: #fafaf8;
+  font-family: "Roboto", "Helvetica Neue", Arial, system-ui, sans-serif;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen > .transfer-flow-header {
+  position: relative;
+  flex: 0 0 auto;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  width: 100%;
+  height: calc(64px + var(--app-safe-top, 0px));
+  min-height: calc(64px + var(--app-safe-top, 0px));
+  padding: var(--app-safe-top, 0px) 20px 0;
+  border: 0;
+  background: transparent;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-header-back,
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-header-close {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-header-back:active,
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-header-close:active {
+  background: rgba(112, 62, 140, 0.06);
+  transform: scale(0.96);
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-header-back .apk-icon,
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-header-close .apk-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen > .transfer-flow-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 20px calc(24px + var(--app-safe-bottom, 0px));
+  overflow: hidden;
+  background: #fafaf8;
+}
+
+.mobile-bank-shell.view-transfer .entity-screen-title {
+  margin: 14px 0 0;
+  color: #703e8c;
+  font-size: clamp(27px, 7.2vw, 29px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.mobile-bank-shell.view-transfer .entity-recipient-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 102px;
+  margin: 30px 0 0;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 13px;
+  background: #f2f3f1;
+}
+
+.mobile-bank-shell.view-transfer .entity-recipient-card > span {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.mobile-bank-shell.view-transfer .entity-recipient-card strong {
+  color: #363342;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.12;
+}
+
+.mobile-bank-shell.view-transfer .entity-recipient-card small {
+  color: #363342;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.12;
+}
+
+.mobile-bank-shell.view-transfer .entity-recipient-card .invite-link-button {
+  flex: 0 0 auto;
+  margin-left: 16px;
+  color: #12a997;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.mobile-bank-shell.view-transfer .entity-screen-divider {
+  width: 100%;
+  height: 1px;
+  margin: 40px 0 0;
+  background: #e1e2e0;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-section-title {
+  margin: 19px 0 0;
+  color: #363342;
+  font-size: clamp(22px, 5.9vw, 24px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.mobile-bank-shell.view-transfer .entities-list {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+  margin: 19px 0 0;
+}
+
+.mobile-bank-shell.view-transfer .entity-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 88px;
+  padding: 0 22px;
+  gap: 21px;
+  border: 0;
+  border-radius: 12px;
+  color: #363342;
+  background: #fff;
+  box-shadow: 0 5px 10px rgba(40, 40, 45, 0.14),
+    0 1px 3px rgba(40, 40, 45, 0.08);
+  text-align: left;
+  transition: transform 110ms ease, box-shadow 110ms ease;
+}
+
+.mobile-bank-shell.view-transfer .entity-row:active {
+  transform: scale(0.985);
+  box-shadow: 0 3px 7px rgba(40, 40, 45, 0.11),
+    0 1px 2px rgba(40, 40, 45, 0.06);
+}
+
+.mobile-bank-shell.view-transfer .entity-row .entity-icon {
+  width: 57px;
+  height: 57px;
+  flex: 0 0 57px;
+  border-radius: 50%;
+  background: #e8d0ee;
+}
+
+.mobile-bank-shell.view-transfer .entity-row .entity-icon .apk-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.mobile-bank-shell.view-transfer .entity-row strong {
+  color: #363342;
+  font-size: clamp(18px, 5vw, 20px);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(20, 20, 25, 0.06);
+  animation: transfer-sheet-backdrop-in 220ms ease-out both;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-modal {
+  width: 100%;
+  max-width: none;
+  height: min(64%, 548px);
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+  overflow: hidden;
+  padding: 22px 0 max(12px, var(--app-safe-bottom, 0px));
+  border-radius: 25px 25px 0 0;
+  outline: none;
+  color: #363342;
+  background: #fff;
+  box-shadow: 0 -8px 24px rgba(35, 35, 40, 0.1);
+  text-align: center;
+  animation: transfer-confirm-sheet-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-overlay.is-closing {
+  animation: transfer-sheet-backdrop-out 300ms ease-in both;
+  pointer-events: none;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-overlay.is-closing .transfer-confirm-modal {
+  animation: transfer-confirm-sheet-out 300ms cubic-bezier(0.55, 0, 0.78, 0.38) both;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .confirm-modal-icon {
+  width: 70px;
+  height: 70px;
+  flex: 0 0 70px;
+  margin: 0;
+  border-radius: 50%;
+  background: #e8d0ee;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .confirm-modal-icon .apk-icon {
+  width: 31px;
+  height: 31px;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-modal > p {
+  margin: 14px 0 0;
+  color: #703e8c;
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-modal > h2 {
+  max-width: calc(100% - 36px);
+  margin: 8px 0 0;
+  color: #703e8c;
+  font-size: clamp(23px, 6.4vw, 26px);
+  font-weight: 700;
+  line-height: 1.12;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-warning {
+  display: flex;
+  align-items: center;
+  width: calc(100% - 40px);
+  min-height: 74px;
+  margin: 18px auto 0;
+  padding: 10px 16px;
+  gap: 15px;
+  border-radius: 9px;
+  color: #363342;
+  background: #e8f3f7;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.mobile-bank-shell.view-transfer .transfer-confirm-warning-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #1976d2;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-summary {
+  width: calc(100% - 40px);
+  min-height: 105px;
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  margin: 18px auto 0;
+  padding: 16px 20px;
+  border-radius: 5px;
+  background: #f2f3f1;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-summary > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+  color: #363342;
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-summary span {
+  color: #363342;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-summary strong {
+  color: #363342;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-button {
+  width: calc(100% - 40px);
+  min-height: 57px;
+  margin: 18px auto 0;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: #11c7ae;
+  font-size: 21px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 100ms ease, filter 100ms ease;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-button:active {
+  transform: scale(0.985);
+  filter: brightness(0.97);
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-cancel {
+  min-height: 44px;
+  margin: 4px auto 0;
+  padding: 0 18px;
+  border: 0;
+  color: #12a997;
+  background: transparent;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@keyframes transfer-sheet-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes transfer-sheet-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes transfer-confirm-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes transfer-confirm-sheet-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+@media (max-height: 760px) {
+  .mobile-bank-shell.view-transfer .entity-recipient-card {
+    min-height: 88px;
+    margin-top: 22px;
+  }
+
+  .mobile-bank-shell.view-transfer .entity-screen-divider {
+    margin-top: 26px;
+  }
+
+  .mobile-bank-shell.view-transfer .entities-list {
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .mobile-bank-shell.view-transfer .entity-row {
+    min-height: 72px;
+  }
+
+  .mobile-bank-shell.view-transfer .entity-row .entity-icon {
+    width: 50px;
+    height: 50px;
+    flex-basis: 50px;
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-modal {
+    height: 72%;
+    min-height: 0;
+    padding-top: 20px;
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-warning {
+    margin-top: 18px;
+    font-size: 14px;
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-summary {
+    margin-top: 18px;
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-button {
+    margin-top: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-overlay,
+  .mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-confirm-modal {
+    animation-duration: 1ms;
+  }
+}
