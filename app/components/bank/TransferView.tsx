@@ -1175,7 +1175,12 @@ export function TransferView() {
                 placeholder="Agregar mensaje"
               />
             </label>
-            <div className="transfer-amount-actions">
+            <div
+              className={`transfer-amount-actions${
+                recipientProviderLoading ? " is-provider-loading" : ""
+              }`}
+              aria-busy={recipientProviderLoading}
+            >
               {providerActions.showOtherBanks ? (
                 <button
                   type="button"
