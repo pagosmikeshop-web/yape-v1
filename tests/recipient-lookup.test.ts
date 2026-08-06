@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RecipientLookupError } from "../app/lib/recipient-lookup/errors";
 import { normalizePaymentProvider } from "../app/lib/payment-providers";
+import { getRecipientProviderActions } from "../app/lib/recipient-providers";
 import {
   protectRecipientName,
   tryMaskRecipientName,
@@ -24,6 +25,32 @@ describe("lookup seguro de destinatarios", () => {
     expect(normalizePaymentProvider("plin")).toBe("Plin");
     expect(normalizePaymentProvider("Banco Falabella")).toBe("Banco Falabella");
     expect(normalizePaymentProvider("proveedor-desconocido")).toBe("Yape");
+  });
+
+  it("prioriza Yape y deja Plin para Otros bancos cuando ambos están configurados", () => {
+    const actions = getRecipientProviderActions(["Plin", "Yape"]);
+
+    expect(actions.providers).toEqual(["Yape", "Plin"]);
+    expect(actions.primaryProvider).toBe("Yape");
+    expect(actions.directYapear).toBe(true);
+    expect(actions.showOtherBanks).toBe(true);
+    expect(actions.otherProviders).toEqual(["Plin"]);
+  });
+
+  it("permite Plin directo cuando es el único proveedor Free", () => {
+    const actions = getRecipientProviderActions(["Plin"]);
+
+    expect(actions.directYapear).toBe(true);
+    expect(actions.showOtherBanks).toBe(false);
+    expect(actions.primaryProvider).toBe("Plin");
+  });
+
+  it("mantiene un banco distinto en Otros bancos si no existe Yape", () => {
+    const actions = getRecipientProviderActions(["Banco Falabella"]);
+
+    expect(actions.directYapear).toBe(false);
+    expect(actions.showOtherBanks).toBe(true);
+    expect(actions.otherProviders).toEqual(["Banco Falabella"]);
   });
 
   it.each([

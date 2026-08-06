@@ -563,6 +563,11 @@ export async function ensureAuthSchema() {
       if (missing.length) {
         throw new Error(`El esquema de Supabase no estÃ¡ aplicado. Faltan tablas: ${missing.join(", ")}. Ejecuta la migraciÃ³n SQL antes de cambiar DATABASE_PROVIDER.`);
       }
+      await db.exec(
+        `DROP INDEX IF EXISTS public.global_recipient_directory_phone_unique;
+         CREATE UNIQUE INDEX IF NOT EXISTS global_recipient_directory_phone_provider_unique
+           ON public.global_recipient_directory(phone_e164, provider);`,
+      );
     })().catch((error) => {
       schemaReady = null;
       throw error;
@@ -662,7 +667,7 @@ export async function ensureAuthSchema() {
       "CREATE INDEX IF NOT EXISTS saved_payment_recipients_user_updated_idx ON saved_payment_recipients(user_id, updated_at)",
       `CREATE TABLE IF NOT EXISTS global_recipient_directory (
         id TEXT PRIMARY KEY,
-        phone_e164 TEXT NOT NULL UNIQUE,
+        phone_e164 TEXT NOT NULL,
         display_name TEXT NOT NULL,
         provider TEXT NOT NULL DEFAULT 'Yape' CHECK (provider IN (
           'Yape','Plin','BCP','BBVA','Interbank','Scotiabank','Bim',
@@ -679,6 +684,7 @@ export async function ensureAuthSchema() {
         revoked_reason TEXT,
         FOREIGN KEY (submitted_by_user_id) REFERENCES users(id) ON DELETE CASCADE
       )`,
+      "CREATE UNIQUE INDEX IF NOT EXISTS global_recipient_directory_phone_provider_unique ON global_recipient_directory(phone_e164, provider)",
       "CREATE INDEX IF NOT EXISTS global_recipient_directory_submitter_idx ON global_recipient_directory(submitted_by_user_id, updated_at)",
       "CREATE INDEX IF NOT EXISTS global_recipient_directory_active_idx ON global_recipient_directory(phone_e164, status)",
       `CREATE TABLE IF NOT EXISTS global_qr_directory (
@@ -1011,6 +1017,49 @@ export async function ensureAuthSchema() {
       } catch (error) {
         if (!/duplicate column name/iu.test(error instanceof Error ? error.message : "")) throw error;
       }
+    }
+
+    const directoryIndexes = await db.prepare("PRAGMA index_list('global_recipient_directory')").all<{
+      name: string;
+      unique: number;
+    }>();
+    const hasLegacyPhoneUnique = (directoryIndexes.results ?? []).some(
+      (index) => Number(index.unique) === 1 && index.name !== "global_recipient_directory_phone_provider_unique",
+    );
+    if (hasLegacyPhoneUnique) {
+      await db.exec(
+        `CREATE TABLE global_recipient_directory_migrating (
+          id TEXT PRIMARY KEY,
+          phone_e164 TEXT NOT NULL,
+          display_name TEXT NOT NULL,
+          provider TEXT NOT NULL DEFAULT 'Yape' CHECK (provider IN (
+            'Yape','Plin','BCP','BBVA','Interbank','Scotiabank','Bim',
+            'Banco Falabella','Banco Pichincha','Dale!','Izipay','Agora / Oh!','Tunki'
+          )),
+          source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','qr')),
+          submitted_by_user_id TEXT NOT NULL,
+          terms_version TEXT NOT NULL,
+          terms_accepted_at TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked')),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          revoked_at TEXT,
+          revoked_reason TEXT
+        );
+        INSERT INTO global_recipient_directory_migrating
+          SELECT id, phone_e164, display_name, provider, source, submitted_by_user_id,
+                 terms_version, terms_accepted_at, status, created_at, updated_at,
+                 revoked_at, revoked_reason
+          FROM global_recipient_directory;
+        DROP TABLE global_recipient_directory;
+        ALTER TABLE global_recipient_directory_migrating RENAME TO global_recipient_directory;
+        CREATE UNIQUE INDEX global_recipient_directory_phone_provider_unique
+          ON global_recipient_directory(phone_e164, provider);
+        CREATE INDEX global_recipient_directory_submitter_idx
+          ON global_recipient_directory(submitted_by_user_id, updated_at);
+        CREATE INDEX global_recipient_directory_active_idx
+          ON global_recipient_directory(phone_e164, status);`,
+      );
     }
 
     // Backfill idempotente para las cuentas existentes antes de habilitar

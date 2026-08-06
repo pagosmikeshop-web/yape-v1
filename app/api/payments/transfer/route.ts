@@ -53,6 +53,7 @@ type ResolvedRecipient = {
   name: string;
   reference: string;
   provider: string | null;
+  providers: string[];
   recipientUserId: string | null;
   savedRecipientId: string | null;
 };
@@ -99,6 +100,7 @@ async function resolveRecipient(
       name: maskRecipientName(qr.holder_name),
       reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : "",
       provider: normalizePaymentProvider(qr.provider),
+      providers: [normalizePaymentProvider(qr.provider)],
       recipientUserId: qr.recipient_user_id,
       savedRecipientId: null,
     };
@@ -112,6 +114,7 @@ async function resolveRecipient(
       name: displayName,
       reference: row.phone_e164 ? maskPhone(row.phone_e164) : "",
       provider: "Yape",
+      providers: ["Yape"],
       recipientUserId: row.id,
       savedRecipientId: null,
     };
@@ -126,6 +129,7 @@ async function resolveRecipient(
       name: displayName,
       reference: maskPhone(phoneE164),
       provider: "Yape",
+      providers: ["Yape"],
       recipientUserId: internal.id,
       savedRecipientId: null,
     };
@@ -137,6 +141,7 @@ async function resolveRecipient(
       name: globalRecipient.displayName,
       reference: maskPhone(phoneE164),
       provider: globalRecipient.provider,
+      providers: globalRecipient.providers,
       recipientUserId: null,
       savedRecipientId: null,
     };
@@ -172,6 +177,7 @@ async function resolveRecipient(
     name: displayName,
     reference: maskPhone(phoneE164),
     provider: null,
+    providers: [],
     recipientUserId: null,
     savedRecipientId: saved.id,
   };
@@ -283,7 +289,7 @@ export async function POST(request: Request) {
       recipientSource,
     );
     if (!recipient) return jsonError("No se pudo verificar el destinatario.", 400);
-    if (recipient.provider && recipient.provider !== destination) {
+    if (recipient.providers.length > 0 && !recipient.providers.includes(destination)) {
       return jsonError(`Este destinatario está configurado para ${recipient.provider}.`, 409);
     }
 

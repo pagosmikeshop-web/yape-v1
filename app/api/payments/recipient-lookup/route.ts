@@ -106,6 +106,7 @@ export async function POST(request: Request) {
           displayName: protectedName(recipient.display_name),
           phone: recipient.phone_e164,
           provider: "Yape",
+          providers: ["Yape"],
         },
       });
     }
@@ -126,6 +127,7 @@ export async function POST(request: Request) {
         recipient: {
           displayName: globalRecipient.displayName,
           provider: globalRecipient.provider,
+          providers: globalRecipient.providers,
           phone: normalized.e164,
         },
       });
@@ -145,6 +147,7 @@ export async function POST(request: Request) {
         recipient: {
           displayName: protectedName(saved.display_name),
           provider: "Yape",
+          providers: ["Yape"],
           phone: normalized.e164,
         },
       });
@@ -157,6 +160,7 @@ export async function POST(request: Request) {
         recipient: {
           displayName: protectedName(internal.display_name),
           provider: "Yape",
+          providers: ["Yape"],
           phone: normalized.e164,
         },
       });
@@ -171,6 +175,7 @@ export async function POST(request: Request) {
             recipient: {
               displayName: globalRecipient.displayName,
               provider: globalRecipient.provider,
+              providers: globalRecipient.providers,
               phone: normalized.e164,
             },
           })
@@ -189,6 +194,7 @@ export async function POST(request: Request) {
           recipient: {
             displayName: result.displayName,
             provider: "Yape",
+            providers: ["Yape"],
             phone: result.phone,
           },
         });

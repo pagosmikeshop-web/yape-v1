@@ -17,6 +17,7 @@ export class GlobalDirectoryError extends Error {
 export type GlobalRecipientLookup = {
   displayName: string;
   provider: PaymentProvider;
+  providers: PaymentProvider[];
   source: "manual" | "qr";
 };
 
@@ -43,16 +44,20 @@ export async function lookupGlobalRecipient(phoneE164: string) {
     `SELECT display_name, provider, 'manual' AS source
      FROM global_recipient_directory
      WHERE phone_e164 = ? AND status = 'active'
-     LIMIT 1`,
-  ).bind(phoneE164).first<{
+     ORDER BY CASE WHEN provider = 'Yape' THEN 0 ELSE 1 END,
+              updated_at DESC, id DESC`,
+  ).bind(phoneE164).all<{
     display_name: string;
     provider: PaymentProvider;
     source: "manual";
   }>();
-  if (directory) {
+  const directoryRows = directory.results ?? [];
+  if (directoryRows.length > 0) {
+    const primary = directoryRows[0];
     return {
-      displayName: directory.display_name,
-      provider: directory.provider,
+      displayName: primary.display_name,
+      provider: primary.provider,
+      providers: directoryRows.map((row) => row.provider),
       source: "manual",
     } satisfies GlobalRecipientLookup;
   }
@@ -70,9 +75,10 @@ export async function lookupGlobalRecipient(phoneE164: string) {
   }>();
   return qr
     ? {
-        displayName: qr.display_name,
-        provider: qr.provider,
-        source: "qr",
+      displayName: qr.display_name,
+      provider: qr.provider,
+      providers: [qr.provider],
+      source: "qr",
       } satisfies GlobalRecipientLookup
     : null;
 }

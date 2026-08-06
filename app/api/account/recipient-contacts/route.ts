@@ -98,22 +98,26 @@ export async function POST(request: Request) {
 
     const database = dbBinding();
     const now = new Date().toISOString();
-    const existing = await database.prepare(
-      `SELECT id, submitted_by_user_id, display_name, status
+    const existingRows = await database.prepare(
+      `SELECT id, submitted_by_user_id, display_name, provider, status
        FROM global_recipient_directory
        WHERE phone_e164 = ?
-       LIMIT 1`,
-    ).bind(normalized.e164).first<{
+       ORDER BY updated_at DESC, id DESC`,
+    ).bind(normalized.e164).all<{
       id: string;
       submitted_by_user_id: string;
       display_name: string;
+      provider: PaymentProvider;
       status: "active" | "revoked";
     }>();
 
-    if (existing && existing.submitted_by_user_id !== user.id) {
+    const rows = existingRows.results ?? [];
+
+    if (rows.some((row) => row.submitted_by_user_id !== user.id)) {
       return jsonError("Este celular ya tiene un destinatario publicado globalmente. Solicita una revisión si el dato es incorrecto.", 409);
     }
 
+    const existing = rows.find((row) => row.provider === provider);
     const id = existing?.id ?? crypto.randomUUID();
     const contact = await database.prepare(
       existing

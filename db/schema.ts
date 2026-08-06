@@ -125,7 +125,7 @@ export const globalRecipientDirectory = pgTable("global_recipient_directory", {
   revokedAt: text("revoked_at"),
   revokedReason: text("revoked_reason"),
 }, (table) => [
-  uniqueIndex("global_recipient_directory_phone_unique").on(table.phoneE164),
+  uniqueIndex("global_recipient_directory_phone_provider_unique").on(table.phoneE164, table.provider),
   index("global_recipient_directory_submitter_idx").on(table.submittedByUserId, table.updatedAt),
   index("global_recipient_directory_active_idx").on(table.phoneE164, table.status),
   check("global_recipient_directory_source_check", sql`${table.source} in ('manual', 'qr')`),
