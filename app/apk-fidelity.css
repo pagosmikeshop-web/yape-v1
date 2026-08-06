@@ -3147,9 +3147,9 @@
 
 .mobile-bank-shell.view-transfer .entities-list {
   display: grid;
-  gap: 18px;
+  gap: 28px;
   width: 100%;
-  margin: 19px 0 0;
+  margin: 24px 0 0;
 }
 
 .mobile-bank-shell.view-transfer .entity-row {
@@ -3397,8 +3397,8 @@
   }
 
   .mobile-bank-shell.view-transfer .entities-list {
-    gap: 12px;
-    margin-top: 14px;
+    gap: 20px;
+    margin-top: 20px;
   }
 
   .mobile-bank-shell.view-transfer .entity-row {
