@@ -101,6 +101,7 @@ export function TransferView() {
   const [destination, setDestination] = useState("Yape");
   const [newNumber, setNewNumber] = useState("");
   const [recipientLookupLoading, setRecipientLookupLoading] = useState(false);
+  const [recipientProviderLoading, setRecipientProviderLoading] = useState(false);
   const [manualRecipientMode, setManualRecipientMode] = useState(false);
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
@@ -126,6 +127,8 @@ export function TransferView() {
   const recipientLookupAbortRef = useRef<AbortController | null>(null);
   const recipientLookupSequenceRef = useRef(0);
   const recipientLookupInFlightRef = useRef(false);
+  const frequentProviderLookupAbortRef = useRef<AbortController | null>(null);
+  const frequentProviderLookupSequenceRef = useRef(0);
   const transferIdempotencyRef = useRef<{
     key: string;
     payload: string;
@@ -313,6 +316,8 @@ export function TransferView() {
     recipientLookupAbortRef.current?.abort();
     recipientLookupSequenceRef.current += 1;
     recipientLookupInFlightRef.current = false;
+    frequentProviderLookupAbortRef.current?.abort();
+    frequentProviderLookupSequenceRef.current += 1;
   }, []);
 
   useLayoutEffect(() => {
@@ -505,8 +510,18 @@ export function TransferView() {
     }
   }
 
+  function cancelFrequentProviderLookup() {
+    frequentProviderLookupAbortRef.current?.abort();
+    frequentProviderLookupAbortRef.current = null;
+    frequentProviderLookupSequenceRef.current += 1;
+    setRecipientProviderLoading(false);
+  }
+
   function pickContact(name: string, phone: string) {
     const normalizedPhone = normalizeMobileNumber(phone);
+    cancelFrequentProviderLookup();
+    const requestSequence = frequentProviderLookupSequenceRef.current + 1;
+    frequentProviderLookupSequenceRef.current = requestSequence;
     setRecipientId("");
     setRecipientQrId("");
     setRecipientFromQr(false);
@@ -519,12 +534,57 @@ export function TransferView() {
     setDestination("Yape");
     setNewNumber("");
     setNotice("");
-    // Los contactos frecuentes ya tienen nombre y celular guardados. No
-    // necesitan volver a pasar por la consulta externa de titulares.
+    setRecipientProviderLoading(Boolean(normalizedPhone));
     setStage("amount");
+
+    if (!normalizedPhone) return;
+
+    const controller = new AbortController();
+    frequentProviderLookupAbortRef.current = controller;
+    const lookupPhone = normalizedPhone.replace(/\D/g, "");
+
+    void fetch("/api/payments/recipient-lookup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ phone: lookupPhone, configuredOnly: true }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = (await response.json()) as {
+          recipient?: {
+            provider?: string;
+            providers?: string[];
+          };
+        };
+        if (!response.ok || !data.recipient) return null;
+        return data.recipient;
+      })
+      .then((recipient) => {
+        if (
+          !recipient ||
+          requestSequence !== frequentProviderLookupSequenceRef.current
+        ) {
+          return;
+        }
+        const provider = normalizePaymentProvider(recipient.provider);
+        const providers = normalizeRecipientProviders(recipient.providers, provider);
+        setRecipientProviders(providers);
+        setDestination(providers[0]);
+        setNotice("");
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      })
+      .finally(() => {
+        if (requestSequence !== frequentProviderLookupSequenceRef.current) return;
+        setRecipientProviderLoading(false);
+        frequentProviderLookupAbortRef.current = null;
+      });
   }
 
   function enableManualRecipientFallback(phone: string) {
+    setRecipientProviderLoading(false);
     setRecipientId("");
     setRecipientQrId("");
     setRecipientFromQr(false);
@@ -548,6 +608,7 @@ export function TransferView() {
       return;
     }
     recipientLookupAbortRef.current?.abort();
+    cancelFrequentProviderLookup();
     recipientLookupSequenceRef.current += 1;
     recipientLookupInFlightRef.current = false;
     setRecipientLookupLoading(false);
@@ -715,6 +776,7 @@ export function TransferView() {
   }
 
   function startNewYape() {
+    cancelFrequentProviderLookup();
     setStage("contact");
     setRecipientId("");
     setRecipientQrId("");
@@ -728,6 +790,7 @@ export function TransferView() {
     setDestination("Yape");
     setNewNumber("");
     setRecipientLookupLoading(false);
+    setRecipientProviderLoading(false);
     setAmount("");
     setMessage("");
     setNotice("");
@@ -838,7 +901,10 @@ export function TransferView() {
             <button
               type="button"
               className="transfer-new-number-row"
-              onClick={() => setStage("new-number")}
+              onClick={() => {
+                cancelFrequentProviderLookup();
+                setStage("new-number");
+              }}
             >
               <span className="transfer-row-icon">
                 <AssetIcon name="ic_smartphone_outline_yape" />
@@ -935,6 +1001,7 @@ export function TransferView() {
                     value={newNumber}
                     onChange={(event) => {
                       recipientLookupAbortRef.current?.abort();
+                      cancelFrequentProviderLookup();
                       recipientLookupSequenceRef.current += 1;
                       recipientLookupInFlightRef.current = false;
                       setRecipientLookupLoading(false);
@@ -952,6 +1019,7 @@ export function TransferView() {
                       aria-label="Limpiar número"
                       onClick={() => {
                         recipientLookupAbortRef.current?.abort();
+                        cancelFrequentProviderLookup();
                         recipientLookupSequenceRef.current += 1;
                         recipientLookupInFlightRef.current = false;
                         setRecipientLookupLoading(false);
@@ -1012,7 +1080,7 @@ export function TransferView() {
           </header>
           <div
             className="transfer-flow-content transfer-amount-content"
-            aria-busy={recipientLookupLoading}
+            aria-busy={recipientLookupLoading || recipientProviderLoading}
           >
             <div
               className="transfer-recipient-editor"
@@ -1060,6 +1128,7 @@ export function TransferView() {
                 onBlur={() => setPhoneIsEditing(false)}
                 onChange={(event) => {
                   recipientLookupAbortRef.current?.abort();
+                  cancelFrequentProviderLookup();
                   recipientLookupSequenceRef.current += 1;
                   recipientLookupInFlightRef.current = false;
                   setRecipientLookupLoading(false);
@@ -1112,7 +1181,11 @@ export function TransferView() {
                   type="button"
                   className="transfer-secondary-button"
                   onClick={requestOtherBanks}
-                  disabled={!yapearEnabled || transferSubmitting}
+                  disabled={
+                    !yapearEnabled ||
+                    recipientProviderLoading ||
+                    transferSubmitting
+                  }
                 >
                   Otros bancos
                 </button>
@@ -1122,7 +1195,11 @@ export function TransferView() {
                   type="button"
                   className="transfer-primary-button transfer-full-width-button"
                   onClick={requestYapear}
-                  disabled={!yapearEnabled || transferSubmitting}
+                  disabled={
+                    !yapearEnabled ||
+                    recipientProviderLoading ||
+                    transferSubmitting
+                  }
                 >
                   {transferSubmitting ? "Validando…" : "Yapear"}
                 </button>
@@ -1131,7 +1208,11 @@ export function TransferView() {
                   type="button"
                   className="transfer-primary-button transfer-full-width-button"
                   onClick={requestOtherBanks}
-                  disabled={!yapearEnabled || transferSubmitting}
+                  disabled={
+                    !yapearEnabled ||
+                    recipientProviderLoading ||
+                    transferSubmitting
+                  }
                 >
                   Otros bancos
                 </button>

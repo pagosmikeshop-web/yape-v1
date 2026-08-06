@@ -87,9 +87,13 @@ export async function POST(request: Request) {
     ]);
 
     const body = await readJson(request);
-    if (Object.keys(body).some((key) => !["recipientId", "phone"].includes(key))) {
+    if (Object.keys(body).some((key) => !["recipientId", "phone", "configuredOnly"].includes(key))) {
       return jsonError("La solicitud contiene campos no permitidos.", 400);
     }
+    if (body.configuredOnly !== undefined && typeof body.configuredOnly !== "boolean") {
+      return jsonError("El modo de consulta configurada no es válido.", 400);
+    }
+    const configuredOnly = body.configuredOnly === true;
     const recipientId = asString(body.recipientId).trim();
     const rawPhone = asString(body.phone).trim();
     if (!recipientId && !rawPhone) return jsonError("Indica un QR o número de celular.");
@@ -209,6 +213,13 @@ export async function POST(request: Request) {
     // consulta externa que no conoce ese destino.
     const free = await freeRecipientResponse();
     if (free) return free;
+
+    // Frecuentes solo debe usar configuraciones explícitas guardadas en la
+    // cuenta/directorio. Nunca debe consumir un crédito de autocompletado para
+    // convertir un contacto frecuente en un destinatario Yape por defecto.
+    if (configuredOnly) {
+      return jsonError("No hay un proveedor configurado para este número.", 404);
+    }
 
     const external = await externalRecipientResponse();
     if (external) return external;
