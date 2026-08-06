@@ -398,7 +398,7 @@ export async function sendTelegramMessage(
       : {
           reply_parameters: {
             message_id: replyToMessageId,
-            allow_sending_without_reply: true,
+            allow_sending_without_reply: false,
           },
         }),
   };
