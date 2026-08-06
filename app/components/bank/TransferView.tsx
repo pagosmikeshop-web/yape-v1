@@ -1203,20 +1203,7 @@ export function TransferView() {
                 >
                   {transferSubmitting ? "Validando…" : "Yapear"}
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  className="transfer-primary-button transfer-full-width-button"
-                  onClick={requestOtherBanks}
-                  disabled={
-                    !yapearEnabled ||
-                    recipientProviderLoading ||
-                    transferSubmitting
-                  }
-                >
-                  Otros bancos
-                </button>
-              )}
+              ) : null}
             </div>
           </div>
           {stage === "amount-processing" ? (
