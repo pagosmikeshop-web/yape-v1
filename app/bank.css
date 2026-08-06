@@ -3355,8 +3355,7 @@ input:focus-visible {
 .view-account-details .account-details-hero,
 .view-account-details .account-details-shortcuts,
 .view-account-details .account-details-form > .account-details-block,
-.view-account-details .account-details-notice,
-.view-account-details .account-details-submit {
+.view-account-details .account-details-notice {
   transform-origin: top center;
   animation: account-section-build 430ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -3367,9 +3366,7 @@ input:focus-visible {
 .view-account-details .account-details-form > .account-details-block:nth-child(1) { animation-delay: 250ms; }
 .view-account-details .account-details-form > .account-details-block:nth-child(2) { animation-delay: 330ms; }
 .view-account-details .account-details-form > .account-details-block:nth-child(3) { animation-delay: 410ms; }
-.view-account-details .account-details-form > .account-details-block:nth-child(4) { animation-delay: 490ms; }
 .view-account-details .account-details-notice { animation-delay: 560ms; }
-.view-account-details .account-details-submit { animation-delay: 590ms; }
 
 .account-details-topbar {
   min-height: calc(70px + env(safe-area-inset-top));
@@ -4372,26 +4369,6 @@ input:focus-visible {
 
 .account-details-notice .apk-icon { width: 18px; height: 18px; }
 
-.account-details-submit {
-  min-height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  border: 0;
-  border-radius: 17px;
-  color: #fff;
-  background: linear-gradient(135deg, #5b1468, #851e91);
-  background-size: 180% 100%;
-  box-shadow: 0 13px 26px rgba(104, 23, 117, 0.2);
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  animation: account-submit-alive var(--account-motion-cycle) ease-in-out infinite;
-}
-
-.account-details-submit .apk-icon { width: 21px; height: 21px; filter: brightness(0) invert(1); }
-
 @keyframes account-section-build {
   from {
     opacity: 0;
@@ -4490,11 +4467,6 @@ input:focus-visible {
   50% { background-position: 100% 50%; box-shadow: 0 10px 21px rgba(104, 23, 117, .25); }
 }
 
-@keyframes account-submit-alive {
-  0%, 100% { background-position: 0% 50%; box-shadow: 0 13px 26px rgba(104, 23, 117, .18); transform: translateY(0); }
-  50% { background-position: 100% 50%; box-shadow: 0 16px 31px rgba(104, 23, 117, .29); transform: translateY(-1px); }
-}
-
 @keyframes account-balance-editor-in {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -4545,7 +4517,6 @@ input:focus-visible {
   .view-account-details .account-details-shortcuts,
   .view-account-details .account-details-form > .account-details-block,
   .view-account-details .account-details-notice,
-  .view-account-details .account-details-submit,
   .view-account-payment-data .account-details-topbar,
   .view-account-payment-data .account-payment-only-hero,
   .view-account-payment-data .account-payment-data-block,
@@ -4578,8 +4549,7 @@ input:focus-visible {
   .account-referral-icon,
   .account-referral-card > header > strong,
   .account-referral-code button,
-  .account-referral-command button,
-  .account-details-submit {
+  .account-referral-command button {
     animation: none;
     clip-path: none;
     opacity: 1;

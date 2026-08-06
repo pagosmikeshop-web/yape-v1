@@ -2205,7 +2205,6 @@ function VoucherEditorView() {
 type AccountDetailsUser = {
   username: string;
   displayName: string;
-  email: string;
   sellerCode: string;
   telegramUserId: string | null;
   referralCode: string | null;
@@ -2221,7 +2220,6 @@ function AccountDetailsView() {
   const [balanceMessage, setBalanceMessage] = useState("");
   const [homeAds, setHomeAds] = useState(true);
   const [smsActive, setSmsActive] = useState(false);
-  const [emailReceipts, setEmailReceipts] = useState(false);
   const [autocomplete, setAutocomplete] = useState(false);
   const [smsToken, setSmsToken] = useState("");
   const [autoToken, setAutoToken] = useState("");
@@ -2233,8 +2231,6 @@ function AccountDetailsView() {
   );
   const [smsTokenMessage, setSmsTokenMessage] = useState("");
   const [autoTokenMessage, setAutoTokenMessage] = useState("");
-  const [receiptEmail, setReceiptEmail] = useState("");
-  const [recoveryEmail, setRecoveryEmail] = useState("");
   const [showCredentials, setShowCredentials] = useState(false);
   const [clearConfirmation, setClearConfirmation] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
@@ -2250,8 +2246,6 @@ function AccountDetailsView() {
       if (cancelled || !result.ok || !result.user) return;
       const sessionUser = result.user as AccountDetailsUser;
       setUser(sessionUser);
-      setReceiptEmail(sessionUser.email || "");
-      setRecoveryEmail(sessionUser.email || "");
     });
     return () => {
       cancelled = true;
@@ -2307,12 +2301,6 @@ function AccountDetailsView() {
       cancelled = true;
     };
   }, []);
-
-  function registerData(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setNotice("Tus datos fueron revisados correctamente.");
-    window.setTimeout(() => setNotice(""), 3200);
-  }
 
   function requestClearHistory() {
     setClearConfirmation(true);
@@ -2583,7 +2571,7 @@ function AccountDetailsView() {
         </p>
       ) : null}
 
-      <form className="account-details-form" onSubmit={registerData}>
+      <div className="account-details-form">
         <section className="account-details-block">
           <div className="account-details-block-title">
             <span>PERSONALIZACIÓN</span>
@@ -2668,36 +2656,6 @@ function AccountDetailsView() {
             </div>
           </article>
 
-          <article className="account-setting-panel">
-            <div className="account-setting-row">
-              <span className="account-setting-icon is-purple">
-                <AssetIcon name="ic_mail_outline_yape_primary" />
-              </span>
-              <span className="account-setting-copy">
-                <strong>Constancias a correo</strong>
-                <small>Se desactiva tras cada yapeo</small>
-              </span>
-              <SwitchControl
-                checked={emailReceipts}
-                onChange={setEmailReceipts}
-                label="Enviar constancias por correo"
-              />
-            </div>
-            <label className="account-details-field">
-              <span>Tu correo</span>
-              <div>
-                <AssetIcon name="ic_mail_outline_yape_primary" />
-                <input
-                  type="email"
-                  value={receiptEmail}
-                  onChange={(event) => setReceiptEmail(event.target.value)}
-                  placeholder="correo@ejemplo.com"
-                  disabled={!emailReceipts}
-                />
-              </div>
-            </label>
-          </article>
-
           <article className="account-setting-panel account-token-panel">
             <div className="account-setting-row">
               <span className="account-setting-icon is-amber">
@@ -2766,38 +2724,6 @@ function AccountDetailsView() {
 
         <section className="account-details-block">
           <div className="account-details-block-title">
-            <span>RECUPERACIÓN</span>
-            <h2>Seguridad de acceso</h2>
-          </div>
-          <article className="account-setting-panel">
-            <div className="account-setting-row">
-              <span className="account-setting-icon is-teal">
-                <AssetIcon name="ic_shield_outline_yape" />
-              </span>
-              <span className="account-setting-copy">
-                <strong>Correo de recuperación</strong>
-                <small>
-                  Registra o cambia tu correo para recuperar tu contraseña
-                </small>
-              </span>
-            </div>
-            <label className="account-details-field">
-              <span>Correo seguro</span>
-              <div>
-                <AssetIcon name="ic_mail_outline_yape_primary" />
-                <input
-                  type="email"
-                  value={recoveryEmail}
-                  onChange={(event) => setRecoveryEmail(event.target.value)}
-                  placeholder="correo@ejemplo.com"
-                />
-              </div>
-            </label>
-          </article>
-        </section>
-
-        <section className="account-details-block">
-          <div className="account-details-block-title">
             <span>DATOS PRIVADOS</span>
             <h2>Mis credenciales</h2>
           </div>
@@ -2851,11 +2777,7 @@ function AccountDetailsView() {
             {notice}
           </p>
         ) : null}
-        <button className="account-details-submit" type="submit">
-          <AssetIcon name="ic_switch_check_r_yape" />
-          Registrar datos
-        </button>
-      </form>
+      </div>
       {clearConfirmation ? (
         <div
           className="account-clear-overlay"
