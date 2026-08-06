@@ -43,14 +43,14 @@ export function getRecipientProviderActions(
   const primaryProvider = providers[0];
   const otherProviders = providers.filter((provider) => provider !== "Yape");
   const hasYape = providers.includes("Yape");
-  const isOnlyPlin = providers.length === 1 && providers[0] === "Plin";
+  const isSingleProvider = providers.length === 1;
 
   return {
     providers,
     primaryProvider,
-    directYapear: hasYape || isOnlyPlin || (fromQr && otherProviders.length > 0),
+    directYapear: hasYape || isSingleProvider || (fromQr && otherProviders.length > 0),
     // El selector se limita a los destinos adicionales configurados.
-    showOtherBanks: otherProviders.length > 0 && !isOnlyPlin,
+    showOtherBanks: providers.length > 1 && otherProviders.length > 0,
     otherProviders,
   };
 }

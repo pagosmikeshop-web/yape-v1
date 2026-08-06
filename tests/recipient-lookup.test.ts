@@ -53,12 +53,22 @@ describe("lookup seguro de destinatarios", () => {
     expect(actions.primaryProvider).toBe("Yape");
   });
 
-  it("mantiene un banco distinto en Otros bancos si no existe Yape", () => {
+  it("permite pago directo cuando solo existe un banco distinto de Yape", () => {
     const actions = getRecipientProviderActions(["Banco Falabella"]);
 
-    expect(actions.directYapear).toBe(false);
-    expect(actions.showOtherBanks).toBe(true);
+    expect(actions.directYapear).toBe(true);
+    expect(actions.showOtherBanks).toBe(false);
     expect(actions.otherProviders).toEqual(["Banco Falabella"]);
+  });
+
+  it("muestra solo los proveedores adicionales cuando hay varios configurados", () => {
+    const actions = getRecipientProviderActions(["Dale!", "Yape", "Plin"]);
+
+    expect(actions.providers).toEqual(["Yape", "Dale!", "Plin"]);
+    expect(actions.primaryProvider).toBe("Yape");
+    expect(actions.directYapear).toBe(true);
+    expect(actions.showOtherBanks).toBe(true);
+    expect(actions.otherProviders).toEqual(["Dale!", "Plin"]);
   });
 
   it.each([
