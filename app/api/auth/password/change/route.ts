@@ -4,7 +4,6 @@ import {
   enforceAuthRateLimits,
   hashSecret,
   requireSession,
-  rotateSessionToken,
   routeError,
   validatePassword,
   verifySecret,
@@ -37,20 +36,16 @@ export async function POST(request: Request) {
       ).bind(hashed.hash, hashed.salt, now, user.id),
       db.prepare("DELETE FROM sessions WHERE user_id = ? AND id <> ?").bind(user.id, sessionId),
       db.prepare(
+        "UPDATE sessions SET pin_verified_at = NULL, unlocked_until = NULL, last_seen_at = ? WHERE id = ?",
+      ).bind(now, sessionId),
+      db.prepare(
         `UPDATE password_reset_tokens
          SET used_at = ?, consumed_by = 'password_changed'
          WHERE user_id = ? AND used_at IS NULL`,
       ).bind(now, user.id),
     ]);
-    // SEC-SESS: reemitir cookie; el token anterior deja de autenticar (incluye robo de sesión).
-    const { cookie } = await rotateSessionToken(request, sessionId, { unlock: false });
     writeSecurityEvent(request, "auth.password_change", "success", { actorId: user.id });
-    return jsonOk({}, {
-      headers: {
-        "cache-control": "no-store",
-        "set-cookie": cookie,
-      },
-    });
+    return jsonOk({}, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return routeError(error);
   }

@@ -41,7 +41,6 @@ yarn-error.log*
 
 # env files and local secrets
 .env*
-!.env.example
 .dev.vars
 
 # Documentation kept locally; not published to the application repository.
@@ -60,7 +59,6 @@ docs/
 !/tests/responsive-contracts.test.ts
 !/tests/auth-first-attempt.test.ts
 !/tests/security-contracts.test.ts
-!/tests/security-hardening-contracts.test.ts
 !/tests/recipient-lookup.test.ts
 !/tests/password-reset-flow.test.ts
 /.vinext/

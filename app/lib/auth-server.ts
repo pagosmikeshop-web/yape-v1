@@ -18,7 +18,6 @@ type AuthEnv = {
   AUTH_BOOTSTRAP_SECRET?: string;
   AUTH_OWNER_PASSWORD_RESET_ENABLED?: string;
   AUTH_OWNER_TELEGRAM_ID?: string;
-  AUTH_PASSWORD_PEPPER?: string;
   AUTH_RATE_LIMIT_PEPPER?: string;
   RATE_LIMIT_REDIS_URL?: string;
   RATE_LIMIT_REDIS_TOKEN?: string;
@@ -509,68 +508,33 @@ async function deriveSecret(secret: string, salt: string, iterations: number) {
   return bytesToBase64Url(new Uint8Array(bits));
 }
 
-const HASH_FORMAT_PEPPERED = "pbkdf2-sha256-p1";
-
-function passwordPepperConfigured() {
-  return Boolean(authEnv().AUTH_PASSWORD_PEPPER?.trim());
-}
-
-function materializePasswordSecret(secret: string, peppered: boolean) {
-  if (!peppered) return secret;
-  const pepper = authEnv().AUTH_PASSWORD_PEPPER?.trim() ?? "";
-  if (!pepper) {
-    throw new Error("AUTH_PASSWORD_PEPPER no está configurado para hashes con pepper.");
-  }
-  return `${pepper}\n${secret}`;
-}
-
 function parseStoredSecretHash(value: string) {
-  const pepperedMatch = /^pbkdf2-sha256-p1\$(\d{5,7})\$([A-Za-z0-9_-]{32,64})$/u.exec(value);
-  if (pepperedMatch) {
-    const iterations = Number(pepperedMatch[1]);
-    if (!Number.isSafeInteger(iterations) || iterations < 100_000 || iterations > 2_000_000) {
-      return null;
-    }
-    return { iterations, digest: pepperedMatch[2], versioned: true, peppered: true };
-  }
   const match = /^pbkdf2-sha256\$(\d{5,7})\$([A-Za-z0-9_-]{32,64})$/u.exec(value);
   if (!match) {
-    return { iterations: LEGACY_PBKDF2_ITERATIONS, digest: value, versioned: false, peppered: false };
+    return { iterations: LEGACY_PBKDF2_ITERATIONS, digest: value, versioned: false };
   }
   const iterations = Number(match[1]);
   if (!Number.isSafeInteger(iterations) || iterations < 100_000 || iterations > 2_000_000) {
     return null;
   }
-  return { iterations, digest: match[2], versioned: true, peppered: false };
+  return { iterations, digest: match[2], versioned: true };
 }
 
 export async function hashSecret(secret: string, salt = randomToken(16)) {
-  const peppered = passwordPepperConfigured();
-  const digest = await deriveSecret(
-    materializePasswordSecret(secret, peppered),
-    salt,
-    CURRENT_PBKDF2_ITERATIONS,
-  );
-  const format = peppered ? HASH_FORMAT_PEPPERED : HASH_FORMAT;
-  return { salt, hash: `${format}$${CURRENT_PBKDF2_ITERATIONS}$${digest}` };
+  const digest = await deriveSecret(secret, salt, CURRENT_PBKDF2_ITERATIONS);
+  return { salt, hash: `${HASH_FORMAT}$${CURRENT_PBKDF2_ITERATIONS}$${digest}` };
 }
 
 export async function verifySecret(secret: string, salt: string, expected: string) {
   const stored = parseStoredSecretHash(expected);
   if (!stored) return false;
-  if (stored.peppered && !passwordPepperConfigured()) return false;
-  const actual = await deriveSecret(
-    materializePasswordSecret(secret, stored.peppered),
-    salt,
-    stored.iterations,
-  );
+  const actual = await deriveSecret(secret, salt, stored.iterations);
   return constantTimeEqual(actual, stored.digest);
 }
 
 export function secretHashNeedsUpgrade(expected: string) {
   const stored = parseStoredSecretHash(expected);
-  if (!stored || !stored.versioned || stored.iterations < CURRENT_PBKDF2_ITERATIONS) return true;
-  return passwordPepperConfigured() && !stored.peppered;
+  return Boolean(!stored || !stored.versioned || stored.iterations < CURRENT_PBKDF2_ITERATIONS);
 }
 
 export async function ensureAuthSchema() {
@@ -1431,30 +1395,19 @@ export async function requireUnlockedSession(request: Request, roles?: AppRole[]
   return session;
 }
 
-/**
- * Reemite el token opaco de la sesión actual (invalida cookies robadas).
- * Con unlock=false limpia la ventana PIN; con unlock=true la renueva.
- */
-export async function rotateSessionToken(
-  request: Request,
-  sessionId: string,
-  options: { unlock?: boolean } = {},
-) {
+export async function rotateAndUnlockSession(request: Request, sessionId: string) {
   const token = randomToken(36);
   const tokenHash = await sha256(token);
   const now = new Date();
-  const unlock = options.unlock === true;
-  const unlockedUntil = unlock
-    ? new Date(now.getTime() + unlockIdleMinutes() * 60_000)
-    : null;
+  const unlockedUntil = new Date(now.getTime() + unlockIdleMinutes() * 60_000);
   const result = await database().prepare(
     `UPDATE sessions
      SET token_hash = ?, pin_verified_at = ?, unlocked_until = ?, last_seen_at = ?
      WHERE id = ? AND expires_at > ?`,
   ).bind(
     tokenHash,
-    unlock ? now.toISOString() : null,
-    unlockedUntil?.toISOString() ?? null,
+    now.toISOString(),
+    unlockedUntil.toISOString(),
     now.toISOString(),
     sessionId,
     now.toISOString(),
@@ -1468,12 +1421,7 @@ export async function rotateSessionToken(
   }
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   const cookie = `${sessionCookieName(request)}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_DAYS * 86_400}${secure}`;
-  return { unlockedUntil: unlockedUntil?.toISOString() ?? null, cookie };
-}
-
-export async function rotateAndUnlockSession(request: Request, sessionId: string) {
-  const rotated = await rotateSessionToken(request, sessionId, { unlock: true });
-  return { unlockedUntil: rotated.unlockedUntil as string, cookie: rotated.cookie };
+  return { unlockedUntil: unlockedUntil.toISOString(), cookie };
 }
 
 export async function createSession(request: Request, userId: string, options: { unlocked?: boolean } = {}) {
