@@ -1242,7 +1242,9 @@ export function TransferView() {
               className="transfer-amount-actions"
               aria-busy={recipientProviderLoading}
             >
-              {providerActions.showOtherBanks || recipientProviderLoading ? (
+              {providerActions.showOtherBanks ||
+              recipientLookupLoading ||
+              recipientProviderLoading ? (
                 <button
                   type="button"
                   className="transfer-secondary-button"
