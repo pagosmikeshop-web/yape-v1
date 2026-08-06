@@ -1092,6 +1092,16 @@ export function TransferView() {
               />
             </label>
             <div className="transfer-amount-actions">
+              {directProviderQr ? (
+                <button
+                  type="button"
+                  className="transfer-secondary-button"
+                  onClick={requestOtherBanks}
+                  disabled={!yapearEnabled || transferSubmitting}
+                >
+                  Otros bancos
+                </button>
+              ) : null}
               {recipientProvider === "Yape" || directProviderQr ? (
               <button
                 type="button"
@@ -1101,9 +1111,7 @@ export function TransferView() {
               >
                 {transferSubmitting
                   ? "Validando…"
-                  : directProviderQr
-                    ? recipientProvider
-                    : "Yapear"}
+                  : "Yapear"}
               </button>
               ) : (
                 <button
