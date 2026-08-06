@@ -1,5 +1,11 @@
 import { jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
-import { dbBinding, requireUnlockedSession, routeError, type AuthUser } from "@/app/lib/auth-server";
+import {
+  dbBinding,
+  enforceAuthRateLimits,
+  requireUnlockedSession,
+  routeError,
+  type AuthUser,
+} from "@/app/lib/auth-server";
 import {
   basePermissions,
   DELEGABLE_PERMISSIONS,
@@ -64,6 +70,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin"]);
+    await enforceAuthRateLimits([
+      { bucket: "admin-permissions-put", subject: actor.id, limit: 40, windowSeconds: 15 * 60 },
+    ]);
     const { id } = await context.params;
     const target = await permissionTarget(actor.id, actor.isOwner, id);
     if (!target) return jsonError("Usuario interno no encontrado o fuera de tu alcance.", 404);

@@ -1,13 +1,25 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
-import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import {
+  dbBinding,
+  enforceAuthRateLimits,
+  requireUnlockedSession,
+  routeError,
+} from "@/app/lib/auth-server";
 import { requireManagedAccount } from "@/app/lib/management-server";
 import { requirePermission } from "@/app/lib/rbac";
+import { writeSecurityEvent } from "@/app/lib/security-log";
 
 export const dynamic = "force-dynamic";
+
+const OWNER_ONLY_MAX_DAYS = 3650;
+const NON_OWNER_MAX_DAYS = 365;
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: admin } = await requireUnlockedSession(request, ["admin"]);
+    await enforceAuthRateLimits([
+      { bucket: "admin-user-access", subject: admin.id, limit: 40, windowSeconds: 15 * 60 },
+    ]);
     await requirePermission(admin, "clients:update");
     const { id } = await context.params;
     const managed = await requireManagedAccount(admin, id);
@@ -16,8 +28,20 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const mode = asString(body.mode);
     const days = Number(body.days);
     if (mode !== "permanent" && mode !== "days") return jsonError("Selecciona un tipo de acceso válido.");
-    if (mode === "days" && (!Number.isInteger(days) || days < 0 || days > 3650)) {
-      return jsonError("Los días deben ser un entero entre 0 y 3650.");
+    if (mode === "permanent" && !admin.isOwner) {
+      writeSecurityEvent(request, "admin.access_permanent_denied", "denied", {
+        actorId: admin.id,
+        targetId: id,
+      });
+      return jsonError("Solo el Owner puede otorgar acceso permanente.", 403);
+    }
+    const maxDays = admin.isOwner ? OWNER_ONLY_MAX_DAYS : NON_OWNER_MAX_DAYS;
+    if (mode === "days" && (!Number.isInteger(days) || days < 0 || days > maxDays)) {
+      return jsonError(
+        admin.isOwner
+          ? "Los días deben ser un entero entre 0 y 3650."
+          : "Los días deben ser un entero entre 0 y 365. Solo el Owner puede otorgar plazos mayores.",
+      );
     }
 
     const database = dbBinding();

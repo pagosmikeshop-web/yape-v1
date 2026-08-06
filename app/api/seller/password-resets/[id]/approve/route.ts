@@ -1,11 +1,19 @@
 import { jsonError, jsonOk } from "@/app/lib/api-utils";
-import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import {
+  dbBinding,
+  enforceAuthRateLimits,
+  requireUnlockedSession,
+  routeError,
+} from "@/app/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: approver } = await requireUnlockedSession(request, ["seller", "admin"]);
+    await enforceAuthRateLimits([
+      { bucket: "password-reset-approve", subject: approver.id, limit: 40, windowSeconds: 15 * 60 },
+    ]);
     const { id } = await context.params;
     if (!/^[0-9a-f-]{36}$/iu.test(id)) return jsonError("Solicitud no valida.", 400);
     const database = dbBinding();

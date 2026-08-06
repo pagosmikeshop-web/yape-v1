@@ -53,6 +53,9 @@ function hostedConfigurationErrors() {
   if ((process.env.AUTH_RATE_LIMIT_PEPPER?.trim().length ?? 0) < 32) {
     missing.push("AUTH_RATE_LIMIT_PEPPER");
   }
+  if ((process.env.TOKEN_ENCRYPTION_SECRET?.trim().length ?? 0) < 32) {
+    missing.push("TOKEN_ENCRYPTION_SECRET");
+  }
   if ((process.env.QR_CONTACTS_ENCRYPTION_KEY?.trim().length ?? 0) < 32) {
     missing.push("QR_CONTACTS_ENCRYPTION_KEY");
   }

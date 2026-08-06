@@ -1,6 +1,7 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   dbBinding,
+  enforceAuthRateLimits,
   grantUserRole,
   requireUnlockedSession,
   revokeUserRole,
@@ -21,6 +22,9 @@ const ALLOWED_KEYS = new Set(["telegramUserId", "role"]);
 export async function POST(request: Request) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin"]);
+    await enforceAuthRateLimits([
+      { bucket: "admin-roles-mutate", subject: actor.id, limit: 30, windowSeconds: 15 * 60 },
+    ]);
     await requirePermission(actor, "roles:manage");
     const body = await readJson(request);
     if (Object.keys(body).some((key) => !ALLOWED_KEYS.has(key))) {
@@ -79,6 +83,9 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin"]);
+    await enforceAuthRateLimits([
+      { bucket: "admin-roles-mutate", subject: actor.id, limit: 30, windowSeconds: 15 * 60 },
+    ]);
     await requirePermission(actor, "roles:manage");
     const body = await readJson(request);
     if (Object.keys(body).some((key) => !ALLOWED_KEYS.has(key))) {

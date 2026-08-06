@@ -10,11 +10,9 @@ const IV_BYTES = 12;
 const AUTH_TAG_BYTES = 16;
 
 function encryptionKey() {
-  const env = authEnv();
-  const secret = env.TOKEN_ENCRYPTION_SECRET?.trim()
-    || env.ADMIN_PROXY_SECRET?.trim()
-    || env.AUTH_RATE_LIMIT_PEPPER?.trim();
-  if (!secret) {
+  // Fail-closed: secreto dedicado obligatorio; sin reutilizar otros secretos de entorno.
+  const secret = authEnv().TOKEN_ENCRYPTION_SECRET?.trim() ?? "";
+  if (secret.length < 32) {
     throw new Error("TOKEN_ENCRYPTION_SECRET no está configurado.");
   }
   return createHash("sha256").update(secret, "utf8").digest();

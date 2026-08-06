@@ -1,6 +1,7 @@
 import { asString, jsonError, jsonOk, readJson } from "@/app/lib/api-utils";
 import {
   dbBinding,
+  enforceAuthRateLimits,
   requireUnlockedSession,
   revokeUserSessions,
   routeError,
@@ -13,6 +14,7 @@ import { canManageSeller, requireManagedAccount } from "@/app/lib/management-ser
 import { requirePermission } from "@/app/lib/rbac";
 import { activateClientTrial } from "@/app/lib/trial-activation";
 import { buildFullUserDeletionStatements } from "@/app/lib/admin-user-cleanup";
+import { writeSecurityEvent } from "@/app/lib/security-log";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,9 @@ type EditableUser = {
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin"]);
+    await enforceAuthRateLimits([
+      { bucket: "admin-user-patch", subject: actor.id, limit: 60, windowSeconds: 15 * 60 },
+    ]);
     const { id } = await context.params;
     await requireManagedAccount(actor, id);
     const body = await readJson(request);
@@ -108,10 +113,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const now = new Date().toISOString();
     let accessExpiresAt = current.access_expires_at;
     let activatedAt = current.activated_at;
-    const intentionalPermanent =
+    const requestedPermanent =
       body.accessMode === "permanent"
       || body.vip === true
       || asString(body.crmStatus) === "vip";
+    // Solo Owner puede otorgar acceso permanente/VIP (alineado con CRM).
+    // Admins no-Owner: se ignoran esos campos para no elevar privilegios.
+    const intentionalPermanent = requestedPermanent && actor.isOwner;
+    if (requestedPermanent && !actor.isOwner) {
+      writeSecurityEvent(request, "admin.user_permanent_denied", "denied", {
+        actorId: actor.id,
+        targetId: current.id,
+      });
+    }
 
     // ADMIN-001: activar cliente sin expiry no debe quedar permanente por accidente.
     if (
@@ -221,6 +235,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { user: actor } = await requireUnlockedSession(request, ["admin", "seller"]);
+    await enforceAuthRateLimits([
+      { bucket: "admin-user-delete", subject: actor.id, limit: 30, windowSeconds: 15 * 60 },
+    ]);
     const { id } = await context.params;
     if (id === actor.id) return jsonError("No puedes eliminar tu propia cuenta.", 409);
     const target = await requireManagedAccount(actor, id);
