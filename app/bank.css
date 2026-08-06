@@ -1987,11 +1987,6 @@ input:focus-visible {
   gap: 10px;
 }
 
-/* No mostrar el proveedor Yape provisional mientras se resuelve un frecuente. */
-.transfer-amount-actions.is-provider-loading {
-  visibility: hidden;
-}
-
 .mobile-bank-shell .transfer-secondary-button,
 .mobile-bank-shell .transfer-primary-button {
   flex: 1;

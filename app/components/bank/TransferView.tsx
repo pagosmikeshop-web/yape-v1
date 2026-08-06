@@ -1176,12 +1176,10 @@ export function TransferView() {
               />
             </label>
             <div
-              className={`transfer-amount-actions${
-                recipientProviderLoading ? " is-provider-loading" : ""
-              }`}
+              className="transfer-amount-actions"
               aria-busy={recipientProviderLoading}
             >
-              {providerActions.showOtherBanks ? (
+              {providerActions.showOtherBanks || recipientProviderLoading ? (
                 <button
                   type="button"
                   className="transfer-secondary-button"
