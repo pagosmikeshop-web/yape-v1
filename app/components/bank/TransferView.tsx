@@ -250,7 +250,9 @@ export function TransferView() {
         setRecipientFromQr(true);
         setRecipientId(recipient.id);
         setRecipientName(recipient.displayName);
-        setRecipientPhone(recipient.phone ?? "");
+        setRecipientPhone(
+          recipient.phone ? normalizeMobileNumber(recipient.phone) : "",
+        );
         setRecipientIsNewNumber(false);
         setManualRecipientMode(false);
         const provider = normalizePaymentProvider(recipient.provider);
@@ -375,7 +377,7 @@ export function TransferView() {
         setRecipientId(data.recipient.id || "");
         setRecipientFromQr(false);
         setRecipientName(data.recipient.displayName);
-        setRecipientPhone(data.recipient.phone);
+        setRecipientPhone(normalizeMobileNumber(data.recipient.phone));
         setManualRecipientMode(false);
         setRecipientIsNewNumber(false);
         setPhoneIsEditing(false);
@@ -442,7 +444,7 @@ export function TransferView() {
   const recipientIsValid =
     recipientName.trim().length >= 2 &&
     (Boolean(recipientId) || Boolean(recipientQrId) || (
-      recipientPhone.replace(/\D/g, "").length === 9
+      Boolean(normalizeMobileNumber(recipientPhone))
     ));
   const yapearEnabled = recipientIsValid && amountIsInRange;
   const voucherRecipientName = recipientName;

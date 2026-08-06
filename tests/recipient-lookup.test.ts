@@ -41,7 +41,7 @@ describe("lookup seguro de destinatarios", () => {
     const actions = getRecipientProviderActions(["Plin"]);
 
     expect(actions.directYapear).toBe(true);
-    expect(actions.showOtherBanks).toBe(false);
+    expect(actions.showOtherBanks).toBe(true);
     expect(actions.primaryProvider).toBe("Plin");
   });
 

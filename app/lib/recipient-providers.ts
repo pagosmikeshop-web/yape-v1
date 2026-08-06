@@ -49,10 +49,9 @@ export function getRecipientProviderActions(
     providers,
     primaryProvider,
     directYapear: hasYape || isOnlyPlin || (fromQr && otherProviders.length > 0),
-    showOtherBanks:
-      (fromQr && otherProviders.length > 0) ||
-      (otherProviders.length > 0 &&
-        (hasYape || otherProviders.length > 1 || otherProviders[0] !== "Plin")),
+    // Si hay un proveedor distinto de Yape, siempre mostramos "Otros
+    // bancos"; Plin único conserva además el botón directo "Yapear".
+    showOtherBanks: otherProviders.length > 0,
     otherProviders,
   };
 }
