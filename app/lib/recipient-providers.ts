@@ -49,11 +49,8 @@ export function getRecipientProviderActions(
     providers,
     primaryProvider,
     directYapear: hasYape || isOnlyPlin || (fromQr && otherProviders.length > 0),
-    // Si hay un proveedor distinto de Yape, siempre mostramos "Otros
-    // bancos"; Plin único conserva además el botón directo "Yapear".
-    // "Otros bancos" stays available even for a single configured provider,
-    // so the action row does not change when provider lookup finishes.
-    showOtherBanks: true,
+    // El selector se limita a los destinos adicionales configurados.
+    showOtherBanks: otherProviders.length > 0 && !isOnlyPlin,
     otherProviders,
   };
 }

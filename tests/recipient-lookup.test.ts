@@ -41,15 +41,15 @@ describe("lookup seguro de destinatarios", () => {
     const actions = getRecipientProviderActions(["Plin"]);
 
     expect(actions.directYapear).toBe(true);
-    expect(actions.showOtherBanks).toBe(true);
+    expect(actions.showOtherBanks).toBe(false);
     expect(actions.primaryProvider).toBe("Plin");
   });
 
-  it("mantiene Otros bancos visible cuando solo existe Yape", () => {
+  it("oculta Otros bancos cuando solo existe Yape", () => {
     const actions = getRecipientProviderActions(["Yape"]);
 
     expect(actions.directYapear).toBe(true);
-    expect(actions.showOtherBanks).toBe(true);
+    expect(actions.showOtherBanks).toBe(false);
     expect(actions.primaryProvider).toBe("Yape");
   });
 

@@ -56,12 +56,9 @@ function normalizeMobileNumber(value: string) {
 const DAILY_YAPE_LIMIT = 500;
 export { maskPhone } from "../../lib/masked-phone";
 
-const FINANCIAL_ENTITY_OPTIONS = [
-  { value: "Banco Falabella", label: "Banco Falabella" },
-  { value: "Cmac Arequipa", label: "Cmac Arequipa" },
-  { value: "Dale", label: "Dale" },
-  { value: "Plin", label: "Plin" },
-] as const;
+function financialEntityLabel(entity: string) {
+  return entity.replace(/!$/u, "");
+}
 
 function formatEditablePhone(phone: string) {
   const digits = phone.replace(/\D/g, "").slice(0, 9);
@@ -929,7 +926,7 @@ export function TransferView() {
     stage === "entity-loading" ||
     stage === "confirm" ||
     stage === "confirm-processing";
-  const availableEntities = FINANCIAL_ENTITY_OPTIONS.map((entity) => entity.value);
+  const availableEntities = providerActions.otherProviders;
   const formattedDate = voucher ? formatVoucherDate(voucher.completedAt) : "";
   const formattedTime = voucher ? formatVoucherTime(voucher.completedAt) : "";
   const voucherHero = getVoucherHero(amountValue);
@@ -1245,7 +1242,7 @@ export function TransferView() {
               className="transfer-amount-actions"
               aria-busy={recipientProviderLoading}
             >
-              {providerActions.showOtherBanks ? (
+              {providerActions.showOtherBanks || recipientProviderLoading ? (
                 <button
                   type="button"
                   className="transfer-secondary-button"
@@ -1321,17 +1318,17 @@ export function TransferView() {
               Selecciona una entidad financiera
             </h2>
             <div className="entities-list">
-              {FINANCIAL_ENTITY_OPTIONS.map(({ value, label }) => (
+              {availableEntities.map((entity) => (
                 <button
                   type="button"
                   className="entity-row"
-                  key={value}
-                  onClick={() => chooseEntity(value)}
+                  key={entity}
+                  onClick={() => chooseEntity(entity)}
                 >
                   <span className="entity-icon">
                     <AssetIcon name="ic_duotone_money_arrows_around" />
                   </span>
-                  <strong>{label}</strong>
+                  <strong>{financialEntityLabel(entity)}</strong>
                 </button>
               ))}
             </div>
