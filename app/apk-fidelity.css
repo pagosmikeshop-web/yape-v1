@@ -3130,17 +3130,14 @@
 }
 
 .mobile-bank-shell.view-transfer .entity-screen-divider {
-  width: 100%;
-  height: 1px;
-  margin: 40px 0 0;
-  background: #e1e2e0;
+  display: none;
 }
 
 .mobile-bank-shell.view-transfer .transfer-entities-screen .transfer-section-title {
-  margin: 19px 0 0;
+  margin: 24px 0 0;
   color: #363342;
   font-size: clamp(22px, 5.9vw, 24px);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.15;
   letter-spacing: -0.02em;
 }
@@ -3157,8 +3154,8 @@
   align-items: center;
   width: 100%;
   min-height: 72px;
-  padding: 0 22px;
-  gap: 21px;
+  padding: 0 18px;
+  gap: 18px;
   border: 0;
   border-radius: 12px;
   color: #363342;
@@ -3190,8 +3187,8 @@
 
 .mobile-bank-shell.view-transfer .entity-row strong {
   color: #363342;
-  font-size: clamp(18px, 5vw, 20px);
-  font-weight: 600;
+  font-size: clamp(17px, 4.6vw, 19px);
+  font-weight: 500;
   line-height: 1.2;
 }
 
@@ -3392,13 +3389,9 @@
     margin-top: 22px;
   }
 
-  .mobile-bank-shell.view-transfer .entity-screen-divider {
-    margin-top: 26px;
-  }
-
   .mobile-bank-shell.view-transfer .entities-list {
     gap: 20px;
-    margin-top: 20px;
+    margin-top: 18px;
   }
 
   .mobile-bank-shell.view-transfer .entity-row {
