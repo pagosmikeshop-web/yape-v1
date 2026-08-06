@@ -1,7 +1,7 @@
 const APP_CACHE_PREFIX = "yape-app-shell-";
 const RUNTIME_CACHE_PREFIX = "yape-runtime-assets-";
-const APP_CACHE_NAME = `${APP_CACHE_PREFIX}v4`;
-const RUNTIME_CACHE_NAME = `${RUNTIME_CACHE_PREFIX}v4`;
+const APP_CACHE_NAME = `${APP_CACHE_PREFIX}v5`;
+const RUNTIME_CACHE_NAME = `${RUNTIME_CACHE_PREFIX}v5`;
 const OFFLINE_PAGE = "/offline.html";
 const PUBLIC_SHELL = [
   OFFLINE_PAGE,

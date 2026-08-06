@@ -15,11 +15,15 @@ function findThemeMeta() {
   return document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 }
 
+const PWA_BUILD_VERSION_KEY = "yape-pwa-build-version";
+
 export function PwaRuntime() {
   const pathname = usePathname();
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [appVersionUpdateAvailable, setAppVersionUpdateAvailable] = useState(false);
   const [connectivity, setConnectivity] = useState<ConnectivityState>("online");
   const reloadAfterActivation = useRef(false);
+  const latestAppVersion = useRef("");
 
   useEffect(() => {
     const themeColor = getRouteThemeColor(pathname);
@@ -57,6 +61,28 @@ export function PwaRuntime() {
     let registration: ServiceWorkerRegistration | null = null;
     let installingWorker: ServiceWorker | null = null;
 
+    const checkForAppUpdate = async () => {
+      try {
+        const response = await fetch("/api/pwa/version", {
+          cache: "no-store",
+          headers: { "cache-control": "no-cache" },
+        });
+        const data = (await response.json()) as { version?: string };
+        const version = data.version?.trim();
+        if (disposed || !response.ok || !version) return;
+
+        latestAppVersion.current = version;
+        const installedVersion = window.localStorage.getItem(PWA_BUILD_VERSION_KEY);
+        if (!installedVersion) {
+          window.localStorage.setItem(PWA_BUILD_VERSION_KEY, version);
+          return;
+        }
+        if (installedVersion !== version) setAppVersionUpdateAvailable(true);
+      } catch {
+        // Un fallo temporal no debe bloquear la navegación de la PWA.
+      }
+    };
+
     const handleControllerChange = () => {
       if (reloadAfterActivation.current) window.location.reload();
     };
@@ -80,6 +106,7 @@ export function PwaRuntime() {
     const checkForUpdate = () => {
       if (document.visibilityState === "visible") {
         void registration?.update().catch(() => undefined);
+        void checkForAppUpdate();
       }
     };
 
@@ -98,6 +125,7 @@ export function PwaRuntime() {
         }
         registration.addEventListener("updatefound", handleUpdateFound);
         void registration.update().catch(() => undefined);
+        void checkForAppUpdate();
       })
       .catch(() => undefined);
 
@@ -121,7 +149,16 @@ export function PwaRuntime() {
   }, []);
 
   async function applyUpdate() {
-    if (!waitingWorker) return;
+    if (!waitingWorker) {
+      if (latestAppVersion.current) {
+        window.localStorage.setItem(
+          PWA_BUILD_VERSION_KEY,
+          latestAppVersion.current,
+        );
+      }
+      window.location.reload();
+      return;
+    }
     reloadAfterActivation.current = true;
     try {
       const result = await PwaBridge.requestUpdate();
@@ -157,7 +194,7 @@ export function PwaRuntime() {
         </aside>
       ) : null}
 
-      {waitingWorker ? (
+      {waitingWorker || appVersionUpdateAvailable ? (
         <aside className="pwa-update-banner" role="status" aria-live="polite">
           <div>
             <strong>Nueva versión disponible</strong>
@@ -170,7 +207,10 @@ export function PwaRuntime() {
             type="button"
             className="pwa-update-later"
             aria-label="Cerrar aviso de actualización"
-            onClick={() => setWaitingWorker(null)}
+            onClick={() => {
+              setWaitingWorker(null);
+              setAppVersionUpdateAvailable(false);
+            }}
           >
             Ahora no
           </button>

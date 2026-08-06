@@ -1,4 +1,24 @@
 import type { NextConfig } from "next";
+import { execFileSync } from "node:child_process";
+
+function resolveBuildVersion() {
+  const configuredVersion =
+    process.env.VERCEL_GIT_COMMIT_SHA?.trim()
+    || process.env.VERCEL_DEPLOYMENT_ID?.trim()
+    || process.env.GITHUB_SHA?.trim();
+  if (configuredVersion) return configuredVersion;
+
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim() || "development";
+  } catch {
+    return "development";
+  }
+}
+
+const buildVersion = resolveBuildVersion();
 
 // La CSP con nonce se genera por solicitud en proxy.ts. Los demás encabezados
 // pueden mantenerse estáticos y también protegen recursos y respuestas de API.
@@ -23,6 +43,9 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_BUILD_VERSION: buildVersion,
+  },
   devIndicators: false,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
