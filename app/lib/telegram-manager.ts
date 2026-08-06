@@ -382,13 +382,30 @@ async function audit(telegramId: string, command: string, outcome: string) {
   ).bind(crypto.randomUUID(), telegramId, command.slice(0, 80), outcome.slice(0, 200), new Date().toISOString()).run();
 }
 
-export async function sendTelegramMessage(chatId: number, text: string) {
+export async function sendTelegramMessage(
+  chatId: number,
+  text: string,
+  replyToMessageId?: number,
+) {
   const token = authEnv().TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN no esta configurado.");
+  const payload = {
+    chat_id: chatId,
+    text: text.slice(0, 4000),
+    protect_content: true,
+    ...(replyToMessageId === undefined
+      ? {}
+      : {
+          reply_parameters: {
+            message_id: replyToMessageId,
+            allow_sending_without_reply: true,
+          },
+        }),
+  };
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "content-type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 4000), protect_content: true }),
+    body: JSON.stringify(payload),
     signal: AbortSignal.timeout(8_000),
   });
   if (!response.ok) throw new Error("Telegram no pudo entregar la respuesta del manager.");
@@ -417,8 +434,8 @@ export async function processTelegramUpdate(update: TelegramUpdate) {
 
   const telegramId = String(message.from.id);
   if (command === "/me") {
-    await audit(telegramId, command, "me ok");
-    await sendTelegramMessage(message.chat.id, telegramId);
+    await audit(telegramId, command, "me reply ok");
+    await sendTelegramMessage(message.chat.id, telegramId, message.message_id);
     return;
   }
 
