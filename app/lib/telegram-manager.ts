@@ -406,7 +406,7 @@ export async function processTelegramUpdate(update: TelegramUpdate) {
   ) return;
 
   const { command, args } = commandParts(message.text);
-  if (command !== "/redeem") return;
+  if (command !== "/redeem" && command !== "/me") return;
 
   await ensureAuthSchema();
   const updateId = String(update.update_id);
@@ -416,6 +416,12 @@ export async function processTelegramUpdate(update: TelegramUpdate) {
   if (Number(inserted.meta.changes ?? 0) !== 1) return;
 
   const telegramId = String(message.from.id);
+  if (command === "/me") {
+    await audit(telegramId, command, "me ok");
+    await sendTelegramMessage(message.chat.id, telegramId);
+    return;
+  }
+
   try {
     const reply = await redeemReferralCode(telegramId, args);
     await audit(telegramId, command, "redeem ok");
