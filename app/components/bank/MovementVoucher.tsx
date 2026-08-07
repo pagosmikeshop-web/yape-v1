@@ -28,6 +28,179 @@ export function splitMovementVoucherDate(date: string): [string, string] {
   return [fallback[0] || date, fallback.slice(1).join(" ") || ""];
 }
 
+function readBlobAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("No se pudo convertir la imagen del comprobante."));
+    });
+    reader.addEventListener("error", () => {
+      reject(reader.error ?? new Error("No se pudo leer la imagen del comprobante."));
+    });
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function rasterBlobAsPng(
+  blob: Blob,
+  requireRasterized = false,
+): Promise<string> {
+  if (blob.type === "image/svg+xml" || blob.type === "image/svg") {
+    return readBlobAsDataUrl(blob);
+  }
+
+  try {
+    let bitmap: ImageBitmap | null = null;
+    if (typeof createImageBitmap === "function") {
+      try {
+        bitmap = await createImageBitmap(blob);
+      } catch {
+        // Algunos navegadores exponen createImageBitmap pero no decodifican WebP.
+        bitmap = null;
+      }
+    }
+
+    if (!bitmap) {
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const image = new Image();
+        image.decoding = "async";
+        const loaded = new Promise<void>((resolve, reject) => {
+          image.addEventListener("load", () => resolve(), { once: true });
+          image.addEventListener(
+            "error",
+            () => reject(new Error("La imagen del comprobante no pudo decodificarse.")),
+            { once: true },
+          );
+        });
+        image.src = objectUrl;
+        await loaded;
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        if (!context || canvas.width === 0 || canvas.height === 0) {
+          throw new Error("La imagen del comprobante no tiene dimensiones válidas.");
+        }
+        context.drawImage(image, 0, 0);
+        return canvas.toDataURL("image/png");
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext("2d");
+      if (!context || canvas.width === 0 || canvas.height === 0) {
+        throw new Error("La imagen del comprobante no tiene dimensiones válidas.");
+      }
+      context.drawImage(bitmap, 0, 0);
+      return canvas.toDataURL("image/png");
+    } finally {
+      bitmap.close();
+    }
+  } catch (error) {
+    // WebP is the banner format used by the voucher. Keeping it as a WebP
+    // data URL would bring back the html-to-image omission we are avoiding.
+    if (requireRasterized || blob.type === "image/webp") throw error;
+    return readBlobAsDataUrl(blob);
+  }
+}
+
+async function waitForVoucherImage(image: HTMLImageElement) {
+  if (!image.complete) {
+    await new Promise<void>((resolve) => {
+      const finish = () => {
+        image.removeEventListener("load", finish);
+        image.removeEventListener("error", finish);
+        resolve();
+      };
+      image.addEventListener("load", finish, { once: true });
+      image.addEventListener("error", finish, { once: true });
+      if (image.complete) finish();
+    });
+  }
+
+  if (image.naturalWidth > 0) {
+    try {
+      await image.decode();
+    } catch {
+      // The browser already has a usable bitmap in this case.
+    }
+  }
+}
+
+async function inlineVoucherImages(voucherContent: HTMLDivElement) {
+  const images = Array.from(voucherContent.querySelectorAll("img"));
+  const originals = new Map<
+    HTMLImageElement,
+    { src: string | null; srcset: string | null }
+  >();
+
+  const restoreImages = () => {
+    originals.forEach(({ src, srcset }, image) => {
+      if (src === null) image.removeAttribute("src");
+      else image.setAttribute("src", src);
+      if (srcset === null) image.removeAttribute("srcset");
+      else image.setAttribute("srcset", srcset);
+    });
+  };
+
+  try {
+    await Promise.all(
+      images.map(async (image) => {
+        await waitForVoucherImage(image);
+        const source = image.currentSrc || image.getAttribute("src") || image.src;
+        if (!source || source.startsWith("data:")) return;
+
+        try {
+          const response = await fetch(new URL(source, window.location.href), {
+            credentials: "same-origin",
+            cache: "force-cache",
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const dataUrl = await rasterBlobAsPng(
+            await response.blob(),
+            image.classList.contains("voucher-banner-image"),
+          );
+          if (
+            image.classList.contains("voucher-banner-image") &&
+            !dataUrl.startsWith("data:image/png")
+          ) {
+            throw new Error("El banner del comprobante no pudo rasterizarse.");
+          }
+          originals.set(image, {
+            src: image.getAttribute("src"),
+            srcset: image.getAttribute("srcset"),
+          });
+          image.setAttribute("src", dataUrl);
+          // A stale srcset can override the inlined source in the clone.
+          image.removeAttribute("srcset");
+          await waitForVoucherImage(image);
+          if (
+            image.classList.contains("voucher-banner-image") &&
+            image.naturalWidth === 0
+          ) {
+            throw new Error("El banner del comprobante no pudo decodificarse.");
+          }
+        } catch (error) {
+          // Never create a receipt with a missing banner. Optional icons can
+          // still be captured from their original source.
+          if (image.classList.contains("voucher-banner-image")) throw error;
+        }
+      }),
+    );
+    return restoreImages;
+  } catch (error) {
+    restoreImages();
+    throw error;
+  }
+}
+
 export async function createVoucherImage(
   voucherContent: HTMLDivElement | null,
 ) {
@@ -62,16 +235,21 @@ export async function createVoucherImage(
     }),
   );
 
-  const { toBlob } = await import("html-to-image");
-  const blob = await toBlob(voucherContent, {
-    backgroundColor: "#660185",
-    cacheBust: true,
-    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-  });
+  const restoreImages = await inlineVoucherImages(voucherContent);
+  try {
+    const { toBlob } = await import("html-to-image");
+    const blob = await toBlob(voucherContent, {
+      backgroundColor: "#660185",
+      cacheBust: false,
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+    });
 
-  if (!blob) throw new Error("No se pudo generar la imagen del comprobante.");
+    if (!blob) throw new Error("No se pudo generar la imagen del comprobante.");
 
-  return new File([blob], "comprobante-yape.png", { type: "image/png" });
+    return new File([blob], "comprobante-yape.png", { type: "image/png" });
+  } finally {
+    restoreImages();
+  }
 }
 
 export async function shareVoucherImage(file: File): Promise<void> {
