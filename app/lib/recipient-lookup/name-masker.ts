@@ -1,6 +1,18 @@
 import { RecipientLookupError } from "./errors";
 
-const NAME_TOKEN = /^\p{L}+(?:['’\-]\p{L}+)*$/u;
+const NAME_TOKEN = /^\p{L}+(?:['\u2019\u2018-]\p{L}+)*$/u;
+const PROTECTED_NAME_TOKEN = "\\p{L}+(?:['\\u2019\\u2018-]\\p{L}+)*";
+const LEGACY_PROTECTED_NAME_PATTERN = new RegExp(
+  `^${PROTECTED_NAME_TOKEN} ${"\\p{L}"}{1,3}\\*$`,
+  "u",
+);
+// Algunos registros (especialmente QR) llegan con el asterisco en medio,
+// por ejemplo "Izi*Butri". Sigue siendo un valor protegido porque no expone
+// el nombre completo; conservarlo evita que el movimiento quede sin titular.
+const EMBEDDED_PROTECTED_NAME_PATTERN = new RegExp(
+  `^${PROTECTED_NAME_TOKEN}(?:\\s+${PROTECTED_NAME_TOKEN})*\\*${PROTECTED_NAME_TOKEN}(?:\\s+${PROTECTED_NAME_TOKEN})*$`,
+  "u",
+);
 
 function titleCase(value: string) {
   const lower = value.toLocaleLowerCase("es-PE");
@@ -33,7 +45,9 @@ export function protectRecipientName(value: string) {
 }
 
 export function isProtectedRecipientName(value: string) {
-  return /^[\p{L}]+(?:['’\-][\p{L}]+)* [\p{L}]{1,3}\*$/u.test(value.trim());
+  const trimmed = value.trim();
+  return LEGACY_PROTECTED_NAME_PATTERN.test(trimmed)
+    || EMBEDDED_PROTECTED_NAME_PATTERN.test(trimmed);
 }
 
 export function maskRecipientName(value: string) {
