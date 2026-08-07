@@ -550,6 +550,8 @@ export async function ensureAuthSchema() {
         "account_payment_profiles",
         "global_recipient_directory",
         "global_qr_directory",
+        "referral_redemptions",
+        "referral_redeemer_claims",
       ];
       // Una sola consulta de metadatos evita siete viajes de red en cada
       // instancia fría de Supabase antes de validar la sesión.
@@ -932,6 +934,13 @@ export async function ensureAuthSchema() {
       )`,
       "CREATE UNIQUE INDEX IF NOT EXISTS referral_redemptions_unique ON referral_redemptions(referrer_user_id, redeemer_telegram_user_id, month_key)",
       "CREATE INDEX IF NOT EXISTS referral_redemptions_referrer_month_idx ON referral_redemptions(referrer_user_id, month_key)",
+      `CREATE TABLE IF NOT EXISTS referral_redeemer_claims (
+        telegram_user_id TEXT PRIMARY KEY,
+        referrer_user_id TEXT NOT NULL,
+        redemption_id TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS referral_redeemer_claims_referrer_idx ON referral_redeemer_claims(referrer_user_id)",
       `CREATE TABLE IF NOT EXISTS manager_audit_log (
         id TEXT PRIMARY KEY,
         telegram_user_id TEXT NOT NULL,
@@ -1216,6 +1225,14 @@ export async function ensureAuthSchema() {
            SELECT COUNT(*) FROM referral_redemptions
            WHERE referral_redemptions.referrer_user_id = users.id
          ), 0)`,
+      ),
+      db.prepare(
+        `INSERT OR IGNORE INTO referral_redeemer_claims (
+           telegram_user_id, referrer_user_id, redemption_id, created_at
+         )
+         SELECT redeemer_telegram_user_id, MIN(referrer_user_id), MIN(id), MIN(created_at)
+         FROM referral_redemptions
+         GROUP BY redeemer_telegram_user_id`,
       ),
     ];
     const ownerTelegramId = configuredOwnerTelegramId();

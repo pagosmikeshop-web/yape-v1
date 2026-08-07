@@ -262,16 +262,27 @@ async function redeemReferralCode(telegramId: string, args: string) {
     throw new Error("Esta cuenta ya agoto sus 3 canjes disponibles.");
   }
 
+  const existingClaim = await database.prepare(
+    "SELECT 1 AS found FROM referral_redeemer_claims WHERE telegram_user_id = ? LIMIT 1",
+  ).bind(telegramId).first<{ found: number }>();
+  if (existingClaim) {
+    throw new Error("Tu ID de Telegram ya utilizo un canje. Cada ID solo puede canjear una vez.");
+  }
+
   const key = monthKey();
 
   const now = new Date().toISOString();
   const nextAccess = addDaysFromCurrent(referrer.access_expires_at, REFERRAL_EXTENSION_DAYS);
   const redemptionId = crypto.randomUUID();
+  const expectedCount = Number(referrer.referral_redemption_count ?? 0) + 1;
   const statements = isSupabaseDatabase()
     ? [
         database.prepare(
           "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
         ).bind(`referral:${referrer.id}`),
+        database.prepare(
+          "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+        ).bind(`redeemer:${telegramId}`),
         database.prepare(
           `WITH reserved AS (
              UPDATE users
@@ -283,27 +294,38 @@ async function redeemReferralCode(telegramId: string, args: string) {
                AND referral_redemption_count < ?
                AND NOT EXISTS (
                  SELECT 1
-                 FROM referral_redemptions
-                 WHERE referrer_user_id = ?
-                   AND redeemer_telegram_user_id = ?
-                   AND month_key = ?
+                 FROM referral_redeemer_claims
+                 WHERE telegram_user_id = ?
                )
              RETURNING id
+           ),
+           claimed AS (
+             INSERT INTO referral_redeemer_claims (
+               telegram_user_id, referrer_user_id, redemption_id, created_at
+             )
+             SELECT ?, ?, ?, ?
+             FROM reserved
+             RETURNING telegram_user_id
+           ),
+           recorded AS (
+             INSERT INTO referral_redemptions (
+               id, referrer_user_id, redeemer_telegram_user_id, redeemed_by_user_id, month_key, created_at
+             )
+             SELECT ?, ?, ?, ?, ?, ?
+             FROM claimed
+             RETURNING id
            )
-           INSERT INTO referral_redemptions (
-             id, referrer_user_id, redeemer_telegram_user_id, redeemed_by_user_id, month_key, created_at
-           )
-           SELECT ?, ?, ?, ?, ?, ?
-           FROM reserved
-           RETURNING id`,
+           SELECT id FROM recorded`,
         ).bind(
           nextAccess,
           now,
           referrer.id,
           REFERRAL_REDEMPTION_LIMIT,
-          referrer.id,
           telegramId,
-          key,
+          telegramId,
+          referrer.id,
+          redemptionId,
+          now,
           redemptionId,
           referrer.id,
           telegramId,
@@ -318,16 +340,36 @@ async function redeemReferralCode(telegramId: string, args: string) {
            SET referral_redemption_count = referral_redemption_count + 1, updated_at = ?
            WHERE id = ? AND access_expires_at IS NOT NULL AND referral_redemption_count < ?
              AND NOT EXISTS (
-               SELECT 1 FROM referral_redemptions
-               WHERE referrer_user_id = ? AND redeemer_telegram_user_id = ? AND month_key = ?
+               SELECT 1 FROM referral_redeemer_claims
+               WHERE telegram_user_id = ?
              )`,
-        ).bind(now, referrer.id, REFERRAL_REDEMPTION_LIMIT, referrer.id, telegramId, key),
+        ).bind(now, referrer.id, REFERRAL_REDEMPTION_LIMIT, telegramId),
         database.prepare(
-          `INSERT OR IGNORE INTO referral_redemptions (
+          `INSERT INTO referral_redeemer_claims (
+            telegram_user_id, referrer_user_id, redemption_id, created_at
+          )
+          SELECT ?, ?, ?, ?
+          WHERE EXISTS (
+            SELECT 1 FROM users
+            WHERE id = ? AND referral_redemption_count = ? AND access_expires_at IS NOT NULL
+          )`,
+        ).bind(
+          telegramId,
+          referrer.id,
+          redemptionId,
+          now,
+          referrer.id,
+          expectedCount,
+        ),
+        database.prepare(
+          `INSERT INTO referral_redemptions (
             id, referrer_user_id, redeemer_telegram_user_id, redeemed_by_user_id, month_key, created_at
           )
           SELECT ?, ?, ?, ?, ?, ?
-          WHERE (SELECT referral_redemption_count FROM users WHERE id = ?) <= ?`,
+          WHERE EXISTS (
+            SELECT 1 FROM referral_redeemer_claims
+            WHERE telegram_user_id = ? AND redemption_id = ?
+          )`,
         ).bind(
           redemptionId,
           referrer.id,
@@ -335,8 +377,8 @@ async function redeemReferralCode(telegramId: string, args: string) {
           redeemer?.id ?? null,
           key,
           now,
-          referrer.id,
-          REFERRAL_REDEMPTION_LIMIT,
+          telegramId,
+          redemptionId,
         ),
         database.prepare(
           `UPDATE users SET access_expires_at = ?, updated_at = ?
@@ -348,16 +390,15 @@ async function redeemReferralCode(telegramId: string, args: string) {
     const results = await database.batch(statements);
     const changes = results.map((result) => Number(result.meta.changes ?? 0));
     const successful = isSupabaseDatabase()
-      ? changes[1] === 1
-      : changes[0] === 1 && changes[1] === 1 && changes[2] === 1;
+      ? changes[2] === 1
+      : changes[0] === 1 && changes[1] === 1 && changes[2] === 1 && changes[3] === 1;
     if (!successful) {
-      const existing = await database.prepare(
-        `SELECT 1 AS found
-         FROM referral_redemptions
-         WHERE referrer_user_id = ? AND redeemer_telegram_user_id = ? AND month_key = ?
-         LIMIT 1`,
-      ).bind(referrer.id, telegramId, key).first<{ found: number }>();
-      if (existing) throw new Error("Este codigo ya fue canjeado por esa cuenta.");
+      const claimed = await database.prepare(
+        "SELECT 1 AS found FROM referral_redeemer_claims WHERE telegram_user_id = ? LIMIT 1",
+      ).bind(telegramId).first<{ found: number }>();
+      if (claimed) {
+        throw new Error("Tu ID de Telegram ya utilizo un canje. Cada ID solo puede canjear una vez.");
+      }
 
       const current = await database.prepare(
         "SELECT referral_redemption_count FROM users WHERE id = ? AND status = 'active' LIMIT 1",
@@ -369,7 +410,13 @@ async function redeemReferralCode(telegramId: string, args: string) {
     }
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      throw new Error("Este codigo ya fue canjeado por esa cuenta.");
+      const claimed = await database.prepare(
+        "SELECT 1 AS found FROM referral_redeemer_claims WHERE telegram_user_id = ? LIMIT 1",
+      ).bind(telegramId).first<{ found: number }>();
+      if (claimed) {
+        throw new Error("Tu ID de Telegram ya utilizo un canje. Cada ID solo puede canjear una vez.");
+      }
+      throw new Error("No se pudo registrar el canje. Intenta nuevamente.");
     }
     throw error;
   }

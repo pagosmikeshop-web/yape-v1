@@ -464,6 +464,21 @@ export const referralRedemptions = pgTable("referral_redemptions", {
   index("referral_redemptions_referrer_month_idx").on(table.referrerUserId, table.monthKey),
 ]);
 
+/**
+ * Lifetime ledger for Telegram IDs that have already redeemed a referral.
+ * It deliberately has no foreign key to the referrer: deleting a target
+ * account must not allow the same Telegram ID to redeem again.
+ */
+export const referralRedeemerClaims = pgTable("referral_redeemer_claims", {
+  telegramUserId: text("telegram_user_id").primaryKey(),
+  referrerUserId: text("referrer_user_id").notNull(),
+  redemptionId: text("redemption_id").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("referral_redeemer_claims_redemption_unique").on(table.redemptionId),
+  index("referral_redeemer_claims_referrer_idx").on(table.referrerUserId),
+]);
+
 export const managerAuditLog = pgTable("manager_audit_log", {
   id: text("id").primaryKey(),
   telegramUserId: text("telegram_user_id").notNull(),

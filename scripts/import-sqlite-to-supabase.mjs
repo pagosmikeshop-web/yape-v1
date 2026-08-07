@@ -36,6 +36,7 @@ const TABLES = [
   "telegram_registration_challenges",
   "telegram_group_members",
   "referral_redemptions",
+  "referral_redeemer_claims",
   "manager_audit_log",
   "rbac_permission_overrides",
   "client_crm_profiles",
