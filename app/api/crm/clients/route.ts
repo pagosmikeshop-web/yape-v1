@@ -184,7 +184,7 @@ export async function GET(request: Request) {
     ]);
 
     const result = await database.prepare(
-      `SELECT u.id, u.seller_code, u.username, u.display_name, u.email, u.status,
+      `SELECT u.id, u.telegram_user_id, u.seller_code, u.username, u.display_name, u.email, u.status,
               u.owner_id, u.created_at, u.activated_at, u.device_id, u.referral_code,
               u.access_expires_at, d.phone_e164,
               ${CRM_STATUS_SQL} AS crm_status,
