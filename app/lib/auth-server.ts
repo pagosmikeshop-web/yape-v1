@@ -552,6 +552,7 @@ export async function ensureAuthSchema() {
         "global_qr_directory",
         "referral_redemptions",
         "referral_redeemer_claims",
+        "account_blacklist",
       ];
       // Una sola consulta de metadatos evita siete viajes de red en cada
       // instancia fría de Supabase antes de validar la sesión.
@@ -941,6 +942,15 @@ export async function ensureAuthSchema() {
         created_at TEXT NOT NULL
       )`,
       "CREATE INDEX IF NOT EXISTS referral_redeemer_claims_referrer_idx ON referral_redeemer_claims(referrer_user_id)",
+      `CREATE TABLE IF NOT EXISTS account_blacklist (
+        id TEXT PRIMARY KEY,
+        telegram_user_id TEXT NOT NULL UNIQUE,
+        reason TEXT,
+        banned_by_user_id TEXT,
+        banned_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS account_blacklist_telegram_user_id_idx ON account_blacklist(telegram_user_id)",
       `CREATE TABLE IF NOT EXISTS manager_audit_log (
         id TEXT PRIMARY KEY,
         telegram_user_id TEXT NOT NULL,

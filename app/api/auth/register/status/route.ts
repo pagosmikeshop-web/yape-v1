@@ -11,6 +11,11 @@ import {
   telegramMembershipError,
   telegramMembershipIsUnavailable,
 } from "@/app/lib/telegram-manager";
+import {
+  ACCOUNT_BANNED_CODE,
+  ACCOUNT_BANNED_MESSAGE,
+  isTelegramAccountBanned,
+} from "@/app/lib/account-blacklist";
 
 export const dynamic = "force-dynamic";
 
@@ -48,9 +53,21 @@ export async function POST(request: Request) {
       return jsonError("No se pudo validar este dispositivo.", 403);
     }
 
+    const database = dbBinding();
+    if (await isTelegramAccountBanned(telegramUserId, database)) {
+      return jsonOk({
+        allowed: false,
+        pending: false,
+        banned: true,
+        code: ACCOUNT_BANNED_CODE,
+        groupInviteUrl: "/api/telegram/group",
+        error: ACCOUNT_BANNED_MESSAGE,
+      });
+    }
+
     const [telegramCheck, linkedTelegram] = await Promise.all([
       checkCurrentTelegramGroupMember(telegramUserId),
-      dbBinding().prepare(
+      database.prepare(
         "SELECT id FROM users WHERE telegram_user_id = ? AND deleted_at IS NULL LIMIT 1",
       ).bind(telegramUserId).first(),
     ]);

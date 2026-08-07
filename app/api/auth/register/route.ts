@@ -22,6 +22,11 @@ import {
   telegramMembershipIsUnavailable,
 } from "@/app/lib/telegram-manager";
 import { TELEGRAM_TRIAL_SELLER_ID } from "@/app/lib/trial-activation";
+import {
+  ACCOUNT_BANNED_CODE,
+  ACCOUNT_BANNED_MESSAGE,
+  isTelegramAccountBanned,
+} from "@/app/lib/account-blacklist";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +76,9 @@ export async function POST(request: Request) {
 
     const fingerprintHash = await publicSha256(`fingerprintjs-v3\n${fingerprintId}`);
     const database = dbBinding();
+    if (await isTelegramAccountBanned(telegramUserId, database)) {
+      return jsonError(ACCOUNT_BANNED_MESSAGE, 403, ACCOUNT_BANNED_CODE);
+    }
     const [telegramCheck, existingTelegram, existingUser] = await Promise.all([
       checkCurrentTelegramGroupMember(telegramUserId),
       database.prepare(

@@ -10,8 +10,8 @@ export function buildFullUserDeletionStatements(
   actorTelegramUserId: string | null | undefined,
   targetRole: string,
   now: string,
+  auditCommand: "web_delete_user" | "web_ban_user" = "web_delete_user",
 ) {
-  const deletedLogin = `DELETED-${id}`;
   return [
     database.prepare("DELETE FROM user_roles WHERE user_id = ?").bind(id),
     database.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id),
@@ -36,11 +36,15 @@ export function buildFullUserDeletionStatements(
     database.prepare("DELETE FROM account_balances WHERE user_id = ?").bind(id),
     database.prepare("DELETE FROM account_history_state WHERE user_id = ?").bind(id),
     database.prepare("DELETE FROM account_feature_entitlements WHERE user_id = ?").bind(id),
+    // These keys are owned by the account that created them. They do not have
+    // ON DELETE CASCADE so they must be removed before the users row.
+    database.prepare("DELETE FROM autocomplete_keys WHERE created_by = ?").bind(id),
     database.prepare("DELETE FROM autocomplete_key_claims WHERE user_id = ?").bind(id),
     database.prepare("DELETE FROM activations WHERE user_id = ? OR seller_id = ?").bind(id, id),
-    database.prepare("DELETE FROM permanent_access_tokens WHERE user_id = ? OR seller_id = ?").bind(id, id),
+    database.prepare("DELETE FROM permanent_access_tokens WHERE user_id = ? OR seller_id = ? OR created_by = ?").bind(id, id, id),
     database.prepare("DELETE FROM global_permanent_access_tokens WHERE created_by = ? OR redeemed_by_user_id = ?").bind(id, id),
     database.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").bind(id),
+    database.prepare("UPDATE password_reset_requests SET approved_by = NULL WHERE approved_by = ?").bind(id),
     database.prepare("DELETE FROM password_reset_requests WHERE user_id = ? OR seller_id = ?").bind(id, id),
     database.prepare("DELETE FROM account_invitations WHERE user_id = ?").bind(id),
     database.prepare("DELETE FROM telegram_identities WHERE user_id = ?").bind(id),
@@ -63,20 +67,52 @@ export function buildFullUserDeletionStatements(
     database.prepare("DELETE FROM webauthn_challenges WHERE user_id = ?").bind(id),
     database.prepare("DELETE FROM qr_contacts WHERE user_id = ?").bind(id),
     database.prepare("UPDATE qr_contacts SET recipient_user_id = NULL WHERE recipient_user_id = ?").bind(id),
+    // Physical deletion is intentional: retaining a DELETED-* tombstone leaves
+    // the identity in Supabase and can make a later registration ambiguous.
     database.prepare(
-      `UPDATE users
-       SET seller_code = ?, username = ?, display_name = 'Usuario eliminado', email = '',
-           status = 'disabled', owner_id = NULL, credits = 0, device_id = NULL, device_public_key = NULL,
-           fingerprint_id_hash = NULL, telegram_user_id = NULL, referral_code = NULL,
-           referred_by_user_id = NULL, access_expires_at = NULL, activated_at = NULL,
-           password_hash = '', password_salt = '', pin_hash = NULL, pin_salt = NULL,
-           must_change_password = 0, must_set_pin = 0, deleted_at = ?, updated_at = ?
+      `DELETE FROM users
        WHERE id = ? AND is_owner = 0 AND deleted_at IS NULL`,
-    ).bind(deletedLogin, deletedLogin.toLowerCase(), now, now, id),
+    ).bind(id),
     database.prepare(
       `INSERT INTO manager_audit_log (id, telegram_user_id, command, outcome, created_at)
-       VALUES (?, ?, 'web_delete_user', ?, ?)`,
-    ).bind(crypto.randomUUID(), actorTelegramUserId ?? actorId, `${id}:${targetRole}`, now),
+       VALUES (?, ?, ?, ?, ?)`,
+    ).bind(crypto.randomUUID(), actorTelegramUserId ?? actorId, auditCommand, `${id}:${targetRole}`, now),
+  ];
+}
+
+/**
+ * Ban and delete are one database batch. The blacklist row is written first;
+ * if any cleanup statement fails, the transaction rolls back and the account
+ * remains intact instead of becoming partially deleted.
+ */
+export function buildBanUserStatements(
+  database: D1Database,
+  id: string,
+  telegramUserId: string,
+  actorId: string,
+  actorTelegramUserId: string | null | undefined,
+  targetRole: string,
+  now: string,
+  reason = "Baneado por el propietario",
+) {
+  return [
+    database.prepare(
+      `INSERT INTO account_blacklist (id, telegram_user_id, reason, banned_by_user_id, banned_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (telegram_user_id) DO UPDATE SET
+         reason = excluded.reason,
+         banned_by_user_id = excluded.banned_by_user_id,
+         banned_at = excluded.banned_at`,
+    ).bind(crypto.randomUUID(), telegramUserId, reason, actorId, now, now),
+    ...buildFullUserDeletionStatements(
+      database,
+      id,
+      actorId,
+      actorTelegramUserId,
+      targetRole,
+      now,
+      "web_ban_user",
+    ),
   ];
 }
 

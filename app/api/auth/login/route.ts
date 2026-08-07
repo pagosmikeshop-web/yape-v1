@@ -28,6 +28,11 @@ import {
   activateClientTrial,
   TELEGRAM_TRIAL_SELLER_ID,
 } from "@/app/lib/trial-activation";
+import {
+  ACCOUNT_BANNED_CODE,
+  ACCOUNT_BANNED_MESSAGE,
+  isTelegramAccountBanned,
+} from "@/app/lib/account-blacklist";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +140,10 @@ export async function POST(request: Request) {
     if (!user) {
       writeSecurityEvent(request, "auth.login", "denied", { reason: "credentials" });
       return jsonError("Credenciales invalidas.", 401);
+    }
+    if (user.telegram_user_id && await isTelegramAccountBanned(user.telegram_user_id)) {
+      writeSecurityEvent(request, "auth.login", "denied", { reason: ACCOUNT_BANNED_CODE, actorId: user.id });
+      return jsonError(ACCOUNT_BANNED_MESSAGE, 403, ACCOUNT_BANNED_CODE);
     }
     const validPassword = await verifySecret(password, user.password_salt, user.password_hash);
     if (!validPassword) {
