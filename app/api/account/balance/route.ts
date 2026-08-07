@@ -7,10 +7,9 @@ import {
   routeError,
 } from "@/app/lib/auth-server";
 import { writeSecurityEvent } from "@/app/lib/security-log";
+import { MAX_ACCOUNT_BALANCE_CENTS } from "@/app/lib/money";
 
 export const dynamic = "force-dynamic";
-
-const MAX_BALANCE_CENTS = 99_999_999_999;
 
 async function readBalance(userId: string) {
   return dbBinding().prepare(
@@ -50,8 +49,12 @@ export async function PUT(request: Request) {
 
     const body = await readJson(request);
     const balanceCents = typeof body.balanceCents === "number" ? body.balanceCents : Number.NaN;
-    if (!Number.isSafeInteger(balanceCents) || balanceCents < 0 || balanceCents > MAX_BALANCE_CENTS) {
-      return jsonError("Ingresa un saldo válido con máximo dos decimales.");
+    if (
+      !Number.isSafeInteger(balanceCents) ||
+      balanceCents < 0 ||
+      balanceCents > MAX_ACCOUNT_BALANCE_CENTS
+    ) {
+      return jsonError("El saldo debe estar entre S/ 0.00 y S/ 1,000,000.00.");
     }
 
     const updatedAt = new Date().toISOString();

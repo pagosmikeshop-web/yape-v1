@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useModalLayer } from "../../hooks/useModalLayer";
 import { fetchAccountBalance, clearBalanceCache } from "../../lib/balance-cache";
+import { formatAccountBalance } from "../../lib/money";
 import { resetIOSViewport } from "../../lib/ios-viewport";
 import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
 import { fetchSession } from "../../lib/session-cache";
@@ -1567,7 +1568,7 @@ export function TransferView() {
               <strong>
                 {availableBalance === null
                   ? "S/ 0.00"
-                  : `S/ ${availableBalance.toFixed(2)}`}
+                  : `S/ ${formatAccountBalance(availableBalance)}`}
               </strong>
             </div>
             <button

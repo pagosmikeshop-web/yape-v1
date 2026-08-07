@@ -106,7 +106,7 @@ create index if not exists saved_payment_recipients_user_updated_idx on public.s
 
 create table if not exists public.account_balances (
   user_id text primary key references public.users(id) on delete cascade,
-  balance_cents integer not null default 3913 check (balance_cents >= 0 and balance_cents <= 99999999999),
+  balance_cents integer not null default 3913 check (balance_cents >= 0 and balance_cents <= 100000000),
   is_configured integer not null default 0 check (is_configured in (0, 1)),
   updated_at text not null
 );

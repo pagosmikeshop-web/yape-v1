@@ -11,6 +11,7 @@ import {
   SimpleMovementList,
 } from "../BankApp";
 import { fetchAccountBalance } from "../../lib/balance-cache";
+import { formatAccountBalance } from "../../lib/money";
 import { settleIOSViewport } from "../../lib/ios-viewport";
 import { HomeBannerCarousel } from "./HomeBannerCarousel";
 import { AssetIcon, LottiePlayer } from "./primitives";
@@ -283,7 +284,7 @@ export function HomeView() {
               <span>
                 {accountBalance === null
                   ? ""
-                  : `S/ ${accountBalance.toFixed(2)}`}
+                  : `S/ ${formatAccountBalance(accountBalance)}`}
               </span>
             ) : null}
           </button>

@@ -13,6 +13,13 @@ import {
   setOptimisticUnlock,
 } from "../lib/session-cache";
 import { clearBalanceCache, fetchAccountBalance } from "../lib/balance-cache";
+import {
+  formatAccountBalance,
+  isValidAccountBalanceCents,
+  MAX_ACCOUNT_BALANCE_CENTS,
+  normalizeAccountBalanceInput,
+  parseAccountBalanceCents,
+} from "../lib/money";
 import { copyText, shareText } from "../lib/platform-adapters";
 import { safeApiMessage, safeClientMessage } from "../lib/client-error";
 import { useModalLayer } from "../hooks/useModalLayer";
@@ -2246,7 +2253,7 @@ function AccountDetailsView() {
     void fetchAccountBalance().then((result) => {
       if (cancelled || !result.ok) return;
       setBalance(result.balance);
-      setBalanceInput(result.balance.toFixed(2));
+      setBalanceInput(formatAccountBalance(result.balance));
     });
     return () => {
       cancelled = true;
@@ -2390,27 +2397,31 @@ function AccountDetailsView() {
   }
 
   function updateBalanceInput(value: string) {
-    const normalized = value.replace(",", ".").replace(/[^0-9.]/gu, "");
-    const [integerPart = "", ...decimalParts] = normalized.split(".");
-    const decimals = decimalParts.join("").slice(0, 2);
-    setBalanceInput(
-      decimalParts.length > 0 ? `${integerPart}.${decimals}` : integerPart,
+    const normalized = normalizeAccountBalanceInput(value);
+    setBalanceInput(normalized);
+    const cents = parseAccountBalanceCents(normalized);
+    setBalanceMessage(
+      cents !== null && cents > MAX_ACCOUNT_BALANCE_CENTS
+        ? "El saldo máximo es S/ 1,000,000.00."
+        : "",
     );
-    setBalanceMessage("");
   }
 
   async function saveBalance() {
-    const parsedBalance = Number(balanceInput);
-    if (
-      !Number.isFinite(parsedBalance) ||
-      parsedBalance < 0 ||
-      parsedBalance > 999_999_999.99
-    ) {
+    const balanceCents = parseAccountBalanceCents(balanceInput);
+    if (balanceCents === null) {
+      setBalanceMessage("Ingresa un saldo válido.");
+      return;
+    }
+    if (balanceCents > MAX_ACCOUNT_BALANCE_CENTS) {
+      setBalanceMessage("El saldo máximo es S/ 1,000,000.00.");
+      return;
+    }
+    if (!isValidAccountBalanceCents(balanceCents)) {
       setBalanceMessage("Ingresa un saldo válido.");
       return;
     }
 
-    const balanceCents = Math.round(parsedBalance * 100);
     setSavingBalance(true);
     setBalanceMessage("");
     try {
@@ -2422,10 +2433,16 @@ function AccountDetailsView() {
       const data = await response.json();
       if (!response.ok)
         throw new Error(safeApiMessage(data?.error, "No pudimos guardar el saldo."));
-      const savedBalance = Number(data.balance);
+      const savedBalanceCents = Number(data.balanceCents);
+      const savedBalance = isValidAccountBalanceCents(savedBalanceCents)
+        ? savedBalanceCents / 100
+        : Number(data.balance);
+      if (!Number.isFinite(savedBalance)) {
+        throw new Error("No pudimos leer el saldo guardado.");
+      }
       clearBalanceCache();
       setBalance(savedBalance);
-      setBalanceInput(savedBalance.toFixed(2));
+      setBalanceInput(formatAccountBalance(savedBalance));
       setEditingBalance(false);
       setBalanceMessage("Saldo actualizado correctamente.");
       window.setTimeout(() => setBalanceMessage(""), 3200);
@@ -2472,7 +2489,7 @@ function AccountDetailsView() {
           className="account-balance-shortcut"
           type="button"
           onClick={() => {
-            setBalanceInput(balance === null ? "" : balance.toFixed(2));
+            setBalanceInput(balance === null ? "" : formatAccountBalance(balance));
             setBalanceMessage("");
             setEditingBalance((current) => !current);
           }}
@@ -2481,7 +2498,7 @@ function AccountDetailsView() {
           <AssetIcon name="ic_money_bag_soles_outline_yape_primary" />
           <span>
             <strong>Saldo</strong>
-            <small>{balance === null ? "" : `S/ ${balance.toFixed(2)}`}</small>
+            <small>{balance === null ? "" : `S/ ${formatAccountBalance(balance)}`}</small>
           </span>
         </button>
         <button type="button" onClick={requestClearHistory}>
@@ -2538,7 +2555,7 @@ function AccountDetailsView() {
               type="button"
               onClick={() => {
                 setEditingBalance(false);
-                setBalanceInput(balance === null ? "" : balance.toFixed(2));
+                setBalanceInput(balance === null ? "" : formatAccountBalance(balance));
                 setBalanceMessage("");
               }}
             >

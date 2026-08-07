@@ -191,7 +191,7 @@ export const accountBalances = pgTable("account_balances", {
   updatedAt: text("updated_at").notNull(),
 }, (table) => [
   check("account_balances_non_negative_check", sql`${table.balanceCents} >= 0`),
-  check("account_balances_maximum_check", sql`${table.balanceCents} <= 99999999999`),
+  check("account_balances_maximum_check", sql`${table.balanceCents} <= 100000000`),
 ]);
 
 export const accountMovements = pgTable("account_movements", {

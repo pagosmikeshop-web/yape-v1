@@ -718,7 +718,7 @@ export async function ensureAuthSchema() {
       "CREATE INDEX IF NOT EXISTS global_qr_directory_recipient_idx ON global_qr_directory(recipient_user_id)",
       `CREATE TABLE IF NOT EXISTS account_balances (
         user_id TEXT PRIMARY KEY,
-        balance_cents INTEGER NOT NULL DEFAULT 3913 CHECK (balance_cents >= 0 AND balance_cents <= 99999999999),
+        balance_cents INTEGER NOT NULL DEFAULT 3913 CHECK (balance_cents >= 0 AND balance_cents <= 100000000),
         is_configured INTEGER NOT NULL DEFAULT 0 CHECK (is_configured IN (0, 1)),
         updated_at TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
