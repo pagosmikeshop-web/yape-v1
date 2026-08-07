@@ -337,6 +337,12 @@ export function MovementVoucher({
                 {timeLabel}
               </span>
             </div>
+            {hideSecurityCode ? (
+              <div
+                className="voucher-divider voucher-divider-izipay"
+                aria-hidden="true"
+              />
+            ) : null}
             {!hideSecurityCode ? <div className="voucher-security">
               <span className="voucher-section-label">
                 CÓDIGO DE SEGURIDAD{" "}

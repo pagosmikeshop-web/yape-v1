@@ -1378,6 +1378,11 @@ input:focus-visible {
   background: #eeeaf0;
 }
 
+/* Izipay omits the security-code block but keeps the receipt's visual section break. */
+.voucher-divider-izipay {
+  margin-top: 8px;
+}
+
 .voucher-security {
   display: flex;
   align-items: center;

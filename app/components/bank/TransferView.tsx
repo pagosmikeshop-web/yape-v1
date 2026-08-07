@@ -1474,6 +1474,13 @@ export function TransferView() {
                   </span>
                 </div>
 
+                {hideVoucherSecurity ? (
+                  <div
+                    className="voucher-divider voucher-divider-izipay"
+                    aria-hidden="true"
+                  />
+                ) : null}
+
                 {!hideVoucherSecurity ? <div className="voucher-security">
                   <span className="voucher-section-label">
                     CÓDIGO DE SEGURIDAD{" "}
