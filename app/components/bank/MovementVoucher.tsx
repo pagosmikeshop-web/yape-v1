@@ -10,6 +10,10 @@ export function isYapeDestination(destination: string) {
   return destination.trim().toLocaleLowerCase("es-PE") === "yape";
 }
 
+export function isIzipayDestination(destination: string) {
+  return destination.trim().toLocaleLowerCase("es-PE") === "izipay";
+}
+
 export function splitMovementVoucherDate(date: string): [string, string] {
   const dashMatch = date.match(/^(.+?)\s+-\s+(.+)$/u);
   if (dashMatch) return [dashMatch[1], dashMatch[2]];
@@ -129,7 +133,9 @@ export function buildVoucherShareText({
     `S/ ${amount}`,
     recipient,
     `${date} | ${time}`,
-    `Código de seguridad: ${securityCode.split("").join(" ")}`,
+    ...(isIzipayDestination(destination)
+      ? []
+      : [`Código de seguridad: ${securityCode.split("").join(" ")}`]),
     ...(isYapeDestination(destination) ? [`Nro. de celular: ${phone}`] : []),
     `Destino: ${destination}`,
     `Nro. de operación: ${operation}`,
@@ -216,6 +222,7 @@ export function MovementVoucher({
       .slice(-3);
   const operation =
     movement.operationNumber ?? String(76000000 + numericMovementId * 184731);
+  const hideSecurityCode = isIzipayDestination(movement.destination ?? "Yape");
   const [shareNotice, setShareNotice] = useState("");
   const [voucherShareFile, setVoucherShareFile] = useState<File | null>(null);
   const voucherCaptureRef = useRef<HTMLDivElement>(null);
@@ -330,7 +337,7 @@ export function MovementVoucher({
                 {timeLabel}
               </span>
             </div>
-            <div className="voucher-security">
+            {!hideSecurityCode ? <div className="voucher-security">
               <span className="voucher-section-label">
                 CÓDIGO DE SEGURIDAD{" "}
                 <img
@@ -344,7 +351,7 @@ export function MovementVoucher({
                   <span key={index}>{digit}</span>
                 ))}
               </div>
-            </div>
+            </div> : null}
             <div className="voucher-details">
               <span className="voucher-section-label">
                 DATOS DE LA TRANSACCIÓN

@@ -30,6 +30,7 @@ import {
   formatVoucherDate,
   formatVoucherTime,
   getVoucherHero,
+  isIzipayDestination,
   isYapeDestination,
   MovementVoucher,
   shareVoucherImage,
@@ -1753,6 +1754,7 @@ function ConfiguredVoucherReceipt({
   const formattedDate = formatVoucherDate(validVoucherDate);
   const formattedTime = formatVoucherTime(validVoucherDate);
   const securityCode = voucher.operation.slice(-3).padStart(3, "0");
+  const hideSecurityCode = isIzipayDestination(voucher.destination);
 
   useEffect(() => {
     let cancelled = false;
@@ -1868,7 +1870,7 @@ function ConfiguredVoucherReceipt({
                 {formattedTime}
               </span>
             </div>
-            <div className="voucher-security">
+            {!hideSecurityCode ? <div className="voucher-security">
               <span className="voucher-section-label">
                 CÓDIGO DE SEGURIDAD{" "}
                 <img
@@ -1882,7 +1884,7 @@ function ConfiguredVoucherReceipt({
                   <span key={index}>{digit}</span>
                 ))}
               </div>
-            </div>
+            </div> : null}
             <div className="voucher-details">
               <span className="voucher-section-label">
                 DATOS DE LA TRANSACCIÓN
@@ -3288,12 +3290,17 @@ export function BankApp({ view }: { view: BankView }) {
           setSessionError("No pudimos comprobar tu sesión por un problema de conexión. Vuelve a intentarlo sin perder tus datos.");
           return;
         }
-        setOptimisticUnlock(false);
-        clearSessionCache();
         if (result.code === "ACCESS_EXPIRED") {
-          router.replace("/?reason=expired");
+          // An expired subscription is not a logout. The PIN and credentials
+          // have already authenticated the user, so keep the session alive and
+          // render the non-dismissible access gate in the app shell.
+          setAccessExpired(true);
+          setOptimisticUnlock(true);
+          setAuthorized(true);
           return;
         }
+        setOptimisticUnlock(false);
+        clearSessionCache();
         router.replace("/");
         return;
       }

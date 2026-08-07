@@ -23,6 +23,7 @@ import {
   formatVoucherDate,
   formatVoucherTime,
   getVoucherHero,
+  isIzipayDestination,
   isYapeDestination,
   shareVoucherImage,
   VoucherSinglePromo,
@@ -932,6 +933,7 @@ export function TransferView() {
   const formattedDate = voucher ? formatVoucherDate(voucher.completedAt) : "";
   const formattedTime = voucher ? formatVoucherTime(voucher.completedAt) : "";
   const voucherHero = getVoucherHero(amountValue);
+  const hideVoucherSecurity = isIzipayDestination(destination);
 
   return (
     <>
@@ -1472,7 +1474,7 @@ export function TransferView() {
                   </span>
                 </div>
 
-                <div className="voucher-security">
+                {!hideVoucherSecurity ? <div className="voucher-security">
                   <span className="voucher-section-label">
                     CÓDIGO DE SEGURIDAD{" "}
                     <img
@@ -1486,7 +1488,7 @@ export function TransferView() {
                       <span key={index}>{digit}</span>
                     ))}
                   </div>
-                </div>
+                </div> : null}
 
                 <div className="voucher-details">
                   <span className="voucher-section-label">
