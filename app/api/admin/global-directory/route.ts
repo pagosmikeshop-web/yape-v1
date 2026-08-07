@@ -5,7 +5,6 @@ import {
   requireUnlockedSession,
   routeError,
 } from "@/app/lib/auth-server";
-import { maskPhoneOrNull } from "@/app/lib/masked-phone";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +52,9 @@ function rowDto(row: DirectoryRow) {
     id: row.id,
     kind: row.kind,
     name: row.name,
-    phone: maskPhoneOrNull(row.phone_e164),
+    // This endpoint is restricted to the Owner. The public directory and
+    // client-facing endpoints keep masking their phone values separately.
+    phone: row.phone_e164,
     source: row.source,
     provider: row.provider,
     status: row.status,

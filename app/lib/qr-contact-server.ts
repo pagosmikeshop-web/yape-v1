@@ -1,7 +1,7 @@
 import { dbBinding, normalizePeruvianMobile, routeError, authEnv } from "@/app/lib/auth-server";
 import { isSupabaseDatabase } from "@/app/lib/database-server";
 import { findActiveRecipientById } from "@/app/lib/active-recipient-server";
-import { bytesToBase64Url } from "@/app/lib/base64url";
+import { base64UrlToBytes, bytesToBase64Url } from "@/app/lib/base64url";
 import {
   GLOBAL_DIRECTORY_TERMS_VERSION,
   GlobalDirectoryError,
@@ -148,6 +148,35 @@ async function encryptPayload(userId: string, payload: string) {
     ciphertext: bytesToBase64Url(new Uint8Array(ciphertext)),
     iv: bytesToBase64Url(iv),
   };
+}
+
+/**
+ * Decrypts a global QR only on the server. The global directory deliberately
+ * uses a stable encryption context so the payload can be previewed by the
+ * owner without ever storing the image or exposing the encryption key.
+ */
+export async function decryptGlobalQrPayload(ciphertext: string, iv: string) {
+  try {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(encryptionSecret()));
+    const key = await crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["decrypt"]);
+    const plaintext = await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: base64UrlToBytes(iv),
+        additionalData: new TextEncoder().encode("mi-banco-qr-contact-v1\nglobal"),
+        tagLength: 128,
+      },
+      key,
+      base64UrlToBytes(ciphertext),
+    );
+    return validateDecodedPayload(new TextDecoder().decode(plaintext));
+  } catch {
+    throw new QrContactError(
+      "No pudimos preparar la vista previa del QR.",
+      503,
+      "QR_PREVIEW_UNAVAILABLE",
+    );
+  }
 }
 
 function parseProvider(value: string): QrContactProvider {
