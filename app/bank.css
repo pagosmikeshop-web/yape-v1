@@ -1383,6 +1383,10 @@ input:focus-visible {
   margin-top: 8px;
 }
 
+.voucher-divider-izipay + .voucher-details {
+  padding-top: 27px;
+}
+
 .voucher-security {
   display: flex;
   align-items: center;

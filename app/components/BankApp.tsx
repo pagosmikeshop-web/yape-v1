@@ -24,7 +24,6 @@ import {
   Money,
 } from "./bank/primitives";
 import {
-  buildVoucherShareText,
   createVoucherImage,
   formatVoucherAmount,
   formatVoucherDate,
@@ -1784,21 +1783,8 @@ function ConfiguredVoucherReceipt({
     }
 
     try {
-      const result = await shareVoucherImage(voucherShareFile, {
-        title: "Comprobante de yapeo",
-        text: buildVoucherShareText({
-          title: "¡Yapeaste!",
-          amount: formatVoucherAmount(amountValue),
-          recipient: voucher.name,
-          date: formattedDate,
-          time: formattedTime,
-          securityCode,
-          phone: maskPhone(voucher.phone),
-          destination: voucher.destination,
-          operation: voucher.operation,
-        }),
-      });
-      setShareNotice(result);
+      await shareVoucherImage(voucherShareFile);
+      setShareNotice("");
     } catch {
       setShareNotice("No se pudo compartir el comprobante.");
     }

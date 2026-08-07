@@ -39,11 +39,25 @@ export async function createVoucherImage(
   const images = Array.from(voucherContent.querySelectorAll("img"));
   await Promise.all(
     images.map(async (image) => {
-      if (image.complete) return;
-      try {
-        await image.decode();
-      } catch {
-        // Si una imagen no expone decode, html-to-image intentarÃ¡ incluirla igualmente.
+      // `complete` no garantiza que los píxeles estén decodificados para html-to-image.
+      if (!image.complete) {
+        await new Promise<void>((resolve) => {
+          const finish = () => {
+            image.removeEventListener("load", finish);
+            image.removeEventListener("error", finish);
+            resolve();
+          };
+          image.addEventListener("load", finish, { once: true });
+          image.addEventListener("error", finish, { once: true });
+        });
+      }
+
+      if (image.naturalWidth > 0) {
+        try {
+          await image.decode();
+        } catch {
+          // html-to-image intentará incluirla igualmente si el navegador no puede decodificarla.
+        }
       }
     }),
   );
@@ -60,10 +74,7 @@ export async function createVoucherImage(
   return new File([blob], "comprobante-yape.png", { type: "image/png" });
 }
 
-export async function shareVoucherImage(
-  file: File,
-  payload: { title: string; text: string },
-) {
+export async function shareVoucherImage(file: File): Promise<void> {
   if (typeof navigator.share === "function") {
     let canShareFile = false;
 
@@ -78,15 +89,13 @@ export async function shareVoucherImage(
 
     if (canShareFile) {
       try {
-        await navigator.share({
-          title: payload.title,
-          text: payload.text,
-          files: [file],
-        });
-        return "Comprobante compartido como imagen.";
+        // Compartir únicamente el archivo evita que el destino añada texto.
+        await navigator.share({ files: [file] });
+        return;
       } catch (error) {
         // Cerrar voluntariamente el selector no debe iniciar una descarga inesperada.
         if (error instanceof DOMException && error.name === "AbortError") {
+          return;
         }
 
         // Algunos WebView anuncian soporte para archivos, pero bloquean navigator.share.
@@ -104,42 +113,6 @@ export async function shareVoucherImage(
   downloadLink.click();
   downloadLink.remove();
   window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 10_000);
-  return "Imagen del comprobante descargada para compartir.";
-}
-
-export function buildVoucherShareText({
-  title,
-  amount,
-  recipient,
-  date,
-  time,
-  securityCode,
-  phone,
-  destination,
-  operation,
-}: {
-  title: string;
-  amount: string;
-  recipient: string;
-  date: string;
-  time: string;
-  securityCode: string;
-  phone: string;
-  destination: string;
-  operation: string;
-}) {
-  return [
-    title,
-    `S/ ${amount}`,
-    recipient,
-    `${date} | ${time}`,
-    ...(isIzipayDestination(destination)
-      ? []
-      : [`Código de seguridad: ${securityCode.split("").join(" ")}`]),
-    ...(isYapeDestination(destination) ? [`Nro. de celular: ${phone}`] : []),
-    `Destino: ${destination}`,
-    `Nro. de operación: ${operation}`,
-  ].join("\n");
 }
 
 export function getVoucherHero(amountValue: number) {
@@ -254,21 +227,8 @@ export function MovementVoucher({
       return;
     }
     try {
-      const result = await shareVoucherImage(voucherShareFile, {
-        title: "Comprobante de yapeo",
-        text: buildVoucherShareText({
-          title: sent ? "¡Yapeaste!" : "¡Te yapearon!",
-          amount: formatVoucherAmount(amountValue),
-          recipient: movement.name,
-          date: dayLabel,
-          time: timeLabel,
-          securityCode,
-          phone: movement.detail,
-          destination: movement.destination ?? "Yape",
-          operation,
-        }),
-      });
-      setShareNotice(result);
+      await shareVoucherImage(voucherShareFile);
+      setShareNotice("");
     } catch {
       setShareNotice("No se pudo compartir el comprobante.");
     }

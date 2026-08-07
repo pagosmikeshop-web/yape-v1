@@ -17,7 +17,6 @@ import {
 import { QR_TRANSFER_SESSION_KEY } from "../../lib/qr-scanning";
 import { APK_ASSET_ROOT, AssetIcon, LottiePlayer } from "./primitives";
 import {
-  buildVoucherShareText,
   createVoucherImage,
   formatVoucherAmount,
   formatVoucherDate,
@@ -875,21 +874,8 @@ export function TransferView() {
       return;
     }
     try {
-      const result = await shareVoucherImage(voucherShareFile, {
-        title: "Comprobante de yapeo",
-        text: buildVoucherShareText({
-          title: "¡Yapeaste!",
-          amount: formatVoucherAmount(amountValue),
-          recipient: voucherRecipientName,
-          date: formattedDate,
-          time: formattedTime,
-          securityCode: voucher.code,
-          phone: recipientDisplayReference,
-          destination,
-          operation: voucher.operation,
-        }),
-      });
-      setNotice(result);
+      await shareVoucherImage(voucherShareFile);
+      setNotice("");
     } catch {
       setNotice("No se pudo compartir el comprobante.");
     }
