@@ -798,8 +798,10 @@ export function TransferView() {
   }
 
   function requestOtherBanks() {
-    if (!yapearEnabled || availableEntities.length === 0) return;
-    setDestination(availableEntities[0]);
+    if (!yapearEnabled) return;
+    if (availableEntities.length > 0) {
+      setDestination(availableEntities[0]);
+    }
     setConfirmationClosing(false);
     setStage("entities");
   }
@@ -1320,19 +1322,25 @@ export function TransferView() {
               Selecciona una entidad financiera
             </h2>
             <div className="entities-list">
-              {availableEntities.map((entity) => (
-                <button
-                  type="button"
-                  className="entity-row"
-                  key={entity}
-                  onClick={() => chooseEntity(entity)}
-                >
-                  <span className="entity-icon">
-                    <AssetIcon name="ic_duotone_money_arrows_around" />
-                  </span>
-                  <strong>{financialEntityLabel(entity)}</strong>
-                </button>
-              ))}
+              {availableEntities.length > 0 ? (
+                availableEntities.map((entity) => (
+                  <button
+                    type="button"
+                    className="entity-row"
+                    key={entity}
+                    onClick={() => chooseEntity(entity)}
+                  >
+                    <span className="entity-icon">
+                      <AssetIcon name="ic_duotone_money_arrows_around" />
+                    </span>
+                    <strong>{financialEntityLabel(entity)}</strong>
+                  </button>
+                ))
+              ) : (
+                <p className="empty-state">
+                  No hay otros bancos configurados para este número.
+                </p>
+              )}
             </div>
           </div>
 

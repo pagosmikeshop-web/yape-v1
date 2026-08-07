@@ -97,7 +97,10 @@ async function resolveRecipient(
     ).bind(recipientQrId, new Date().toISOString()).first<GlobalQrRecipientRow>();
     if (!qr || qr.recipient_user_id === requesterUserId) return null;
     return {
-      name: maskRecipientName(qr.holder_name),
+      // El titular de un QR global es un valor introducido por su creador.
+      // Se conserva exactamente como fue registrado (puede ser nombre completo
+      // o una versión protegida escrita por el propio usuario).
+      name: qr.holder_name,
       reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : "",
       provider: normalizePaymentProvider(qr.provider),
       providers: [normalizePaymentProvider(qr.provider)],

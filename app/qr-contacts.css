@@ -241,6 +241,36 @@
   font-weight: 400;
 }
 
+.mobile-bank-shell .qrc-name-format-options {
+  display: grid;
+  gap: 4px;
+  margin-top: -2px;
+}
+
+.mobile-bank-shell .qrc-name-format {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #4a3453;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.mobile-bank-shell .qrc-name-format input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #8b2496;
+}
+
+.mobile-bank-shell .qrc-name-format-hint {
+  margin: 0;
+  color: #817484;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .mobile-bank-shell .qrc-input,
 .mobile-bank-shell .qrc-select {
   width: 100%;

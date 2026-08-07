@@ -9,7 +9,6 @@ import {
 } from "@/app/lib/global-recipient-directory";
 import { parsePaymentQrPayload, UUID_PATTERN } from "@/app/lib/payment-qr";
 import { maskPhoneOrNull } from "@/app/lib/masked-phone";
-import { maskRecipientName } from "@/app/lib/recipient-lookup/name-masker";
 
 export const QR_CONTACT_PROVIDERS = [
   "Yape",
@@ -303,7 +302,7 @@ export async function createQrContact(userId: string, input: {
   await ensureQrContactSchema();
   const provider = parseProvider(input.provider);
   const payload = validateDecodedPayload(input.payload);
-  let holderName = "";
+  const holderName = parseHolderName(input.holderName);
   let phone: string | null = null;
   let recipientId: string | null = null;
 
@@ -317,10 +316,8 @@ export async function createQrContact(userId: string, input: {
       throw new QrContactError("El destinatario de Yape no está activo.", 404, "QR_RECIPIENT_NOT_FOUND");
     }
     recipientId = recipient.id;
-    holderName = parseHolderName(recipient.display_name);
     phone = recipient.phone_e164;
   } else {
-    holderName = parseHolderName(input.holderName);
     phone = parsePhone(input.phone);
   }
 
@@ -435,7 +432,7 @@ export async function createGlobalQrContact(
 
   const provider = parseProvider(input.provider);
   const payload = validateDecodedPayload(input.payload);
-  let holderName = "";
+  const holderName = parseHolderName(input.holderName);
   let phone: string | null = null;
   let recipientId: string | null = null;
 
@@ -449,10 +446,8 @@ export async function createGlobalQrContact(
       throw new QrContactError("El destinatario de Yape no está activo.", 404, "QR_RECIPIENT_NOT_FOUND");
     }
     recipientId = recipient.id;
-    holderName = maskRecipientName(parseHolderName(recipient.display_name));
     phone = recipient.phone_e164;
   } else {
-    holderName = maskRecipientName(parseHolderName(input.holderName));
     // Los QR de otros bancos se registran con el payload y el banco elegido;
     // no se debe pedir ni guardar un celular. Para Yape, el formulario solo
     // usa los últimos 3 dígitos como referencia visual.

@@ -259,7 +259,8 @@ export async function scanQr(input: {
     status: "valid",
     result: result("valid", {
       id: row.id,
-      name: maskRecipientName(row.holder_name),
+      // El creador decide si registra el nombre completo o una versión protegida.
+      name: row.holder_name,
       provider: row.provider,
       recipientId: row.recipient_user_id,
       phone: row.phone_e164,

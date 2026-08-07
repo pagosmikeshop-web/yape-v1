@@ -35,8 +35,8 @@ export function requireGlobalDirectoryTerms(
 }
 
 /**
- * Busca solamente entradas activas publicadas globalmente. El nombre ya se
- * guarda protegido por el endpoint de alta; nunca se devuelve un nombre crudo.
+ * Busca solamente entradas activas publicadas globalmente. El nombre es el
+ * formato final que escribió el propietario (completo o protegido).
  */
 export async function lookupGlobalRecipient(phoneE164: string) {
   const database = dbBinding();

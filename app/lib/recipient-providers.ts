@@ -13,7 +13,9 @@ export type RecipientProviderActions = {
 
 /**
  * Normaliza la lista de destinos configurados para un número y deja Yape
- * primero cuando existe. Así el botón principal siempre representa Yape.
+ * primero cuando existe. El botón principal usa el único proveedor configurado
+ * o Yape cuando está disponible; los destinos alternativos se mantienen en
+ * “Otros bancos”.
  */
 export function normalizeRecipientProviders(
   value: unknown,
@@ -48,9 +50,13 @@ export function getRecipientProviderActions(
   return {
     providers,
     primaryProvider,
+    // Un único proveedor puede procesarse directamente. Para QR mantenemos
+    // también la acción directa cuando hay varios destinos no-Yape, usando el
+    // proveedor principal y dejando los demás en “Otros bancos”.
     directYapear: hasYape || isSingleProvider || (fromQr && otherProviders.length > 0),
-    // El selector se limita a los destinos adicionales configurados.
-    showOtherBanks: providers.length > 1 && otherProviders.length > 0,
+    // Keep the action available even when there is no alternate entity. The
+    // entities screen explains the empty state instead of hiding the action.
+    showOtherBanks: true,
     otherProviders,
   };
 }

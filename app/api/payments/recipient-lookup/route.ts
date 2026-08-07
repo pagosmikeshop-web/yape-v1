@@ -172,7 +172,7 @@ export async function POST(request: Request) {
 
     const freeRecipientResponse = async () => {
       // El directorio Free se consulta sin gastar créditos. Sus datos ya se
-      // guardaron con consentimiento y el nombre se devuelve protegido.
+      // guardaron con consentimiento y se devuelve el formato elegido por su creador.
       const globalRecipient = await lookupGlobalRecipient(normalized.e164);
       return globalRecipient
         ? jsonOk({

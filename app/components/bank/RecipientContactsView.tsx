@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
-import { PAYMENT_PROVIDERS, type PaymentProvider } from "../../lib/payment-providers";
+import {
+  AUTOCOMPLETE_PROVIDERS,
+  type AutocompleteProvider,
+} from "../../lib/payment-providers";
 import { AssetIcon } from "./primitives";
 import { GlobalDirectoryTermsDialog } from "./GlobalDirectoryTermsDialog";
 
@@ -13,7 +16,7 @@ type RecipientContact = {
   id: string;
   phone: string;
   displayName: string;
-  provider: PaymentProvider;
+  provider: AutocompleteProvider;
   source: "manual" | "qr";
   status: "active" | "revoked";
   updatedAt: string;
@@ -32,7 +35,8 @@ export function RecipientContactsView() {
   const [contacts, setContacts] = useState<RecipientContact[]>([]);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [provider, setProvider] = useState<PaymentProvider>("Yape");
+  const [nameFormat, setNameFormat] = useState<"plain" | "protected">("plain");
+  const [provider, setProvider] = useState<AutocompleteProvider>("Yape");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -107,6 +111,7 @@ export function RecipientContactsView() {
       }
       setPhone("");
       setName("");
+      setNameFormat("plain");
       setProvider("Yape");
       setMessage("Autocompletado registrado.");
       await loadContacts();
@@ -183,29 +188,44 @@ export function RecipientContactsView() {
               </div>
             </label>
             <label className="account-details-field">
-              <span>Nombre del destinatario</span>
+              <span>Nombre visible del destinatario</span>
               <div>
                 <AssetIcon name="ic_person_outline_yape" />
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value.slice(0, 80))}
-                  placeholder="Ej. Laura Quispe"
+                  placeholder={nameFormat === "protected" ? "Ej. Laura Qui*" : "Ej. Laura Quispe"}
                   autoComplete="name"
                   required
                   minLength={2}
                 />
               </div>
             </label>
+            <div className="recipient-name-format-options">
+              <label className="recipient-name-format">
+                <input
+                  type="checkbox"
+                  checked={nameFormat === "protected"}
+                  onChange={(event) =>
+                    setNameFormat(event.target.checked ? "protected" : "plain")
+                  }
+                />
+                <span>Nombre protegido</span>
+              </label>
+              <p className="recipient-name-format-hint">
+                Escribe aquí el formato final que quieres mostrar. No se modifica automáticamente.
+              </p>
+            </div>
             <label className="account-details-field recipient-provider-field">
               <span>App / Banco de destino</span>
               <div>
                 <AssetIcon name="ic_duotone_money_arrows_around" />
                 <select
                   value={provider}
-                  onChange={(event) => setProvider(event.target.value as PaymentProvider)}
+                  onChange={(event) => setProvider(event.target.value as AutocompleteProvider)}
                   aria-label="App o banco de destino"
                 >
-                  {PAYMENT_PROVIDERS.map((option) => (
+                  {AUTOCOMPLETE_PROVIDERS.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>

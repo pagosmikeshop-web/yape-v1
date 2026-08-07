@@ -59,3 +59,22 @@ export function tryMaskRecipientName(value: string) {
     return "";
   }
 }
+
+/**
+ * Validates the display value supplied by a user without changing its form.
+ * A global autocomplete/QR record may intentionally contain either a full
+ * name or a user-authored protected form such as "Laura Qui*". Masking is
+ * therefore never inferred here; the submitted value is the source of truth.
+ */
+export function validateRecipientDisplayName(value: string) {
+  const nfcValue = value.normalize("NFC");
+  if (/[\u0000-\u001f\u007f]/u.test(nfcValue)) return "";
+  const normalized = nfcValue.replace(/\s+/gu, " ").trim();
+  if (
+    normalized.length < 2
+    || normalized.length > 80
+  ) {
+    return "";
+  }
+  return normalized;
+}

@@ -40,6 +40,7 @@ import { contactInitials, maskPhone, TransferView } from "./bank/TransferView";
 import { RecipientContactsView } from "./bank/RecipientContactsView";
 import { GlobalDirectoryTermsDialog } from "./bank/GlobalDirectoryTermsDialog";
 import { QRCodeScanner } from "./bank/QRCodeScanner";
+import { QR_PROVIDERS, type QrProvider } from "../lib/payment-providers";
 import type {
   BankView,
   Movement,
@@ -376,22 +377,6 @@ type SavedQrContact = {
   createdAt: string;
 };
 
-const QR_CONTACT_PROVIDERS = [
-  "Yape",
-  "Plin",
-  "BCP",
-  "BBVA",
-  "Interbank",
-  "Scotiabank",
-  "Bim",
-  "Banco Falabella",
-  "Banco Pichincha",
-  "Dale!",
-  "Izipay",
-  "Agora / Oh!",
-  "Tunki",
-] as const;
-
 function savedQrPhone(phone: string | null) {
   if (!phone) return "Sin celular asociado";
   const digits = phone.replace(/\D/g, "");
@@ -413,9 +398,9 @@ function savedQrDate(value: string) {
 function QrView() {
   const [contacts, setContacts] = useState<SavedQrContact[]>([]);
   const [holderName, setHolderName] = useState("");
+  const [nameFormat, setNameFormat] = useState<"plain" | "protected">("plain");
   const [phone, setPhone] = useState("");
-  const [provider, setProvider] =
-    useState<(typeof QR_CONTACT_PROVIDERS)[number]>("Yape");
+  const [provider, setProvider] = useState<QrProvider>("Yape");
   const [qrPayload, setQrPayload] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const [selectedFileName, setSelectedFileName] = useState("");
@@ -612,6 +597,7 @@ function QrView() {
       if (!response.ok || !data.contact)
         throw new Error(safeApiMessage(data.error, "No pudimos guardar el QR."));
       setHolderName("");
+      setNameFormat("plain");
       setPhone("");
       setProvider("Yape");
       clearCapture();
@@ -746,17 +732,32 @@ function QrView() {
         ) : null}
 
         <label className="qrc-field">
-          <span className="qrc-label">Nombre del titular</span>
+          <span className="qrc-label">Nombre visible del titular</span>
           <input
             className="qrc-input"
             value={holderName}
             onChange={(event) => setHolderName(event.target.value.slice(0, 80))}
-            placeholder="Ej: Juan Pérez"
+            placeholder={nameFormat === "protected" ? "Ej: Laura Qui*" : "Ej: Juan Pérez"}
             autoComplete="name"
             required
             minLength={2}
           />
         </label>
+        <div className="qrc-name-format-options">
+          <label className="qrc-name-format">
+            <input
+              type="checkbox"
+              checked={nameFormat === "protected"}
+              onChange={(event) =>
+                setNameFormat(event.target.checked ? "protected" : "plain")
+              }
+            />
+            <span>Nombre protegido</span>
+          </label>
+          <p className="qrc-name-format-hint">
+            Escribe el nombre exactamente como quieres mostrarlo. No se modifica automáticamente.
+          </p>
+        </div>
         {isYapeProvider ? (
           <label className="qrc-field">
             <span className="qrc-label">
@@ -786,12 +787,12 @@ function QrView() {
               className="qrc-select"
               value={provider}
               onChange={(event) => {
-                const nextProvider = event.target.value as (typeof QR_CONTACT_PROVIDERS)[number];
+                const nextProvider = event.target.value as QrProvider;
                 setProvider(nextProvider);
                 if (nextProvider !== "Yape") setPhone("");
               }}
             >
-              {QR_CONTACT_PROVIDERS.map((item) => (
+              {QR_PROVIDERS.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>

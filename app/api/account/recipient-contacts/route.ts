@@ -12,9 +12,13 @@ import {
   GLOBAL_DIRECTORY_TERMS_VERSION,
   requireGlobalDirectoryTerms,
 } from "@/app/lib/global-recipient-directory";
-import { PAYMENT_PROVIDERS, type PaymentProvider } from "@/app/lib/payment-providers";
+import {
+  AUTOCOMPLETE_PROVIDERS,
+  type AutocompleteProvider,
+  type PaymentProvider,
+} from "@/app/lib/payment-providers";
 import { RecipientLookupError } from "@/app/lib/recipient-lookup/errors";
-import { tryMaskRecipientName } from "@/app/lib/recipient-lookup/name-masker";
+import { validateRecipientDisplayName } from "@/app/lib/recipient-lookup/name-masker";
 import { normalizeRecipientPhone } from "@/app/lib/recipient-lookup/phone";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +45,7 @@ function contactDto(row: GlobalRecipientRow) {
   };
 }
 
-const PROVIDER_SET = new Set<string>(PAYMENT_PROVIDERS);
+const PROVIDER_SET = new Set<string>(AUTOCOMPLETE_PROVIDERS);
 
 async function enforceContactLimits(userId: string, request: Request) {
   await enforceAuthRateLimits([
@@ -92,8 +96,8 @@ export async function POST(request: Request) {
     if (!PROVIDER_SET.has(providerValue)) {
       return jsonError("Selecciona una app o banco de destino válido.", 400);
     }
-    const provider = providerValue as PaymentProvider;
-    const displayName = tryMaskRecipientName(asString(body.name));
+    const provider = providerValue as AutocompleteProvider;
+    const displayName = validateRecipientDisplayName(asString(body.name));
     if (!displayName) return jsonError("Ingresa un nombre válido para el destinatario.", 400);
 
     const database = dbBinding();
