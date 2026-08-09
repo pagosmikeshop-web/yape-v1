@@ -380,7 +380,7 @@ canvas {
   }
 
   .mobile-bank-shell .transfer-amount-field {
-    margin-top: clamp(42px, 10.5dvh, 92px);
+    margin-top: clamp(48px, 10.5svh, 92px);
   }
 
   .mobile-bank-shell .transfer-amount-footer,
@@ -840,7 +840,7 @@ canvas {
   }
 
   .mobile-bank-shell .transfer-amount-field {
-    margin-top: clamp(30px, 7dvh, 52px);
+    margin-top: clamp(30px, 7svh, 52px);
   }
 
   .mobile-bank-shell .transfer-amount-footer {
@@ -1218,5 +1218,132 @@ canvas {
   .pin-indicator > .pin-dots,
   .returning-keypad-card .pin-indicator > .pin-dots {
     transition: none;
+  }
+}
+
+/*
+ * PIN screen geometry calibration.
+ *
+ * Android can report a non-zero visualViewport.offsetLeft while the IME is
+ * opening. The generic shell uses that value for other screens, but applying
+ * it to the PIN route makes the whole composition pan sideways. Keep this
+ * route anchored to the physical viewport and let only its internal card
+ * scroll vertically when space is reduced.
+ */
+@media (max-width: 599px) {
+  .site-stage:has(.returning-login) {
+    inset-inline-start: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    transform: none;
+  }
+
+  .returning-login {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  .returning-purple-panel {
+    flex: 0 0 auto;
+    inline-size: 100%;
+    min-inline-size: 0;
+    box-sizing: border-box;
+    min-block-size: clamp(430px, 57svh, 540px);
+    /* Match the reference composition without changing the existing purple. */
+    padding-top: calc(var(--app-safe-top) + clamp(44px, 6.5svh, 58px));
+    padding-bottom: clamp(24px, 4svh, 36px);
+  }
+
+  .returning-qr {
+    inline-size: clamp(148px, 41vw, 190px);
+    max-inline-size: 100%;
+    margin-top: clamp(42px, 7svh, 60px);
+  }
+
+  .returning-top-actions {
+    flex: 0 0 auto;
+    inline-size: 100%;
+    max-inline-size: 360px;
+    margin-top: clamp(64px, 8svh, 78px);
+    align-content: start;
+  }
+
+  .returning-keypad-card {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    min-block-size: 0;
+    max-inline-size: 100%;
+    margin-top: -20px;
+  }
+}
+
+/* Compact phones keep the same lower composition without hiding the keypad. */
+@media (max-width: 599px) and (max-height: 700px) {
+  .returning-purple-panel {
+    min-block-size: clamp(380px, 52svh, 440px);
+    padding-top: calc(var(--app-safe-top) + clamp(40px, 6svh, 50px));
+    padding-bottom: clamp(20px, 3svh, 28px);
+  }
+
+  .returning-qr {
+    inline-size: clamp(140px, 37vw, 158px);
+    margin-top: clamp(38px, 6svh, 46px);
+  }
+
+  .returning-top-actions {
+    margin-top: clamp(50px, 7.5svh, 62px);
+  }
+
+  .returning-keypad-card {
+    margin-top: -16px;
+    padding-top: 22px;
+  }
+}
+
+/* Android IME: keep the transfer flow pinned to the layout viewport. */
+@media (max-width: 599px) {
+  .banking-stage:has(.mobile-bank-shell.view-transfer) {
+    inset-inline-start: 0;
+    left: 0;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    transform: none;
+  }
+
+  .mobile-bank-shell.view-transfer {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    margin-inline: 0;
+  }
+
+  .mobile-bank-shell.view-transfer .bank-scroll-area,
+  .mobile-bank-shell.view-transfer .transfer-amount-screen,
+  .mobile-bank-shell.view-transfer .transfer-amount-content,
+  .mobile-bank-shell.view-transfer .transfer-flow-footer,
+  .mobile-bank-shell.view-transfer .transfer-amount-footer {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-amount-field {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    justify-content: center;
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-amount-field input {
+    min-inline-size: 0;
+    max-inline-size: calc(100% - 56px);
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-amount-actions {
+    inline-size: 100%;
+    max-inline-size: 371px;
+    min-inline-size: 0;
+    flex-shrink: 0;
   }
 }

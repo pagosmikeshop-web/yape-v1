@@ -85,9 +85,36 @@ export function MobileViewportSync() {
         const visibleHeight = Math.round(
           viewport?.height ?? document.documentElement.clientHeight ?? window.innerHeight,
         );
-        const width = Math.round(viewport?.width ?? document.documentElement.clientWidth ?? window.innerWidth);
         const offsetTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
-        const offsetLeft = Math.max(0, Math.round(viewport?.offsetLeft ?? 0));
+        const transferShell = document.querySelector<HTMLElement>(
+          ".mobile-bank-shell.view-transfer",
+        );
+        const transferScrollArea = transferShell?.querySelector<HTMLElement>(
+          ".bank-scroll-area",
+        );
+        const pinShell = document.querySelector<HTMLElement>(
+          ".returning-login",
+        );
+        const pinStage = pinShell?.closest<HTMLElement>(".site-stage") ?? null;
+        const horizontallyAnchoredFlow = Boolean(transferShell || pinStage);
+        // The visual viewport becomes narrower while Android's IME is open.
+        // Keep transfer anchored to the layout viewport width; only the
+        // vertical dimensions should respond to the keyboard.
+        const layoutWidth = Math.round(
+          document.documentElement.clientWidth || window.innerWidth || viewport?.width || 0,
+        );
+        const width = horizontallyAnchoredFlow
+          ? layoutWidth
+          : Math.round(viewport?.width ?? layoutWidth);
+        // Android may report a horizontal visual-viewport offset while the
+        // IME is opening. Transfer and PIN are full-width flows: preserve the
+        // vertical keyboard compensation, but never pan these screens on X.
+        const offsetLeft = horizontallyAnchoredFlow
+          ? 0
+          : Math.max(0, Math.round(viewport?.offsetLeft ?? 0));
+        if (transferShell?.scrollLeft) transferShell.scrollLeft = 0;
+        if (transferScrollArea?.scrollLeft) transferScrollArea.scrollLeft = 0;
+        if (pinStage?.scrollLeft) pinStage.scrollLeft = 0;
         const activeControl = isEditableControl(document.activeElement) ? document.activeElement : null;
         const orientationChanged = previousWidth > 0 && Math.abs(previousWidth - width) > 48;
 
