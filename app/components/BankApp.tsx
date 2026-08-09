@@ -1901,18 +1901,6 @@ function ConfiguredVoucherReceipt({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="voucher-new-yape-button"
-          onClick={onEdit}
-        >
-          <AssetIcon name="ic_send_outline_yape_on_secondary" />
-          Nuevo Yapeo
-        </button>
-        <Link href="/ayuda" className="voucher-help-link">
-          <AssetIcon name="ic_headphone_outline_yape_on_primary" />
-          Necesito ayuda
-        </Link>
         <div className="voucher-more-section">
           <h3>
             Más en Yape <small className="voucher-new-badge">Nuevo</small>

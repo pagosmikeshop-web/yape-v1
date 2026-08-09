@@ -836,36 +836,6 @@ export function TransferView() {
     void submitTransfer(destination, "confirm-processing");
   }
 
-  function startNewYape() {
-    cancelFrequentProviderLookup();
-    if (confirmationCloseTimerRef.current !== null) {
-      window.clearTimeout(confirmationCloseTimerRef.current);
-      confirmationCloseTimerRef.current = null;
-    }
-    setConfirmationClosing(false);
-    setStage("contact");
-    setRecipientId("");
-    setRecipientQrId("");
-    setRecipientFromQr(false);
-    setRecipientProviders(["Yape"]);
-    setRecipientName("");
-    setRecipientPhone("");
-    setManualRecipientMode(false);
-    setRecipientIsNewNumber(false);
-    setPhoneIsEditing(false);
-    setDestination("Yape");
-    setNewNumber("");
-    setRecipientLookupLoading(false);
-    setRecipientProviderLoading(false);
-    setAmount("");
-    setMessage("");
-    setNotice("");
-    setInsufficientBalance(false);
-    setVoucher(null);
-    setVoucherShareFile(null);
-    transferIdempotencyRef.current = null;
-  }
-
   async function shareTransferVoucher() {
     if (!voucher) return;
     if (!voucherShareFile) {
@@ -1505,20 +1475,6 @@ export function TransferView() {
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              className="voucher-new-yape-button"
-              onClick={startNewYape}
-            >
-              <AssetIcon name="ic_send_outline_yape_on_secondary" />
-              Nuevo Yapeo
-            </button>
-
-            <Link href="/ayuda" className="voucher-help-link">
-              <AssetIcon name="ic_headphone_outline_yape_on_primary" />
-              Necesito ayuda
-            </Link>
-
             <div className="voucher-more-section">
               <h3>
                 Más en Yape <small className="voucher-new-badge">Nuevo</small>
