@@ -882,7 +882,18 @@ canvas {
     padding-bottom: 0 !important;
   }
 
-  .mobile-bank-shell.view-transfer
+}
+
+/*
+ * La transferencia solo pasa a dos columnas cuando existe ancho horizontal
+ * real. Algunos teclados Android reducen la altura del viewport y hacen que
+ * `orientation: landscape` coincida temporalmente aun con el teléfono en
+ * vertical; el límite de 640 px evita ese falso positivo desde el primer
+ * frame, antes incluso de que JavaScript detecte el teclado.
+ */
+@media (orientation: landscape) and (min-width: 640px) and (max-height: 540px) {
+  html:not([data-keyboard-open="true"])
+    .mobile-bank-shell.view-transfer
     .bank-scroll-area:has(.transfer-amount-screen) {
     width: 100%;
     height: 100%;
@@ -891,7 +902,9 @@ canvas {
     overflow: hidden;
   }
 
-  .mobile-bank-shell .transfer-amount-screen {
+  html:not([data-keyboard-open="true"])
+    .mobile-bank-shell
+    .transfer-amount-screen {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(280px, 0.82fr);
     grid-template-rows: auto minmax(0, 1fr);
@@ -902,11 +915,16 @@ canvas {
     border-radius: 0;
   }
 
-  .mobile-bank-shell .transfer-amount-screen .transfer-flow-header {
+  html:not([data-keyboard-open="true"])
+    .mobile-bank-shell
+    .transfer-amount-screen
+    .transfer-flow-header {
     grid-column: 1 / -1;
   }
 
-  .mobile-bank-shell .transfer-amount-footer {
+  html:not([data-keyboard-open="true"])
+    .mobile-bank-shell
+    .transfer-amount-footer {
     align-self: stretch;
     justify-content: center;
     border-left: 1px solid #eeeaf0;
@@ -1038,9 +1056,10 @@ canvas {
 }
 
 /*
- * Transferencia: el teclado Android puede exponer offsetLeft del visual
- * viewport al intentar mantener un campo enfocado visible. La pantalla de
- * transferencia permanece anclada al eje X y solo ajusta su altura.
+ * Transferencia: conserva dimensiones intrínsecas aunque el teclado reduzca
+ * el visual viewport. El layout horizontal de arriba se desactiva mientras el
+ * teclado está abierto para que Android no convierta accidentalmente la vista
+ * vertical en dos columnas.
  */
 .mobile-bank-shell.view-transfer,
 .mobile-bank-shell.view-transfer .bank-scroll-area,
@@ -1078,7 +1097,7 @@ canvas {
   display: flex;
   flex-wrap: nowrap;
   gap: clamp(8px, 2vw, 10px);
-  width: min(90vw, 371px);
+  width: min(100%, 371px);
 }
 
 .mobile-bank-shell.view-transfer .transfer-amount-actions > button {
@@ -1089,11 +1108,6 @@ canvas {
 }
 
 @media (max-width: 599px) {
-  .banking-stage:has(.mobile-bank-shell.view-transfer) {
-    left: 0;
-    width: var(--app-viewport-width, 100vw);
-  }
-
   .mobile-bank-shell.view-transfer .transfer-message-field input,
   .mobile-bank-shell.view-transfer .transfer-recipient-name-input,
   .mobile-bank-shell.view-transfer .transfer-recipient-phone-input {
