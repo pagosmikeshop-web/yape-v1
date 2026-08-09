@@ -1553,6 +1553,9 @@ input:focus-visible {
   padding: max(10px, env(safe-area-inset-top)) 12px 10px;
   background: white;
   border-bottom: 1px solid var(--divider);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .transfer-flow-header h1 {
@@ -1591,6 +1594,9 @@ input:focus-visible {
 
 .transfer-flow-content {
   padding: 16px 16px 24px;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .transfer-search {
@@ -1737,6 +1743,9 @@ input:focus-visible {
   padding: 12px 16px max(12px, env(safe-area-inset-bottom));
   background: white;
   border-top: 1px solid var(--divider);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Pantalla de número nuevo: el formulario ocupa el espacio disponible y el

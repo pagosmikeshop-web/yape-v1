@@ -1037,6 +1037,77 @@ canvas {
   object-fit: contain;
 }
 
+/*
+ * Transferencia: el teclado Android puede exponer offsetLeft del visual
+ * viewport al intentar mantener un campo enfocado visible. La pantalla de
+ * transferencia permanece anclada al eje X y solo ajusta su altura.
+ */
+.mobile-bank-shell.view-transfer,
+.mobile-bank-shell.view-transfer .bank-scroll-area,
+.mobile-bank-shell.view-transfer .transfer-amount-screen,
+.mobile-bank-shell.view-transfer .transfer-flow-content,
+.mobile-bank-shell.view-transfer .transfer-flow-footer,
+.mobile-bank-shell.view-transfer .transfer-amount-actions,
+.mobile-bank-shell.view-transfer .transfer-message-field {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.mobile-bank-shell.view-transfer .transfer-amount-screen,
+.mobile-bank-shell.view-transfer .transfer-amount-content {
+  overflow-x: clip;
+}
+
+.mobile-bank-shell.view-transfer .transfer-recipient-editor,
+.mobile-bank-shell.view-transfer .transfer-recipient-name-input,
+.mobile-bank-shell.view-transfer .transfer-recipient-phone-input,
+.mobile-bank-shell.view-transfer .transfer-amount-field,
+.mobile-bank-shell.view-transfer .transfer-amount-hint {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.mobile-bank-shell.view-transfer .transfer-recipient-name-input,
+.mobile-bank-shell.view-transfer .transfer-message-field input {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mobile-bank-shell.view-transfer .transfer-amount-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: clamp(8px, 2vw, 10px);
+  width: min(90vw, 371px);
+}
+
+.mobile-bank-shell.view-transfer .transfer-amount-actions > button {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 599px) {
+  .banking-stage:has(.mobile-bank-shell.view-transfer) {
+    left: 0;
+    width: var(--app-viewport-width, 100vw);
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-message-field input,
+  .mobile-bank-shell.view-transfer .transfer-recipient-name-input,
+  .mobile-bank-shell.view-transfer .transfer-recipient-phone-input {
+    font-size: max(16px, 1em);
+  }
+
+  .mobile-bank-shell.view-transfer .transfer-amount-footer {
+    width: 100%;
+    max-width: 100%;
+    padding-inline: max(var(--app-inline-gutter), var(--app-safe-left))
+      max(var(--app-inline-gutter), var(--app-safe-right));
+  }
+}
+
 /* Keep interactive controls usable while the viewport narrows or text grows. */
 .mobile-bank-shell button,
 .mobile-bank-shell a,

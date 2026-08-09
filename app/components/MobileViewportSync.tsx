@@ -42,6 +42,26 @@ function findScrollContainer(element: HTMLElement) {
 }
 
 /**
+ * Android puede conservar un paneo horizontal del layout viewport cuando el
+ * teclado reduce el visual viewport. La transferencia tiene sus propios
+ * scrollers internos; mantenerlos en X=0 evita que el nombre o las acciones
+ * queden parcialmente fuera de pantalla sin tocar el desplazamiento vertical.
+ */
+function resetTransferHorizontalScroll() {
+  const transferShell = document.querySelector<HTMLElement>(
+    ".mobile-bank-shell.view-transfer",
+  );
+  if (!transferShell) return;
+
+  transferShell.scrollLeft = 0;
+  transferShell.querySelectorAll<HTMLElement>(
+    ".bank-scroll-area, .transfer-amount-content, .transfer-flow-content",
+  ).forEach((container) => {
+    if (container.scrollLeft !== 0) container.scrollLeft = 0;
+  });
+}
+
+/**
  * Mantiene el shell alineado con el visual viewport real. La altura base solo
  * se conserva para detectar el teclado; nunca se usa para dimensionar la UI.
  */
@@ -123,6 +143,8 @@ export function MobileViewportSync() {
         root.style.setProperty("--visual-offset-top", `${offsetTop}px`);
         root.style.setProperty("--app-viewport-offset-top", `${offsetTop}px`);
         root.style.setProperty("--app-viewport-offset-left", `${offsetLeft}px`);
+
+        resetTransferHorizontalScroll();
 
         root.dataset.keyboardOpen = keyboardOpen ? "true" : "false";
 
