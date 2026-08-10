@@ -1250,23 +1250,23 @@ canvas {
     inline-size: 100%;
     min-inline-size: 0;
     box-sizing: border-box;
-    min-block-size: clamp(430px, 57svh, 540px);
-    /* Match the reference composition without changing the existing purple. */
-    padding-top: calc(var(--app-safe-top) + clamp(44px, 6.5svh, 58px));
-    padding-bottom: clamp(24px, 4svh, 36px);
+    min-block-size: clamp(340px, 48svh, 460px);
+    /* Keep the QR and access actions visible without pushing the keypad below the viewport. */
+    padding-top: calc(var(--app-safe-top) + clamp(18px, 3svh, 28px));
+    padding-bottom: clamp(16px, 2.5svh, 24px);
   }
 
   .returning-qr {
     inline-size: clamp(148px, 41vw, 190px);
     max-inline-size: 100%;
-    margin-top: clamp(42px, 7svh, 60px);
+    margin-top: 0;
   }
 
   .returning-top-actions {
     flex: 0 0 auto;
     inline-size: 100%;
     max-inline-size: 360px;
-    margin-top: clamp(64px, 8svh, 78px);
+    margin-top: clamp(18px, 2.6svh, 28px);
     align-content: start;
   }
 
@@ -1276,24 +1276,29 @@ canvas {
     min-block-size: 0;
     max-inline-size: 100%;
     margin-top: -20px;
+    padding-block-start: clamp(22px, 3.1svh, 30px);
+  }
+
+  .numeric-keypad button {
+    block-size: clamp(48px, 6.4dvh, 58px);
   }
 }
 
 /* Compact phones keep the same lower composition without hiding the keypad. */
 @media (max-width: 599px) and (max-height: 700px) {
   .returning-purple-panel {
-    min-block-size: clamp(380px, 52svh, 440px);
-    padding-top: calc(var(--app-safe-top) + clamp(40px, 6svh, 50px));
-    padding-bottom: clamp(20px, 3svh, 28px);
+    min-block-size: clamp(320px, 45svh, 390px);
+    padding-top: calc(var(--app-safe-top) + clamp(14px, 2.4svh, 20px));
+    padding-bottom: clamp(14px, 2.2svh, 20px);
   }
 
   .returning-qr {
     inline-size: clamp(140px, 37vw, 158px);
-    margin-top: clamp(38px, 6svh, 46px);
+    margin-top: 0;
   }
 
   .returning-top-actions {
-    margin-top: clamp(50px, 7.5svh, 62px);
+    margin-top: clamp(14px, 2.4svh, 20px);
   }
 
   .returning-keypad-card {
