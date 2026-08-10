@@ -286,7 +286,6 @@
 .mobile-bank-shell .bank-scroll-area:has(.yape-success-voucher),
 .mobile-bank-shell .yape-success-voucher,
 .mobile-bank-shell .yape-success-voucher .voucher-content {
-  min-height: 100% !important;
   background-color: #660185 !important;
 }
 
@@ -339,8 +338,8 @@
 }
 
 .mobile-bank-shell .movement-voucher .voucher-more-section {
-  margin-top: min(5vw, 21px);
-  margin-bottom: min(5vw, 21px);
+  margin-top: min(5cqw, 21px);
+  margin-bottom: min(5cqw, 21px);
 }
 
 .mobile-bank-shell .movement-voucher .voucher-single-promo,
@@ -348,8 +347,8 @@
   display: block;
   width: 100%;
   overflow: hidden;
-  margin-top: min(2vw, 9px);
-  border-radius: min(4vw, 17px);
+  margin-top: min(2cqw, 9px);
+  border-radius: min(4cqw, 17px);
 }
 
 .mobile-bank-shell .movement-voucher .voucher-single-promo-frame img {
@@ -1866,8 +1865,14 @@
 
 /* Comprobante de yapeo recuperado de la captura web original. */
 
+/*
+ * El desplazamiento superior corresponde al contenedor, no a la superficie de
+ * diseño. Valía `min(1vw, 4px)`, es decir 4px en el ancho de referencia de
+ * 412 px. En móvil lo sustituye el relleno de área segura.
+ */
 .mobile-bank-shell .yape-success-voucher {
   min-height: 100%;
+  padding-top: 4px;
   overflow: visible;
   background: #660185;
 }
@@ -1887,16 +1892,19 @@
   object-fit: cover;
 }
 
+/*
+ * La superficie de diseño conserva su ancho constante: no puede volver a
+ * `100%` ni medirse en `vw`, porque es el propio contenedor de consulta.
+ */
 .mobile-bank-shell .yape-success-voucher .voucher-content {
   z-index: 2;
-  width: 100%;
+  width: var(--voucher-design-width);
   align-items: center;
-  padding-top: min(1vw, 4px);
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-banner {
   width: 100%;
-  min-height: min(55vw, 237px);
+  min-height: min(55cqw, 237px);
   padding: 0;
   background: #660185;
 }
@@ -1915,55 +1923,55 @@
 .mobile-bank-shell .yape-success-voucher .voucher-card {
   width: 90%;
   min-height: 0;
-  margin: max(-3.5vw, -16px) auto min(1.5vw, 7px);
-  padding: min(4vw, 17px) min(4.5vw, 19px);
-  border-radius: min(5vw, 22px);
+  margin: max(-3.5cqw, -16px) auto min(1.5cqw, 7px);
+  padding: min(4cqw, 17px) min(4.5cqw, 19px);
+  border-radius: min(5cqw, 22px);
   box-shadow: none;
-  transform: translateY(-1.5vw);
+  transform: translateY(-1.5cqw);
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-card-headline h2 {
   color: #722082;
-  font-size: min(5.4vw, 23px);
+  font-size: min(5.4cqw, 23px);
   line-height: 1.12;
   font-weight: 700;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-card-headline {
-  margin-bottom: min(3vw, 13px);
+  margin-bottom: min(3cqw, 13px);
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-share-button {
   height: auto;
-  gap: min(1.2vw, 6px);
+  gap: min(1.2cqw, 6px);
   color: #0fcbb3;
-  font-size: min(3.6vw, 16px);
+  font-size: min(3.6cqw, 16px);
   font-weight: 700;
-  margin-top: min(1.5vw, 7px);
+  margin-top: min(1.5cqw, 7px);
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-share-button img {
-  width: min(4vw, 18px);
-  height: min(4vw, 18px);
+  width: min(4cqw, 18px);
+  height: min(4cqw, 18px);
   object-fit: contain;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-amount {
   display: flex;
   align-items: flex-start;
-  gap: min(2vw, 8px);
-  margin: 0 0 min(2vw, 9px);
+  gap: min(2cqw, 8px);
+  margin: 0 0 min(2cqw, 9px);
   color: rgb(63, 51, 89);
   line-height: 1;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-amount > span {
-  font-size: min(7.5vw, 32px);
+  font-size: min(7.5cqw, 32px);
   font-weight: 700;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-amount > strong {
-  font-size: min(13vw, 56px);
+  font-size: min(13cqw, 56px);
   font-weight: 600;
 }
 
@@ -1972,10 +1980,10 @@
   justify-content: flex-start;
   align-items: center;
   margin: 0;
-  padding-top: 1vw;
+  padding-top: 1cqw;
   color: #212e41;
   font-family: Roboto, sans-serif;
-  font-size: 5.5vw;
+  font-size: 5.5cqw;
   font-weight: 700;
   font-style: normal;
   line-height: normal;
@@ -1990,10 +1998,10 @@
   align-items: center;
   gap: 0;
   margin: 0;
-  padding: 2.5vw 0 4vw;
+  padding: 2.5cqw 0 4cqw;
   color: #6d6d6d;
   font-family: Roboto, sans-serif;
-  font-size: 4.3vw;
+  font-size: 4.3cqw;
   font-weight: 500;
   font-style: normal;
   line-height: normal;
@@ -2008,14 +2016,14 @@
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-datetime img {
-  width: 4vw;
-  height: 4vw;
-  margin-right: 1.5vw;
+  width: 4cqw;
+  height: 4cqw;
+  margin-right: 1.5cqw;
   object-fit: contain;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-datetime i {
-  margin: 0 1.5vw;
+  margin: 0 1.5cqw;
   font-style: normal;
 }
 
@@ -2026,9 +2034,9 @@
   justify-content: space-between;
   gap: 0;
   min-height: 0;
-  padding: 4vw 0;
-  border-top: 0.3vw solid #f0f0f0;
-  border-bottom: 0.3vw solid #f0f0f0;
+  padding: 4cqw 0;
+  border-top: 0.3cqw solid #f0f0f0;
+  border-bottom: 0.3cqw solid #f0f0f0;
   box-sizing: border-box;
   font-family: Roboto, sans-serif;
   font-style: normal;
@@ -2041,7 +2049,7 @@
   gap: 7px;
   color: #726f7e;
   font-family: Roboto, sans-serif;
-  font-size: 3vw;
+  font-size: 3cqw;
   font-weight: 600;
   font-style: normal;
   line-height: normal;
@@ -2050,8 +2058,8 @@
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-section-label img {
-  width: min(5vw, 22px);
-  height: min(5vw, 22px);
+  width: min(5cqw, 22px);
+  height: min(5cqw, 22px);
   object-fit: contain;
 }
 
@@ -2063,19 +2071,19 @@
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-security-digits span {
-  width: 6vw;
-  height: 6vw;
+  width: 6cqw;
+  height: 6cqw;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 0 0.5vw;
-  padding: 1vw;
-  border-radius: 1vw;
+  margin: 0 0.5cqw;
+  padding: 1cqw;
+  border-radius: 1cqw;
   box-sizing: border-box;
   color: #191120;
   background-color: #edecf4;
   font-family: Roboto, sans-serif;
-  font-size: 4.5vw;
+  font-size: 4.5cqw;
   font-weight: 500;
   font-style: normal;
   line-height: normal;
@@ -2084,7 +2092,7 @@
 
 .mobile-bank-shell .yape-success-voucher .voucher-details {
   width: 100%;
-  padding: 0 0 1vw;
+  padding: 0 0 1cqw;
   font-family: Roboto, sans-serif;
   font-style: normal;
   letter-spacing: normal;
@@ -2095,7 +2103,7 @@
   .voucher-details
   > .voucher-section-label {
   margin: 0;
-  padding: 4vw 0 3vw;
+  padding: 4cqw 0 3cqw;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-details > div {
@@ -2106,10 +2114,10 @@
   gap: 0;
   min-height: 0;
   margin: 0;
-  padding: 1vw 0;
+  padding: 1cqw 0;
   color: #231b3a;
   font-family: Roboto, sans-serif;
-  font-size: 3.9vw;
+  font-size: 3.9cqw;
   font-style: normal;
   line-height: normal;
   letter-spacing: normal;
@@ -2152,42 +2160,42 @@
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-new-yape-button {
-  height: min(10vw, 41px);
-  margin: min(2.5vw, 1px) auto 0;
-  border-radius: min(2vw, 8px);
+  height: min(10cqw, 41px);
+  margin: min(2.5cqw, 1px) auto 0;
+  border-radius: min(2cqw, 8px);
   background: #06c7b2;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-help-link {
-  margin: min(3.5vw, 16px) auto 0;
+  margin: min(3.5cqw, 16px) auto 0;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-more-section {
-  min-height: min(54vw, 232px);
-  margin: min(2vw, 9px) auto min(5vw, 22px);
-  padding: min(4vw, 17px);
-  border-radius: min(4vw, 17px);
+  min-height: min(54cqw, 232px);
+  margin: min(2cqw, 9px) auto min(5cqw, 22px);
+  padding: min(4cqw, 17px);
+  border-radius: min(4cqw, 17px);
   background: #52016a;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-more-section h3 {
-  font-size: min(4.5vw, 19px);
+  font-size: min(4.5cqw, 19px);
   font-weight: 500;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-new-badge {
-  margin-left: min(2vw, 9px);
-  padding: min(1vw, 4px) min(2.2vw, 9px);
-  border-radius: min(2.2vw, 9px);
+  margin-left: min(2cqw, 9px);
+  padding: min(1cqw, 4px) min(2.2cqw, 9px);
+  border-radius: min(2.2cqw, 9px);
   color: #000;
   background: rgb(246, 195, 28);
-  font-size: min(2.9vw, 12px);
+  font-size: min(2.9cqw, 12px);
   font-weight: 600;
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-promo-banner {
-  height: min(37vw, 159px);
-  border-radius: min(4vw, 17px);
+  height: min(37cqw, 159px);
+  border-radius: min(4cqw, 17px);
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-promo-image {
@@ -2544,11 +2552,11 @@
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-validity-label {
-  margin: min(1vw, 4px) 0 0;
-  padding: min(1vw, 4px) 0 0;
+  margin: min(1cqw, 4px) 0 0;
+  padding: min(1cqw, 4px) 0 0;
   border-top: 1px dashed #cfc9d3;
   color: #722082;
-  font-size: min(2.65vw, 11px);
+  font-size: min(2.65cqw, 11px);
   font-weight: 800;
   letter-spacing: 0.055em;
   text-align: center;
@@ -2562,15 +2570,15 @@
   display: block;
   width: 100%;
   overflow: hidden;
-  margin-top: min(2vw, 9px);
-  border-radius: min(4vw, 17px);
+  margin-top: min(2cqw, 9px);
+  border-radius: min(4cqw, 17px);
 }
 
 .mobile-bank-shell .yape-success-voucher .voucher-single-promo-frame img {
   width: 100%;
   height: auto;
   display: block;
-  border-radius: min(4vw, 17px);
+  border-radius: min(4cqw, 17px);
   object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;

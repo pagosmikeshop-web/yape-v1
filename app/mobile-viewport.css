@@ -10,7 +10,14 @@
   /* MobileViewportSync reemplaza estos fallbacks con visualViewport en runtime. */
   --app-height: 100svh;
   --visible-app-height: var(--app-height);
-  --app-viewport-height: var(--app-height);
+  /*
+   * Dimensionar usa el viewport de maquetación. Con viewport-fit=cover este
+   * incluye las áreas seguras, mientras que visualViewport.height las excluye:
+   * tomarlo de --app-height dejaba el shell fijo más corto que la pantalla y
+   * exponía el fondo del documento como una franja inferior. --app-height solo
+   * vuelve a dimensionar mientras el teclado está abierto (regla más abajo).
+   */
+  --app-viewport-height: 100svh;
   --app-viewport-width: 100vw;
   --app-viewport-offset-top: 0px;
   --app-viewport-offset-left: 0px;
@@ -39,13 +46,23 @@
 @supports (height: 100svh) {
   :root {
     --app-height: 100svh;
+    --app-viewport-height: 100svh;
   }
 }
 
 @supports (height: 100dvh) {
   :root {
     --app-height: 100dvh;
+    --app-viewport-height: 100dvh;
   }
+}
+
+/*
+ * El teclado es el único caso en el que la UI debe encogerse respecto al
+ * viewport de maquetación: ahí sí manda la medición del visual viewport.
+ */
+html[data-keyboard-open="true"] {
+  --app-viewport-height: var(--app-height);
 }
 
 :root,
@@ -128,10 +145,24 @@ canvas {
 .site-stage,
 .banking-stage {
   width: 100%;
-  height: var(--visible-app-height, var(--app-viewport-height));
-  min-height: var(--visible-app-height, var(--app-viewport-height));
-  max-height: var(--visible-app-height, var(--app-viewport-height));
+  height: var(--app-viewport-height);
+  min-height: var(--app-viewport-height);
+  max-height: var(--app-viewport-height);
   background: var(--app-shell-bg);
+}
+
+/*
+ * Fuera de móvil, con el teclado abierto se recupera la compensación completa
+ * de visualViewport (alto visible + desplazamiento). En móvil la regla de
+ * `max-width: 599px` sigue usando solo el alto visible, como antes.
+ */
+@media (min-width: 600px) {
+  html[data-keyboard-open="true"] .site-stage,
+  html[data-keyboard-open="true"] .banking-stage {
+    height: var(--visible-app-height, var(--app-viewport-height));
+    min-height: var(--visible-app-height, var(--app-viewport-height));
+    max-height: var(--visible-app-height, var(--app-viewport-height));
+  }
 }
 
 /* Login conserva el morado; la banca usa blanco para no filtrar franjas. */
@@ -440,8 +471,7 @@ canvas {
   }
 
   .mobile-bank-shell .yape-voucher,
-  .mobile-bank-shell .yape-success-voucher,
-  .mobile-bank-shell .yape-success-voucher .voucher-content {
+  .mobile-bank-shell .yape-success-voucher {
     width: 100% !important;
     min-height: 100% !important;
     background: #660185 !important;
@@ -449,13 +479,25 @@ canvas {
     background-image: none !important;
   }
 
-  .mobile-bank-shell .yape-success-voucher .voucher-content {
+  /*
+   * Las áreas seguras las aplica el contenedor exterior, nunca la superficie
+   * de diseño: así el comprobante exportado mide siempre lo mismo y no lleva
+   * dentro de la imagen los márgenes del dispositivo.
+   */
+  .mobile-bank-shell .yape-voucher,
+  .mobile-bank-shell .yape-success-voucher {
     box-sizing: border-box !important;
-    height: auto !important;
     padding-top: max(8px, var(--app-safe-top)) !important;
     padding-right: var(--app-safe-right) !important;
     padding-bottom: max(12px, var(--app-safe-bottom)) !important;
     padding-left: var(--app-safe-left) !important;
+  }
+
+  .mobile-bank-shell .yape-success-voucher .voucher-content {
+    height: auto !important;
+    background: #660185 !important;
+    background-color: #660185 !important;
+    background-image: none !important;
   }
 
   /*
@@ -518,86 +560,86 @@ canvas {
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-banner {
-    min-height: clamp(178px, 48vw, 206px);
+    min-height: clamp(178px, 48cqw, 206px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-card {
-    width: calc(100% - clamp(30px, 8vw, 38px));
-    margin: clamp(-15px, -3vw, -10px) auto 4px;
-    padding: clamp(13px, 3.4vw, 16px) clamp(14px, 3.8vw, 18px);
-    border-radius: clamp(18px, 4.8vw, 21px);
+    width: calc(100% - clamp(30px, 8cqw, 38px));
+    margin: clamp(-15px, -3cqw, -10px) auto 4px;
+    padding: clamp(13px, 3.4cqw, 16px) clamp(14px, 3.8cqw, 18px);
+    border-radius: clamp(18px, 4.8cqw, 21px);
     transform: none;
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-card-headline {
-    margin-bottom: clamp(6px, 1.8vw, 8px);
+    margin-bottom: clamp(6px, 1.8cqw, 8px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-card-headline
     h2 {
-    font-size: clamp(20px, 5.1vw, 23px);
+    font-size: clamp(20px, 5.1cqw, 23px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-amount {
-    gap: clamp(5px, 1.5vw, 7px);
-    margin-bottom: clamp(5px, 1.5vw, 7px);
+    gap: clamp(5px, 1.5cqw, 7px);
+    margin-bottom: clamp(5px, 1.5cqw, 7px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-amount
     > span {
-    font-size: clamp(27px, 7vw, 31px);
+    font-size: clamp(27px, 7cqw, 31px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-amount
     > strong {
-    font-size: clamp(44px, 11.8vw, 51px);
+    font-size: clamp(44px, 11.8cqw, 51px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-recipient {
     padding-top: 0;
-    font-size: clamp(19px, 5vw, 22px);
+    font-size: clamp(19px, 5cqw, 22px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-datetime {
-    padding: clamp(7px, 2vw, 9px) 0 clamp(10px, 2.7vw, 12px);
-    font-size: clamp(14px, 3.8vw, 17px);
+    padding: clamp(7px, 2cqw, 9px) 0 clamp(10px, 2.7cqw, 12px);
+    font-size: clamp(14px, 3.8cqw, 17px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-security {
-    padding: clamp(10px, 2.8vw, 12px) 0;
+    padding: clamp(10px, 2.8cqw, 12px) 0;
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-details
     > .voucher-section-label {
-    padding: clamp(10px, 2.8vw, 12px) 0 clamp(7px, 2vw, 9px);
+    padding: clamp(10px, 2.8cqw, 12px) 0 clamp(7px, 2cqw, 9px);
   }
 
   .mobile-bank-shell
     .yape-success-voucher:not(.movement-voucher)
     .voucher-details
     > div {
-    padding: clamp(3px, 0.9vw, 4px) 0;
-    font-size: clamp(14px, 3.8vw, 17px);
+    padding: clamp(3px, 0.9cqw, 4px) 0;
+    font-size: clamp(14px, 3.8cqw, 17px);
   }
 
   .mobile-bank-shell
@@ -969,11 +1011,20 @@ canvas {
 .mobile-bank-shell .reference-home,
 .mobile-bank-shell .home-account-sheet,
 .mobile-bank-shell .account-disclosure,
-.mobile-bank-shell .voucher-content,
 .mobile-bank-shell .voucher-share-capture,
 .mobile-bank-shell .voucher-banner {
   min-inline-size: 0;
   max-inline-size: 100%;
+}
+
+/*
+ * `.voucher-content` queda fuera del tope anterior a propósito: es la
+ * superficie de diseño y debe conservar su ancho constante aunque el
+ * dispositivo sea más estrecho. De reducirla aquí, la escala uniforme
+ * dejaría de tener una referencia fija.
+ */
+.mobile-bank-shell .voucher-content {
+  min-inline-size: 0;
 }
 
 .mobile-bank-shell img,
@@ -1013,7 +1064,7 @@ canvas {
 .mobile-bank-shell .voucher-banner {
   position: relative;
   inline-size: 100%;
-  min-block-size: clamp(176px, 55vw, 237px);
+  min-block-size: clamp(176px, 55cqw, 237px);
   overflow: hidden;
 }
 

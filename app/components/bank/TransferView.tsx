@@ -28,6 +28,7 @@ import {
   shareVoucherImage,
   VoucherSinglePromo,
 } from "./MovementVoucher";
+import { useVoucherScale } from "./useVoucherScale";
 import type {
   ContactPickerNavigator,
   PhoneContact,
@@ -128,6 +129,7 @@ export function TransferView() {
   } | null>(null);
   const [voucherShareFile, setVoucherShareFile] = useState<File | null>(null);
   const voucherCaptureRef = useRef<HTMLDivElement>(null);
+  useVoucherScale(voucherCaptureRef);
   const transferSubmittingRef = useRef(false);
   const recipientLookupAbortRef = useRef<AbortController | null>(null);
   const recipientLookupSequenceRef = useRef(0);

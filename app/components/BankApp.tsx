@@ -42,6 +42,7 @@ import {
   shareVoucherImage,
   VoucherSinglePromo,
 } from "./bank/MovementVoucher";
+import { useVoucherScale } from "./bank/useVoucherScale";
 import { HomeView } from "./bank/HomeView";
 import { contactInitials, maskPhone, TransferView } from "./bank/TransferView";
 import { RecipientContactsView } from "./bank/RecipientContactsView";
@@ -1771,6 +1772,7 @@ function ConfiguredVoucherReceipt({
   const [shareNotice, setShareNotice] = useState("");
   const [voucherShareFile, setVoucherShareFile] = useState<File | null>(null);
   const voucherCaptureRef = useRef<HTMLDivElement>(null);
+  useVoucherScale(voucherCaptureRef);
   const amountValue = Number(voucher.amount);
   const voucherHero = getVoucherHero(amountValue);
   const voucherDate = new Date(`${voucher.date}T${voucher.time || "00:00"}:00`);

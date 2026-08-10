@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { APK_ASSET_ROOT, AssetIcon } from "./primitives";
 import type { Movement } from "./types";
+import { useVoucherScale } from "./useVoucherScale";
 
 export function isYapeDestination(destination: string) {
   return destination.trim().toLocaleLowerCase("es-PE") === "yape";
@@ -242,6 +243,17 @@ export async function createVoucherImage(
       backgroundColor: "#660185",
       cacheBust: false,
       pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      /*
+       * La imagen se genera siempre sobre la superficie de diseño sin escalar
+       * ni desplazar. html-to-image mide el nodo con offsetWidth/offsetHeight,
+       * que ignoran la transformación, así que anular la escala y los márgenes
+       * negativos de encaje deja un PNG de tamaño y composición idénticos en
+       * cualquier dispositivo.
+       */
+      style: {
+        transform: "none",
+        margin: "0",
+      },
     });
 
     if (!blob) throw new Error("No se pudo generar la imagen del comprobante.");
@@ -377,6 +389,7 @@ export function MovementVoucher({
   const [shareNotice, setShareNotice] = useState("");
   const [voucherShareFile, setVoucherShareFile] = useState<File | null>(null);
   const voucherCaptureRef = useRef<HTMLDivElement>(null);
+  useVoucherScale(voucherCaptureRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -531,12 +544,18 @@ export function MovementVoucher({
           </h3>
           <VoucherSinglePromo />
         </div>
-        {shareNotice ? (
-          <p className="inline-notice voucher-notice" role="status">
-            {shareNotice}
-          </p>
-        ) : null}
       </div>
+      {/*
+       * El aviso se posiciona con `position: fixed` respecto al viewport. Debe
+       * quedar fuera de la superficie de diseño: dentro, la transformación de
+       * escala lo reanclaría al comprobante y además entraría en la imagen
+       * exportada.
+       */}
+      {shareNotice ? (
+        <p className="inline-notice voucher-notice" role="status">
+          {shareNotice}
+        </p>
+      ) : null}
       <button
         type="button"
         className="voucher-close-button"

@@ -878,7 +878,12 @@ input:focus-visible {
   font-weight: 500;
 }
 
-.movement-voucher .voucher-content {
+/*
+ * El margen inferior de desplazamiento vive en el contenedor exterior. Dentro
+ * de la superficie de diseño metería el inset del dispositivo en la imagen
+ * exportada y haría que el PNG midiera distinto en cada teléfono.
+ */
+.movement-voucher {
   padding-bottom: max(28px, calc(20px + env(safe-area-inset-bottom, 0px)));
 }
 
@@ -1207,11 +1212,27 @@ input:focus-visible {
 
 /* Voucher de éxito de Yapear (YapearVoucherScreen): banner tipo billete + card de comprobante */
 
+/*
+ * Superficie de diseño del comprobante.
+ *
+ * El comprobante se compone siempre sobre un ancho constante
+ * (--voucher-design-width, los mismos 412 px de la captura APK de referencia).
+ * Dentro de esa superficie los porcentajes y las unidades de contenedor (cqw)
+ * se resuelven contra ese ancho fijo, de modo que la composición interna no
+ * depende del dispositivo. Para caber en pantallas más estrechas la superficie
+ * se reduce entera con una única escala uniforme; los márgenes negativos
+ * devuelven al flujo el espacio que la escala visual ya no ocupa, así no
+ * aparecen huecos morados debajo ni desbordes laterales.
+ *
+ * --voucher-scale y --voucher-surface-height los publica useVoucherScale.
+ */
 .yape-voucher {
+  --voucher-design-width: 412px;
   position: relative;
   isolation: isolate;
   display: flex;
   flex-direction: column;
+  align-items: center;
   min-height: 100%;
   overflow: hidden;
   background: #660185;
@@ -1222,7 +1243,17 @@ input:focus-visible {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  container-type: inline-size;
+  width: var(--voucher-design-width);
+  min-height: 0;
+  margin-inline: calc(
+    (var(--voucher-scale, 1) - 1) * var(--voucher-design-width) / 2
+  );
+  margin-block-end: calc(
+    (var(--voucher-scale, 1) - 1) * var(--voucher-surface-height, 0px)
+  );
+  transform: scale(var(--voucher-scale, 1));
+  transform-origin: top center;
 }
 
 .voucher-confetti {
@@ -5742,7 +5773,7 @@ input:focus-visible {
   z-index: 1;
   margin: 12px 0 5px;
   color: #fff;
-  font-size: clamp(27px, 8vw, 34px);
+  font-size: clamp(27px, 8cqw, 34px);
   line-height: 1;
 }
 
