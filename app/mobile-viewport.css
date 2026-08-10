@@ -1252,21 +1252,21 @@ canvas {
     box-sizing: border-box;
     min-block-size: clamp(340px, 48svh, 460px);
     /* Keep the QR and access actions visible without pushing the keypad below the viewport. */
-    padding-top: calc(var(--app-safe-top) + clamp(34px, 4.6svh, 44px));
+    padding-top: calc(var(--app-safe-top) + clamp(36px, 4.8svh, 46px));
     padding-bottom: clamp(16px, 2.5svh, 24px);
   }
 
   .returning-qr {
     inline-size: clamp(148px, 41vw, 190px);
     max-inline-size: 100%;
-    margin-top: clamp(12px, 1.6svh, 16px);
+    margin-top: clamp(14px, 1.8svh, 18px);
   }
 
   .returning-top-actions {
     flex: 0 0 auto;
     inline-size: 100%;
     max-inline-size: 360px;
-    margin-top: clamp(26px, 3.6svh, 36px);
+    margin-top: clamp(28px, 3.8svh, 38px);
     align-content: start;
   }
 
@@ -1288,17 +1288,17 @@ canvas {
 @media (max-width: 599px) and (max-height: 700px) {
   .returning-purple-panel {
     min-block-size: clamp(320px, 45svh, 390px);
-    padding-top: calc(var(--app-safe-top) + clamp(27px, 4svh, 33px));
+    padding-top: calc(var(--app-safe-top) + clamp(29px, 4.2svh, 35px));
     padding-bottom: clamp(14px, 2.2svh, 20px);
   }
 
   .returning-qr {
     inline-size: clamp(140px, 37vw, 158px);
-    margin-top: clamp(10px, 1.4svh, 14px);
+    margin-top: clamp(12px, 1.6svh, 16px);
   }
 
   .returning-top-actions {
-    margin-top: clamp(22px, 3.3svh, 28px);
+    margin-top: clamp(24px, 3.5svh, 30px);
   }
 
   .returning-keypad-card {
