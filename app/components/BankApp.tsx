@@ -1360,6 +1360,7 @@ function remainingAccessDays(accessExpiresAt: string | null) {
 function AccountDataView() {
   const [user, setUser] = useState<AccountHubUser | null>(null);
   const [accessExpanded, setAccessExpanded] = useState(false);
+  const [referralExpanded, setReferralExpanded] = useState(false);
   const [accessToken, setAccessToken] = useState("");
   const [accessMessage, setAccessMessage] = useState("");
   const [claimingAccess, setClaimingAccess] = useState(false);
@@ -1524,87 +1525,106 @@ function AccountDataView() {
             <i />
           </div>
           <header>
-            <span className="account-referral-icon">+3</span>
-            <div>
-              <span>PROGRAMA DE INVITACIONES</span>
-              <h2 id="account-referral-title">Gana días con tu código</h2>
-            </div>
-            <strong>
-              {referral
-                ? `${referral.remainingRedemptions}/${referral.redemptionLimit}`
-                : "—"}
-            </strong>
-          </header>
-          <p>
-            Comparte tu código. Otra persona debe entrar al grupo y usar el
-            comando desde su propia cuenta de Telegram.
-          </p>
-          <div className="account-referral-code">
-            <span>
-              <small>Tu código personal</small>
-              <strong>
-                {referral?.code || user?.referralCode || "Preparando…"}
-              </strong>
-            </span>
             <button
               type="button"
-              disabled={!referral?.code}
-              onClick={() =>
-                referral?.code &&
-                void copyReferral(referral.code, "Código copiado.")
-              }
+              className="account-referral-toggle"
+              onClick={() => setReferralExpanded((current) => !current)}
+              aria-expanded={referralExpanded}
+              aria-controls="account-referral-details"
             >
-              Copiar
-            </button>
-          </div>
-          <div className="account-referral-command">
-            <code>
-              {referral?.command ||
-                (user?.referralCode
-                  ? `/redeem ${user.referralCode}`
-                  : "/redeem CODIGO")}
-            </code>
-            <button
-              type="button"
-              disabled={!referral?.command}
-              onClick={() =>
-                referral?.command &&
-                void copyReferral(referral.command, "Comando copiado.")
-              }
-            >
-              Copiar comando
-            </button>
-          </div>
-          <ol>
-            <li>
-              <i>1</i>
-              <span>Comparte tu código con otra persona.</span>
-            </li>
-            <li>
-              <i>2</i>
-              <span>Esa persona entra al grupo de Telegram.</span>
-            </li>
-            <li>
-              <i>3</i>
-              <span>
-                Escribe el comando y tú recibes {referral?.rewardDays ?? 3}{" "}
-                días.
+              <span className="account-referral-icon">+3</span>
+              <span className="account-referral-heading">
+                <span>PROGRAMA DE INVITACIONES</span>
+                <span className="account-referral-title" id="account-referral-title">
+                  Gana días con tu código
+                </span>
               </span>
-            </li>
-          </ol>
-          <footer>
-            <span>
-              <strong>{referral?.usedRedemptions ?? 0}</strong> canjes usados
-            </span>
-            <a href={referral?.groupUrl || "/api/telegram/group"}>
-              Abrir grupo de Telegram
-            </a>
-          </footer>
-          {referralNotice ? (
-            <p className="account-referral-notice" role="status">
-              {referralNotice}
-            </p>
-          ) : null}
+              <strong>
+                {referral
+                  ? `${referral.remainingRedemptions}/${referral.redemptionLimit}`
+                  : "—"}
+              </strong>
+              <span className="account-referral-chevron" aria-hidden="true">
+                {referralExpanded ? "⌃" : "⌄"}
+              </span>
+            </button>
+          </header>
+          <div
+            id="account-referral-details"
+            className="account-referral-details"
+            hidden={!referralExpanded}
+          >
+              <p>
+                Comparte tu código. Otra persona debe entrar al grupo y usar el
+                comando desde su propia cuenta de Telegram.
+              </p>
+              <div className="account-referral-code">
+                <span>
+                  <small>Tu código personal</small>
+                  <strong>
+                    {referral?.code || user?.referralCode || "Preparando…"}
+                  </strong>
+                </span>
+                <button
+                  type="button"
+                  disabled={!referral?.code}
+                  onClick={() =>
+                    referral?.code &&
+                    void copyReferral(referral.code, "Código copiado.")
+                  }
+                >
+                  Copiar
+                </button>
+              </div>
+              <div className="account-referral-command">
+                <code>
+                  {referral?.command ||
+                    (user?.referralCode
+                      ? `/redeem ${user.referralCode}`
+                      : "/redeem CODIGO")}
+                </code>
+                <button
+                  type="button"
+                  disabled={!referral?.command}
+                  onClick={() =>
+                    referral?.command &&
+                    void copyReferral(referral.command, "Comando copiado.")
+                  }
+                >
+                  Copiar comando
+                </button>
+              </div>
+              <ol>
+                <li>
+                  <i>1</i>
+                  <span>Comparte tu código con otra persona.</span>
+                </li>
+                <li>
+                  <i>2</i>
+                  <span>Esa persona entra al grupo de Telegram.</span>
+                </li>
+                <li>
+                  <i>3</i>
+                  <span>
+                    Escribe el comando y tú recibes {referral?.rewardDays ?? 3}{" "}
+                    días.
+                  </span>
+                </li>
+              </ol>
+              <footer>
+                <span>
+                  <strong>{referral?.usedRedemptions ?? 0}</strong> canjes usados
+                </span>
+                <a href={referral?.groupUrl || "/api/telegram/group"}>
+                  Abrir grupo de Telegram
+                </a>
+              </footer>
+              {referralNotice ? (
+                <p className="account-referral-notice" role="status">
+                  {referralNotice}
+                </p>
+              ) : null}
+          </div>
         </section>
 
         <section

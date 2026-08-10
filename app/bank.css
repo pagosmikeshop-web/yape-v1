@@ -2930,10 +2930,45 @@ input:focus-visible {
 .account-referral-orbit i:nth-child(3) { left: 11px; bottom: 25px; width: 5px; height: 5px; }
 
 .account-referral-card > header {
+  display: block;
+}
+
+.account-referral-toggle {
+  width: 100%;
   display: grid;
-  grid-template-columns: 47px minmax(0, 1fr) auto;
+  grid-template-columns: 47px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 11px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-referral-toggle:focus-visible {
+  outline: 2px solid #7c1e8a;
+  outline-offset: 4px;
+  border-radius: 15px;
+}
+
+.account-referral-toggle:active { transform: scale(.99); }
+
+.account-referral-heading { min-width: 0; display: grid; gap: 3px; }
+.account-referral-heading > span:first-child { color: #16847b; font-size: 8.5px; font-weight: 900; letter-spacing: .12em; }
+.account-referral-title { margin: 0; color: #3b2141; font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+.account-referral-chevron { color: #641770; font-size: 18px; font-weight: 900; line-height: 1; }
+
+.account-referral-details {
+  display: grid;
+  gap: 13px;
+  animation: account-referral-details-in 180ms ease-out both;
+}
+
+.account-referral-details[hidden] {
+  display: none;
 }
 
 .account-referral-icon {
@@ -2950,10 +2985,7 @@ input:focus-visible {
   animation: account-referral-icon 2.4s ease-in-out infinite;
 }
 
-.account-referral-card > header > div { min-width: 0; display: grid; gap: 3px; }
-.account-referral-card > header > div > span { color: #16847b; font-size: 8.5px; font-weight: 900; letter-spacing: .12em; }
-.account-referral-card h2 { margin: 0; color: #3b2141; font-size: 17px; letter-spacing: -.02em; }
-.account-referral-card > header > strong {
+.account-referral-toggle > strong {
   padding: 7px 9px;
   border-radius: 999px;
   color: #641770;
@@ -2962,7 +2994,7 @@ input:focus-visible {
   animation: account-referral-pill 2.4s ease-in-out infinite;
 }
 
-.account-referral-card > p { margin: 0; color: #756a78; font-size: 10.5px; line-height: 1.5; }
+.account-referral-details > p { margin: 0; color: #756a78; font-size: 10.5px; line-height: 1.5; }
 
 .account-referral-code,
 .account-referral-command {
@@ -3049,16 +3081,16 @@ input:focus-visible {
   font-weight: 850;
 }
 
-.account-referral-card > footer {
+.account-referral-details > footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.account-referral-card > footer span { color: #837886; font-size: 9px; }
-.account-referral-card > footer span strong { color: #5d1968; font-size: 13px; }
-.account-referral-card > footer a {
+.account-referral-details > footer span { color: #837886; font-size: 9px; }
+.account-referral-details > footer span strong { color: #5d1968; font-size: 13px; }
+.account-referral-details > footer a {
   padding: 9px 11px;
   border-radius: 11px;
   color: #126f68;
@@ -3267,6 +3299,11 @@ input:focus-visible {
   50% { box-shadow: 0 0 18px rgba(104, 24, 118, .16); }
 }
 
+@keyframes account-referral-details-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 430px) {
   .account-referral-card ol { grid-template-columns: 1fr; }
   .account-referral-card li { min-height: 42px; }
@@ -3276,12 +3313,12 @@ input:focus-visible {
   .account-hub-content { padding-inline: 12px; }
   .account-hub-section { padding-inline: 12px; }
   .account-referral-card { padding-inline: 14px; }
-  .account-referral-card > header { grid-template-columns: 42px minmax(0, 1fr); }
-  .account-referral-card > header > strong { grid-column: 2; justify-self: start; }
+  .account-referral-toggle { grid-template-columns: 42px minmax(0, 1fr) auto auto; gap: 8px; }
+  .account-referral-toggle > strong { padding: 6px 7px; font-size: 10px; }
   .account-referral-icon { width: 42px; height: 42px; }
   .account-referral-card ol { grid-template-columns: 1fr; }
-  .account-referral-card > footer { align-items: stretch; flex-direction: column; }
-  .account-referral-card > footer a { text-align: center; }
+  .account-referral-details > footer { align-items: stretch; flex-direction: column; }
+  .account-referral-details > footer a { text-align: center; }
   .account-hub-status-card { grid-template-columns: 42px 1fr; }
   .account-hub-avatar { width: 42px; height: 42px; }
   .account-hub-status-card .account-hub-status {
@@ -4590,7 +4627,9 @@ input:focus-visible {
   .account-referral-card::before,
   .account-referral-orbit,
   .account-referral-icon,
-  .account-referral-card > header > strong,
+  .account-referral-toggle,
+  .account-referral-toggle > strong,
+  .account-referral-details,
   .account-referral-code button,
   .account-referral-command button {
     animation: none;
