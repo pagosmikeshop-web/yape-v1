@@ -415,16 +415,6 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   const redirectInFlightRef = useRef(false);
 
   useEffect(() => {
-    const root = document.documentElement;
-    const isUnauthenticatedLogin = screen === "login" && sessionUser === null;
-
-    if (!isUnauthenticatedLogin) return;
-    root.classList.add("login-viewport");
-
-    return () => root.classList.remove("login-viewport");
-  }, [screen, sessionUser]);
-
-  useEffect(() => {
     if (screen !== "login" || loginSessionCheckStartedRef.current) return;
     loginSessionCheckStartedRef.current = true;
     let cancelled = false;
@@ -785,7 +775,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   }
 
   return (
-    <main className={screen === "login" ? "site-stage login-stage" : "site-stage"}>
+    <main className="site-stage">
       <section className={`bank-app screen-${screen}`} aria-label={content.title}>
         <Header screen={screen} onRefresh={resetForm} />
         <div className="login-card">

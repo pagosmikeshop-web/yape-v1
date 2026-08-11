@@ -1299,13 +1299,22 @@ canvas {
   }
 
   /*
-   * The unauthenticated login uses the same fixed stage. On iOS the generic
-   * visualViewport offset leaves the top and bottom safe-area slices outside
-   * that stage, exposing the purple document background after the white card.
-   * Anchor this route to the layout viewport; the card already owns its
-   * internal scrolling and safe-area padding.
+   * The installed app uses a normal 100vh document flow while the virtual
+   * keyboard is closed. Dynamic viewport units on this iOS PWA end at the
+   * safe-area box and reveal the document background below every shell.
+   * Each shell retains the existing visual-viewport behavior while typing.
    */
-  .site-stage.login-stage {
+  html.app-viewport,
+  html.app-viewport body {
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  html.app-viewport:not([data-keyboard-open="true"]) .site-stage,
+  html.app-viewport:not([data-keyboard-open="true"]) .banking-stage {
     position: relative;
     inset: auto;
     width: 100%;
@@ -1313,20 +1322,6 @@ canvas {
     min-height: 100vh;
     max-height: 100vh;
     transform: none;
-  }
-
-  /*
-   * iOS reports dynamic viewport units inside the standalone safe-area box.
-   * The login follows the reference PWA's normal 100vh flow so its flex card
-   * owns the bottom inset instead of exposing the document below the stage.
-   */
-  html.login-viewport,
-  html.login-viewport body {
-    width: 100%;
-    height: 100vh;
-    min-height: 100vh;
-    max-height: 100vh;
-    overflow: hidden;
   }
 
   .returning-login {

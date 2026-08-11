@@ -48,6 +48,7 @@ function findScrollContainer(element: HTMLElement) {
 export function MobileViewportSync() {
   useEffect(() => {
     const root = document.documentElement;
+    root.classList.add("app-viewport");
     let animationFrame = 0;
     let focusFrame = 0;
     let baselineHeight = 0;
@@ -227,6 +228,7 @@ export function MobileViewportSync() {
       root.style.removeProperty("--visual-offset-top");
       root.style.removeProperty("--app-viewport-offset-top");
       root.style.removeProperty("--app-viewport-offset-left");
+      root.classList.remove("app-viewport");
       delete root.dataset.keyboardOpen;
     };
   }, []);
