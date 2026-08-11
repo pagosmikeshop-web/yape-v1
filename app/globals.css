@@ -533,6 +533,130 @@ select,
   box-shadow: 0 6px 14px rgba(0, 94, 168, 0.18);
 }
 
+/* Acciones principales: una pasada de luz comunica que son controles vivos,
+ * mientras que la elevación conserva una lectura nítida en pantallas móviles. */
+.login-button,
+.telegram-check-button,
+.create-account,
+.welcome-action {
+  --action-shadow: rgba(103, 8, 136, 0.29);
+  --action-sheen: rgba(255, 255, 255, 0.52);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow:
+    0 12px 24px var(--action-shadow),
+    0 2px 5px rgba(37, 9, 48, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(43, 4, 58, 0.14);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms ease;
+}
+
+.login-button::after,
+.telegram-check-button::after,
+.create-account::after,
+.welcome-action::after {
+  content: "";
+  position: absolute;
+  top: -42%;
+  bottom: -42%;
+  left: 0;
+  width: 34%;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--action-sheen), transparent);
+  opacity: 0;
+  transform: translate3d(-210%, 0, 0) skewX(-18deg);
+  animation: auth-action-sheen 900ms cubic-bezier(0.16, 1, 0.3, 1) 480ms both;
+}
+
+.telegram-check-button,
+.create-account-blue {
+  --action-shadow: rgba(0, 94, 168, 0.28);
+}
+
+.welcome-action-secondary {
+  --action-shadow: rgba(103, 8, 136, 0.18);
+  --action-sheen: rgba(166, 43, 209, 0.3);
+}
+
+.login-button:active,
+.telegram-check-button:active,
+.create-account:active,
+.welcome-action:active {
+  transform: scale(0.985);
+  box-shadow:
+    0 6px 14px var(--action-shadow),
+    0 1px 3px rgba(37, 9, 48, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -1px 0 rgba(43, 4, 58, 0.14);
+}
+
+.login-button:focus-visible,
+.telegram-check-button:focus-visible,
+.create-account:focus-visible,
+.welcome-action:focus-visible {
+  outline-color: rgba(255, 255, 255, 0.9);
+}
+
+@media (hover: hover) {
+  .login-button:hover:not(:disabled),
+  .telegram-check-button:hover:not(:disabled),
+  .create-account:hover,
+  .welcome-action:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 16px 28px var(--action-shadow),
+      0 3px 7px rgba(37, 9, 48, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      inset 0 -1px 0 rgba(43, 4, 58, 0.12);
+  }
+
+  .login-button:hover::after,
+  .telegram-check-button:hover::after,
+  .create-account:hover::after,
+  .welcome-action:hover::after {
+    animation: auth-action-sheen 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+.login-button:focus-visible::after,
+.telegram-check-button:focus-visible::after,
+.create-account:focus-visible::after,
+.welcome-action:focus-visible::after {
+  animation: auth-action-sheen 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.login-button:disabled::after,
+.telegram-check-button:disabled::after {
+  animation: none;
+}
+
+@keyframes auth-action-sheen {
+  0% {
+    opacity: 0;
+    transform: translate3d(-210%, 0, 0) skewX(-18deg);
+  }
+
+  14% { opacity: 0.95; }
+
+  86% { opacity: 0.58; }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(410%, 0, 0) skewX(-18deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-button::after,
+  .telegram-check-button::after,
+  .create-account::after,
+  .welcome-action::after {
+    animation: none;
+  }
+}
+
 .ghost-link {
   color: #969197;
   font-size: 12px;
@@ -680,7 +804,11 @@ select,
   border-radius: 14px;
   color: white;
   background: linear-gradient(105deg, #1597e5, #087cc3, #005ea8);
-  box-shadow: 0 8px 16px rgba(0, 94, 168, 0.16);
+  box-shadow:
+    0 12px 24px var(--action-shadow),
+    0 2px 5px rgba(37, 9, 48, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(43, 4, 58, 0.14);
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
