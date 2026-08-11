@@ -323,7 +323,7 @@ function ReturningKeypad({
   }
 
   return (
-    <main className="site-stage">
+    <main className="site-stage returning-keypad-stage">
       <section className="bank-app returning-login" aria-label="Entrar con clave">
         <div className="returning-purple-panel">
           <span className="returning-qr yape-qr-card yape-qr-card-compact">
