@@ -1668,24 +1668,14 @@ a:focus-visible {
   animation: none;
 }
 
-.bank-app.screen-login .login-button::after,
-.bank-app.screen-register .telegram-check-button::after,
+.bank-app.screen-login :is(.login-button, .create-account)::after,
+.bank-app.screen-register :is(.telegram-check-button, .login-button)::after,
 .bank-app :is(.welcome-action-primary, .welcome-action-secondary)::after {
-  animation: auth-action-sheen-premium 2s cubic-bezier(0.16, 1, 0.3, 1) 0.2s infinite;
-}
-
-.bank-app.screen-login .create-account::after,
-.bank-app.screen-register .login-button::after {
-  animation: auth-action-sheen-premium 2s cubic-bezier(0.16, 1, 0.3, 1) 1.1s infinite;
-}
-
-.bank-app.screen-login .create-account-blue::after {
-  animation-delay: 1.5s;
+  animation: auth-action-sheen-premium 5.6s linear 0s infinite;
 }
 
 .bank-app .welcome-action-secondary::after {
   background: linear-gradient(90deg, transparent 0%, rgba(146, 11, 193, 0.16) 28%, rgba(146, 11, 193, 0.58) 50%, rgba(146, 11, 193, 0.16) 72%, transparent 100%);
-  animation-delay: 1.1s;
 }
 
 .bank-app :is(.login-button, .telegram-check-button, .create-account, .welcome-action):focus-visible {
@@ -1731,23 +1721,22 @@ a:focus-visible {
 
 @keyframes auth-action-sheen-premium {
   0%,
-  30%,
   100% {
     opacity: 0;
     transform: translate3d(-190%, 0, 0) skewX(-16deg);
   }
 
-  38% {
-    opacity: 0.34;
-    transform: translate3d(-70%, 0, 0) skewX(-16deg);
-  }
-
-  58% {
-    opacity: 0.84;
-    transform: translate3d(96%, 0, 0) skewX(-16deg);
+  10% {
+    opacity: 0.28;
+    transform: translate3d(-150%, 0, 0) skewX(-16deg);
   }
 
   70% {
+    opacity: 0.84;
+    transform: translate3d(110%, 0, 0) skewX(-16deg);
+  }
+
+  80% {
     opacity: 0;
     transform: translate3d(270%, 0, 0) skewX(-16deg);
   }
