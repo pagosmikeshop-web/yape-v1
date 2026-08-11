@@ -410,6 +410,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   const [registerChecking, setRegisterChecking] = useState(screen === "register");
   const [groupInviteUrl, setGroupInviteUrl] = useState("/api/telegram/group");
   const [accessLookup, setAccessLookup] = useState<AccessLookup | null>(null);
+  const [showWelcome, setShowWelcome] = useState(screen === "login");
   const authActionInFlightRef = useRef(false);
   const loginSessionCheckStartedRef = useRef(false);
   const redirectInFlightRef = useRef(false);
@@ -893,6 +894,22 @@ export function AuthScreen({ screen }: { screen: Screen }) {
           ) : null}
           {screen === "login" ? <p className="version">versión 9.0</p> : null}
         </div>
+        {screen === "login" && showWelcome ? (
+          <div className="welcome-gate" role="dialog" aria-modal="true" aria-labelledby="welcome-title" aria-describedby="welcome-description">
+            <div className="welcome-sheet">
+              <h2 id="welcome-title">¡Bienvenido!</h2>
+              <p id="welcome-description">¿Cómo quieres continuar?</p>
+              <div className="welcome-actions">
+                <button className="welcome-action welcome-action-primary" type="button" autoFocus onClick={() => setShowWelcome(false)}>
+                  Ya tengo cuenta
+                </button>
+                <Link className="welcome-action welcome-action-secondary" href="/registro">
+                  Crear cuenta nueva
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     </main>
   );
