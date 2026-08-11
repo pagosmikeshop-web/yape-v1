@@ -1298,6 +1298,23 @@ canvas {
     transform: none;
   }
 
+  /*
+   * The unauthenticated login uses the same fixed stage. On iOS the generic
+   * visualViewport offset leaves the top and bottom safe-area slices outside
+   * that stage, exposing the purple document background after the white card.
+   * Anchor this route to the layout viewport; the card already owns its
+   * internal scrolling and safe-area padding.
+   */
+  .site-stage.login-stage {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    transform: none;
+  }
+
   .returning-login {
     inline-size: 100%;
     max-inline-size: 100%;

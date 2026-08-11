@@ -775,7 +775,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   }
 
   return (
-    <main className="site-stage">
+    <main className={screen === "login" ? "site-stage login-stage" : "site-stage"}>
       <section className={`bank-app screen-${screen}`} aria-label={content.title}>
         <Header screen={screen} onRefresh={resetForm} />
         <div className="login-card">
