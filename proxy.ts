@@ -33,8 +33,29 @@ function validHttpsOrigin(value: string | undefined) {
   }
 }
 
+function previewPublicAppUrl() {
+  if (process.env.VERCEL_ENV !== "preview") return undefined;
+
+  const hostname = (
+    process.env.VERCEL_BRANCH_URL
+    || process.env.VERCEL_URL
+  )?.trim();
+  return hostname ? `https://${hostname}` : undefined;
+}
+
+function configuredPublicAppUrl() {
+  return previewPublicAppUrl() || process.env.PUBLIC_APP_URL;
+}
+
+function isHostedEnvironment() {
+  return (
+    HOSTED_ENVIRONMENTS.has(process.env.APP_ENV ?? "")
+    || Boolean(previewPublicAppUrl())
+  );
+}
+
 function hostedConfigurationErrors() {
-  if (!HOSTED_ENVIRONMENTS.has(process.env.APP_ENV ?? "")) return [];
+  if (!isHostedEnvironment()) return [];
   const missing: string[] = [];
   const databaseProvider = process.env.DATABASE_PROVIDER?.trim().toLowerCase();
   if (databaseProvider !== "supabase") {
@@ -42,7 +63,7 @@ function hostedConfigurationErrors() {
   } else if (!process.env.SUPABASE_DATABASE_URL?.trim()) {
     missing.push("SUPABASE_DATABASE_URL");
   }
-  if (!validHttpsOrigin(process.env.PUBLIC_APP_URL)) missing.push("PUBLIC_APP_URL");
+  if (!validHttpsOrigin(configuredPublicAppUrl())) missing.push("PUBLIC_APP_URL");
   if (!validHttpsOrigin(process.env.ADMIN_WEB_URL)) missing.push("ADMIN_WEB_URL");
   if ((process.env.ADMIN_PROXY_SECRET?.trim().length ?? 0) < 32) {
     missing.push("ADMIN_PROXY_SECRET");
@@ -140,7 +161,7 @@ export function proxy(request: NextRequest) {
   const isLoopback = request.nextUrl.hostname === "localhost"
     || request.nextUrl.hostname === "127.0.0.1"
     || request.nextUrl.hostname === "[::1]";
-  const hosted = HOSTED_ENVIRONMENTS.has(process.env.APP_ENV ?? "");
+  const hosted = isHostedEnvironment();
   if (!isLoopback && !hosted) {
     return jsonError("El servicio no está disponible temporalmente.", 503, requestId);
   }
@@ -149,7 +170,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (hosted) {
-    const publicUrl = new URL(process.env.PUBLIC_APP_URL!);
+    const publicUrl = new URL(configuredPublicAppUrl()!);
     if (
       request.nextUrl.hostname !== publicUrl.hostname
       || request.nextUrl.port !== publicUrl.port
