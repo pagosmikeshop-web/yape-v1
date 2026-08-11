@@ -1283,10 +1283,12 @@ canvas {
  */
 @media (max-width: 599px) {
   .site-stage:has(.returning-login) {
-    inset-inline-start: 0;
-    left: 0;
-    width: 100%;
-    max-width: 100%;
+    /* Keep the PIN shell in the layout viewport instead of following visualViewport offsets. */
+    inset: 0;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
     transform: none;
   }
 

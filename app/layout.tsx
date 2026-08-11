@@ -47,10 +47,7 @@ export const metadata: Metadata = {
     apple: [{ url: appleIcon, type: "image/png", sizes: "180x180" }],
   },
   other: {
-    "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "black-translucent",
-    "apple-mobile-web-app-title": "Yape",
   },
 };
 
