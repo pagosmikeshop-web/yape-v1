@@ -99,6 +99,20 @@ input {
   -webkit-tap-highlight-color: transparent;
 }
 
+body {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 .site-stage {
   min-height: var(--app-viewport-height, 100svh);
   display: grid;

@@ -1306,13 +1306,27 @@ canvas {
    * internal scrolling and safe-area padding.
    */
   .site-stage.login-stage {
-    position: fixed;
-    inset: 0;
-    width: auto;
-    height: auto;
-    min-height: 0;
-    max-height: none;
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
     transform: none;
+  }
+
+  /*
+   * iOS reports dynamic viewport units inside the standalone safe-area box.
+   * The login follows the reference PWA's normal 100vh flow so its flex card
+   * owns the bottom inset instead of exposing the document below the stage.
+   */
+  html.login-viewport,
+  html.login-viewport body {
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
   }
 
   .returning-login {

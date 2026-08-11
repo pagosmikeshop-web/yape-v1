@@ -190,6 +190,9 @@ export function MobileViewportSync() {
       if (document.visibilityState === "visible") apply();
     };
 
+    const preventGestureZoom = (event: Event) => event.preventDefault();
+    const preventCopy = (event: ClipboardEvent) => event.preventDefault();
+
     apply();
     window.addEventListener("resize", apply);
     window.addEventListener("orientationchange", apply);
@@ -199,6 +202,9 @@ export function MobileViewportSync() {
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", apply);
     document.addEventListener("visibilitychange", applyWhenVisible);
+    document.addEventListener("gesturestart", preventGestureZoom, { passive: false });
+    document.addEventListener("gesturechange", preventGestureZoom, { passive: false });
+    document.addEventListener("copy", preventCopy);
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
@@ -211,6 +217,9 @@ export function MobileViewportSync() {
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", apply);
       document.removeEventListener("visibilitychange", applyWhenVisible);
+      document.removeEventListener("gesturestart", preventGestureZoom);
+      document.removeEventListener("gesturechange", preventGestureZoom);
+      document.removeEventListener("copy", preventCopy);
       root.style.removeProperty("--app-height");
       root.style.removeProperty("--visible-app-height");
       root.style.removeProperty("--app-viewport-width");

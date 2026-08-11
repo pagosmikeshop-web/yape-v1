@@ -415,6 +415,16 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   const redirectInFlightRef = useRef(false);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const isUnauthenticatedLogin = screen === "login" && sessionUser === null;
+
+    if (!isUnauthenticatedLogin) return;
+    root.classList.add("login-viewport");
+
+    return () => root.classList.remove("login-viewport");
+  }, [screen, sessionUser]);
+
+  useEffect(() => {
     if (screen !== "login" || loginSessionCheckStartedRef.current) return;
     loginSessionCheckStartedRef.current = true;
     let cancelled = false;
