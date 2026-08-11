@@ -182,3 +182,16 @@ export async function requirePermission(user: AuthUser, permission: Permission) 
     { status: 403, headers: { "cache-control": "no-store" } },
   );
 }
+
+/** Valida el acceso exclusivo del Owner sin duplicar la respuesta en cada ruta. */
+export function assertOwner(actor: Pick<AuthUser, "isOwner">) {
+  if (actor.isOwner) return;
+  throw Response.json(
+    {
+      ok: false,
+      code: "OWNER_ONLY",
+      error: "Esta sección está disponible únicamente para el Owner.",
+    },
+    { status: 403, headers: { "cache-control": "no-store" } },
+  );
+}

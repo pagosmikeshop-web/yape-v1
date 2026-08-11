@@ -12,17 +12,13 @@ import {
 } from "@/app/lib/auth-server";
 import { requireClientAccess } from "@/app/lib/management-server";
 import { hasPermission, requirePermission } from "@/app/lib/rbac";
+import { cleanTags } from "@/app/lib/crm-utils";
 
 export const dynamic = "force-dynamic";
 
 const CRM_STATUSES = new Set(["new", "vip"]);
 const CLIENT_TYPES = new Set(["individual", "business"]);
 const CRM_STATUS_SQL = "CASE WHEN u.status = 'active' AND u.access_expires_at IS NULL THEN 'vip' ELSE 'new' END";
-
-function cleanTags(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return [...new Set(value.map((tag) => String(tag).trim().slice(0, 24)).filter(Boolean))].slice(0, 8);
-}
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -227,7 +223,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       message: becomesVip
         ? `${displayName} ahora es VIP y tiene acceso permanente.`
         : vipDowngradeTrialAudit
-          ? `${displayName} ahora es Nuevo y tiene 3 días de prueba (reloj regenerado por admin).`
+          ? `${displayName} ahora es Nuevo y tiene 30 días de prueba (reloj regenerado por admin).`
           : currentCrmStatus === "vip" && crmStatus === "new" && resolvedAccountStatus === "active"
             ? `${displayName} ahora es Nuevo.`
             : "Perfil del cliente actualizado.",

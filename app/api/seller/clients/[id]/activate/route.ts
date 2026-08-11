@@ -50,7 +50,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     return jsonOk({
-      message: `${client.display_name} recibió 3 días gratis. No se descontaron créditos.`,
+      message: `${client.display_name} recibió 30 días gratis. No se descontaron créditos.`,
       credits: actor.credits,
       accessExpiresAt: trial.accessExpiresAt,
     });

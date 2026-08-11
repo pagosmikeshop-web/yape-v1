@@ -1,34 +1,29 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- extracted APK assets must keep their exact native proportions */
 
-import Link from "next/link";
-import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useModalLayer } from "../../hooks/useModalLayer";
 import { fetchAccountBalance, clearBalanceCache } from "../../lib/balance-cache";
-import { formatAccountBalance } from "../../lib/money";
-import { resetIOSViewport } from "../../lib/ios-viewport";
 import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
 import { fetchSession } from "../../lib/session-cache";
+import { resetIOSViewport } from "../../lib/ios-viewport";
 import { maskPhone } from "../../lib/masked-phone";
-import { normalizePaymentProvider } from "../../lib/payment-providers";
 import {
   getRecipientProviderActions,
-  normalizeRecipientProviders,
 } from "../../lib/recipient-providers";
-import { QR_TRANSFER_SESSION_KEY } from "../../lib/qr-scanning";
-import { APK_ASSET_ROOT, AssetIcon, LottiePlayer } from "./primitives";
+import { submitTransferRequest } from "../../lib/transfer-submission";
 import {
-  createVoucherImage,
-  formatVoucherAmount,
   formatVoucherDate,
   formatVoucherTime,
   getVoucherHero,
   isIzipayDestination,
-  isYapeDestination,
-  shareVoucherImage,
-  VoucherSinglePromo,
 } from "./MovementVoucher";
-import { useVoucherScale } from "./useVoucherScale";
+import { TransferStageViews } from "./TransferStageViews";
+import {
+  normalizeMobileNumber,
+  useTransferRecipient,
+} from "./useTransferRecipient";
+import { useTransferVoucher } from "./useTransferVoucher";
 import type {
   ContactPickerNavigator,
   PhoneContact,
@@ -48,67 +43,12 @@ export function contactInitials(name: string) {
   ).toUpperCase();
 }
 
-function normalizeMobileNumber(value: string) {
-  const digits = value.replace(/\D/g, "");
-  const localNumber = digits.length > 9 ? digits.slice(-9) : digits;
-  if (localNumber.length !== 9) return "";
-  return localNumber.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3");
-}
-
 const DAILY_YAPE_LIMIT = 500;
 export { maskPhone } from "../../lib/masked-phone";
 
-function financialEntityLabel(entity: string) {
-  return entity.replace(/!$/u, "");
-}
-
-function formatEditablePhone(phone: string) {
-  const digits = phone.replace(/\D/g, "").slice(0, 9);
-  return digits.replace(/(\d{3})(?=\d)/g, "$1 ");
-}
-
-/** Overlay de carga recuperado del componente app-preload de la captura original. */
-function LoadingOverlay({ text }: { text: string }) {
-  return (
-    <div className="transfer-preload entrance" role="status" aria-live="polite">
-      <div className="transfer-preload-father">
-        <div className="transfer-loading-card">
-          <svg
-            className="transfer-loading-spinner"
-            viewBox="0 0 50 50"
-            aria-hidden="true"
-          >
-            <circle
-              className="path"
-              cx="25"
-              cy="25"
-              r="20"
-              fill="none"
-              strokeWidth="5"
-            />
-          </svg>
-          <h3>{text}</h3>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function TransferView() {
   const [stage, setStage] = useState<TransferStage>("contact");
-  const [recipientId, setRecipientId] = useState("");
-  const [recipientQrId, setRecipientQrId] = useState("");
-  const [recipientFromQr, setRecipientFromQr] = useState(false);
-  const [recipientProviders, setRecipientProviders] = useState<string[]>(["Yape"]);
-  const [recipientName, setRecipientName] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("");
-  const [recipientIsNewNumber, setRecipientIsNewNumber] = useState(false);
-  const [phoneIsEditing, setPhoneIsEditing] = useState(false);
-  const [destination, setDestination] = useState("Yape");
   const [newNumber, setNewNumber] = useState("");
-  const [recipientLookupLoading, setRecipientLookupLoading] = useState(false);
-  const [recipientProviderLoading, setRecipientProviderLoading] = useState(false);
-  const [manualRecipientMode, setManualRecipientMode] = useState(false);
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
@@ -122,20 +62,7 @@ export function TransferView() {
   const [contactsCacheKey, setContactsCacheKey] = useState(
     `${PHONE_CONTACTS_CACHE_KEY}:local`,
   );
-  const [voucher, setVoucher] = useState<{
-    code: string;
-    operation: string;
-    completedAt: Date;
-  } | null>(null);
-  const [voucherShareFile, setVoucherShareFile] = useState<File | null>(null);
-  const voucherCaptureRef = useRef<HTMLDivElement>(null);
-  useVoucherScale(voucherCaptureRef);
   const transferSubmittingRef = useRef(false);
-  const recipientLookupAbortRef = useRef<AbortController | null>(null);
-  const recipientLookupSequenceRef = useRef(0);
-  const recipientLookupInFlightRef = useRef(false);
-  const frequentProviderLookupAbortRef = useRef<AbortController | null>(null);
-  const frequentProviderLookupSequenceRef = useRef(0);
   const transferIdempotencyRef = useRef<{
     key: string;
     payload: string;
@@ -148,6 +75,51 @@ export function TransferView() {
     insufficientBalance,
     () => setInsufficientBalance(false),
   );
+  const recipient = useTransferRecipient({
+    stage,
+    setStage,
+    newNumber,
+    setNotice,
+    setNewNumber,
+  });
+  const {
+    recipientId,
+    setRecipientId,
+    recipientQrId,
+    setRecipientQrId,
+    recipientFromQr,
+    setRecipientFromQr,
+    recipientProviders,
+    setRecipientProviders,
+    recipientName,
+    setRecipientName,
+    recipientPhone,
+    setRecipientPhone,
+    recipientIsNewNumber,
+    setRecipientIsNewNumber,
+    phoneIsEditing,
+    setPhoneIsEditing,
+    destination,
+    setDestination,
+    recipientLookupLoading,
+    setRecipientLookupLoading,
+    recipientProviderLoading,
+    manualRecipientMode,
+    setManualRecipientMode,
+    recipientLookupAbortRef,
+    recipientLookupSequenceRef,
+    recipientLookupInFlightRef,
+    pickContact,
+    submitNewNumber,
+    cancelFrequentProviderLookup,
+  } = recipient;
+  const {
+    voucher,
+    setVoucher,
+    voucherShareFile,
+    voucherCaptureRef,
+    shareTransferVoucher,
+  } = useTransferVoucher({ stage, setNotice });
 
   const getBankScrollContainer = () =>
     document.querySelector<HTMLElement>(
@@ -160,127 +132,6 @@ export function TransferView() {
       if (cancelled || !result.ok) return;
       setAvailableBalance(result.balance);
     });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("from") !== "qr") return;
-
-    let rawPayload = "";
-    try {
-      rawPayload = window.sessionStorage.getItem(QR_TRANSFER_SESSION_KEY) ?? "";
-      window.sessionStorage.removeItem(QR_TRANSFER_SESSION_KEY);
-    } catch {
-      return;
-    }
-    if (!rawPayload) return;
-
-    try {
-      const payload = JSON.parse(rawPayload) as {
-        qrId?: unknown;
-        provider?: unknown;
-        recipientId?: unknown;
-        phone?: unknown;
-        displayName?: unknown;
-      };
-      const requestedQrId = typeof payload.qrId === "string"
-        ? payload.qrId.trim()
-        : "";
-      const requestedProvider = normalizePaymentProvider(payload.provider);
-      const requestedRecipientId = typeof payload.recipientId === "string"
-        ? payload.recipientId.trim()
-        : "";
-      const requestedPhone = requestedProvider === "Yape" && typeof payload.phone === "string"
-        ? payload.phone.replace(/\D/gu, "").slice(-9)
-        : "";
-      const requestedName = typeof payload.displayName === "string"
-        ? payload.displayName.trim().slice(0, 48)
-        : "";
-      if (!requestedName || (!requestedQrId && !requestedRecipientId && !/^9\d{8}$/u.test(requestedPhone))) return;
-
-      setRecipientQrId(requestedQrId);
-      setRecipientFromQr(true);
-      setRecipientProviders([requestedProvider]);
-      setRecipientId(requestedRecipientId);
-      setRecipientName(requestedName);
-      setRecipientPhone(requestedPhone);
-      setRecipientIsNewNumber(false);
-      setManualRecipientMode(false);
-      setPhoneIsEditing(false);
-      setDestination(requestedProvider);
-      setNotice("");
-      setStage("amount");
-    } catch {
-      // Un payload QR corrupto no debe impedir usar la transferencia manual.
-    }
-  }, []);
-
-  useEffect(() => {
-    const requestedRecipientId =
-      new URLSearchParams(window.location.search).get("recipient") ?? "";
-    if (!requestedRecipientId) return;
-
-    let cancelled = false;
-    fetch("/api/payments/recipient-lookup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({ recipientId: requestedRecipientId }),
-    })
-      .then(async (response) => {
-        const data = (await response.json()) as {
-          recipient?: {
-            id?: string;
-            displayName?: string;
-            phone?: string;
-            provider?: string;
-            providers?: string[];
-          };
-          error?: string;
-        };
-        if (
-          !response.ok ||
-          !data.recipient?.id ||
-          !data.recipient.displayName
-        ) {
-          throw new Error(
-            safeApiMessage(data.error, "No encontramos al destinatario de este QR."),
-          );
-        }
-        return data.recipient as {
-          id: string;
-          displayName: string;
-          phone?: string;
-          provider?: string;
-          providers?: string[];
-        };
-      })
-      .then((recipient) => {
-        if (cancelled) return;
-        setRecipientQrId("");
-        setRecipientFromQr(true);
-        setRecipientId(recipient.id);
-        setRecipientName(recipient.displayName);
-        setRecipientPhone(
-          recipient.phone ? normalizeMobileNumber(recipient.phone) : "",
-        );
-        setRecipientIsNewNumber(false);
-        setManualRecipientMode(false);
-        const provider = normalizePaymentProvider(recipient.provider);
-        const providers = normalizeRecipientProviders(recipient.providers, provider);
-        setRecipientProviders(providers);
-        setDestination(providers[0]);
-        setNotice("");
-        setStage("amount");
-      })
-      .catch((error: Error) => {
-        if (cancelled) return;
-        setNotice(safeClientMessage(error, "No pudimos verificar este QR."));
-        setStage("contact");
-      });
-
     return () => {
       cancelled = true;
     };
@@ -323,11 +174,6 @@ export function TransferView() {
   }, [contactsCacheKey]);
 
   useEffect(() => () => {
-    recipientLookupAbortRef.current?.abort();
-    recipientLookupSequenceRef.current += 1;
-    recipientLookupInFlightRef.current = false;
-    frequentProviderLookupAbortRef.current?.abort();
-    frequentProviderLookupSequenceRef.current += 1;
     if (confirmationCloseTimerRef.current !== null) {
       window.clearTimeout(confirmationCloseTimerRef.current);
     }
@@ -359,128 +205,6 @@ export function TransferView() {
       if (scrollContainer) scrollContainer.style.overflow = previousContainerOverflow;
     };
   }, [stage]);
-
-  useLayoutEffect(() => {
-    if (
-      stage !== "amount" ||
-      !recipientIsNewNumber ||
-      Boolean(recipientId) ||
-      Boolean(recipientQrId) ||
-      manualRecipientMode
-    ) {
-      return;
-    }
-
-    const normalizedPhone = recipientPhone.replace(/\D/g, "");
-    if (!/^9\d{8}$/u.test(normalizedPhone)) return;
-    if (recipientLookupInFlightRef.current) return;
-
-    recipientLookupAbortRef.current?.abort();
-    const requestSequence = recipientLookupSequenceRef.current + 1;
-    recipientLookupSequenceRef.current = requestSequence;
-    const controller = new AbortController();
-    recipientLookupAbortRef.current = controller;
-    recipientLookupInFlightRef.current = true;
-    setRecipientLookupLoading(true);
-    setRecipientName("");
-    setNotice("");
-
-    void (async () => {
-      try {
-        const response = await fetch("/api/payments/recipient-lookup", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ phone: normalizedPhone }),
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const data = (await response.json()) as {
-          recipient?: {
-            id?: string;
-            displayName?: string;
-            phone?: string;
-            provider?: string;
-            providers?: string[];
-          };
-        };
-
-        if (
-          requestSequence !== recipientLookupSequenceRef.current ||
-          !response.ok
-        ) {
-          if (requestSequence === recipientLookupSequenceRef.current) {
-            enableManualRecipientFallback(normalizedPhone);
-          }
-          return;
-        }
-
-        if (!data.recipient?.displayName || !data.recipient.phone) {
-          enableManualRecipientFallback(normalizedPhone);
-          return;
-        }
-
-        setRecipientId(data.recipient.id || "");
-        setRecipientFromQr(false);
-        setRecipientName(data.recipient.displayName);
-        setRecipientPhone(normalizeMobileNumber(data.recipient.phone));
-        setManualRecipientMode(false);
-        setRecipientIsNewNumber(false);
-        setPhoneIsEditing(false);
-        const provider = normalizePaymentProvider(data.recipient.provider);
-        const providers = normalizeRecipientProviders(data.recipient.providers, provider);
-        setRecipientProviders(providers);
-        setDestination(providers[0]);
-        setNotice("");
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (requestSequence !== recipientLookupSequenceRef.current) return;
-        enableManualRecipientFallback(normalizedPhone);
-      } finally {
-        if (requestSequence === recipientLookupSequenceRef.current) {
-          setRecipientLookupLoading(false);
-          recipientLookupInFlightRef.current = false;
-          recipientLookupAbortRef.current = null;
-        }
-      }
-    })();
-
-    return () => {
-      controller.abort();
-      if (requestSequence === recipientLookupSequenceRef.current) {
-        recipientLookupSequenceRef.current += 1;
-        recipientLookupInFlightRef.current = false;
-        setRecipientLookupLoading(false);
-      }
-    };
-  }, [
-    manualRecipientMode,
-    recipientId,
-    recipientQrId,
-    recipientIsNewNumber,
-    recipientPhone,
-    stage,
-  ]);
-
-  useEffect(() => {
-    if (stage !== "success" || !voucher) return;
-
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void createVoucherImage(voucherCaptureRef.current)
-        .then((file) => {
-          if (!cancelled) setVoucherShareFile(file);
-        })
-        .catch(() => {
-          if (!cancelled)
-            setNotice("No se pudo preparar la imagen del comprobante.");
-        });
-    }, 350);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [stage, voucher]);
 
   const amountValue = Number(amount || "0");
   const isNewNumber = recipientIsNewNumber;
@@ -550,123 +274,6 @@ export function TransferView() {
     }
   }
 
-  function cancelFrequentProviderLookup() {
-    frequentProviderLookupAbortRef.current?.abort();
-    frequentProviderLookupAbortRef.current = null;
-    frequentProviderLookupSequenceRef.current += 1;
-    setRecipientProviderLoading(false);
-  }
-
-  function pickContact(name: string, phone: string) {
-    const normalizedPhone = normalizeMobileNumber(phone);
-    cancelFrequentProviderLookup();
-    const requestSequence = frequentProviderLookupSequenceRef.current + 1;
-    frequentProviderLookupSequenceRef.current = requestSequence;
-    setRecipientId("");
-    setRecipientQrId("");
-    setRecipientFromQr(false);
-    setRecipientProviders(["Yape"]);
-    setRecipientName(name.trim());
-    setRecipientPhone(normalizedPhone || phone);
-    setManualRecipientMode(false);
-    setRecipientIsNewNumber(false);
-    setPhoneIsEditing(false);
-    setDestination("Yape");
-    setNewNumber("");
-    setNotice("");
-    setRecipientProviderLoading(Boolean(normalizedPhone));
-    setStage("amount");
-
-    if (!normalizedPhone) return;
-
-    const controller = new AbortController();
-    frequentProviderLookupAbortRef.current = controller;
-    const lookupPhone = normalizedPhone.replace(/\D/g, "");
-
-    void fetch("/api/payments/recipient-lookup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({ phone: lookupPhone, configuredOnly: true }),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const data = (await response.json()) as {
-          recipient?: {
-            provider?: string;
-            providers?: string[];
-          };
-        };
-        if (!response.ok || !data.recipient) return null;
-        return data.recipient;
-      })
-      .then((recipient) => {
-        if (
-          !recipient ||
-          requestSequence !== frequentProviderLookupSequenceRef.current
-        ) {
-          return;
-        }
-        const provider = normalizePaymentProvider(recipient.provider);
-        const providers = normalizeRecipientProviders(recipient.providers, provider);
-        setRecipientProviders(providers);
-        setDestination(providers[0]);
-        setNotice("");
-      })
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-      })
-      .finally(() => {
-        if (requestSequence !== frequentProviderLookupSequenceRef.current) return;
-        setRecipientProviderLoading(false);
-        frequentProviderLookupAbortRef.current = null;
-      });
-  }
-
-  function enableManualRecipientFallback(phone: string) {
-    setRecipientProviderLoading(false);
-    setRecipientId("");
-    setRecipientQrId("");
-    setRecipientFromQr(false);
-    setRecipientProviders(["Yape"]);
-    setRecipientName("");
-    setRecipientPhone(phone);
-    setManualRecipientMode(true);
-    setRecipientIsNewNumber(true);
-    setPhoneIsEditing(false);
-    setDestination("Yape");
-    setNotice("");
-    // La consulta externa solo autocompleta el titular; el formulario manual
-    // queda disponible cuando el proveedor no responde o no entrega un nombre.
-  }
-
-  function submitNewNumber(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const normalizedPhone = newNumber.replace(/\D/g, "");
-    if (!/^9\d{8}$/u.test(normalizedPhone)) {
-      setNotice("Ingresa un número de celular válido de 9 dígitos.");
-      return;
-    }
-    recipientLookupAbortRef.current?.abort();
-    cancelFrequentProviderLookup();
-    recipientLookupSequenceRef.current += 1;
-    recipientLookupInFlightRef.current = false;
-    setRecipientLookupLoading(false);
-    setNotice("");
-    setRecipientId("");
-    setRecipientQrId("");
-    setRecipientFromQr(false);
-    setRecipientProviders(["Yape"]);
-    setRecipientName("");
-    setRecipientPhone(normalizedPhone);
-    setManualRecipientMode(false);
-    setRecipientIsNewNumber(true);
-    setPhoneIsEditing(false);
-    setDestination("Yape");
-    // La consulta del titular se inicia al montar la pantalla de monto.
-    setStage("amount");
-  }
-
   function showInsufficientBalance() {
     setInsufficientBalance(true);
     setNotice("");
@@ -686,42 +293,16 @@ export function TransferView() {
     setTransferSubmitting(true);
     setNotice("");
     try {
-      const transferRecipientPhone = recipientId || recipientQrId ? "" : recipientPhone;
-      const transferPayload = JSON.stringify({
-        amountCents: Math.round(amountValue * 100),
+      const { response, data } = await submitTransferRequest({
+        amountValue,
         recipientId,
         recipientQrId,
-        recipientPhone: transferRecipientPhone,
-        recipientManualName: recipientName.trim(),
+        recipientPhone,
+        recipientName,
         destination: destinationValue,
         message,
+        idempotencyRef: transferIdempotencyRef,
       });
-      if (transferIdempotencyRef.current?.payload !== transferPayload) {
-        transferIdempotencyRef.current = {
-          key: crypto.randomUUID(),
-          payload: transferPayload,
-        };
-      }
-      const response = await fetch("/api/payments/transfer", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "idempotency-key": transferIdempotencyRef.current.key,
-        },
-        body: transferPayload,
-        cache: "no-store",
-      });
-      const data = (await response.json()) as {
-        balance?: number;
-        movement?: {
-          recipientName?: string;
-          recipientReference?: string;
-          securityCode?: string;
-          operationNumber?: string;
-          createdAt?: string;
-        };
-        error?: string;
-      };
       if (!response.ok) {
         if (data.error === "Saldo insuficiente") {
           showInsufficientBalance();
@@ -838,22 +419,6 @@ export function TransferView() {
     void submitTransfer(destination, "confirm-processing");
   }
 
-  async function shareTransferVoucher() {
-    if (!voucher) return;
-    if (!voucherShareFile) {
-      setNotice(
-        "Preparando la imagen. Intenta compartir nuevamente en un momento.",
-      );
-      return;
-    }
-    try {
-      await shareVoucherImage(voucherShareFile);
-      setNotice("");
-    } catch {
-      setNotice("No se pudo compartir el comprobante.");
-    }
-  }
-
   useEffect(() => {
     if (stage !== "entity-loading") return undefined;
     const timer = window.setTimeout(() => setStage("confirm"), TRANSFER_LOADING_MS);
@@ -895,650 +460,78 @@ export function TransferView() {
   const hideVoucherSecurity = isIzipayDestination(destination);
 
   return (
-    <>
-      {stage === "contact" ? (
-        <>
-          <header className="transfer-flow-header">
-            <Link
-              href="/inicio"
-              className="transfer-header-close"
-              aria-label="Cerrar"
-            >
-              <AssetIcon name="ic_close_yape" />
-            </Link>
-            <h1>Yapear</h1>
-            <span className="transfer-header-spacer" aria-hidden="true" />
-          </header>
-          <div className="transfer-flow-content">
-            {notice ? (
-              <p className="inline-notice" role="status">
-                {notice}
-              </p>
-            ) : null}
-            <label className="movement-search transfer-search">
-              <AssetIcon name="ic_search_yape" />
-              <input
-                aria-label="Busca el celular o contacto"
-                placeholder="Busca el celular o contacto"
-                value={contactSearch}
-                onChange={(event) => setContactSearch(event.target.value)}
-              />
-            </label>
-            <button
-              type="button"
-              className="transfer-new-number-row"
-              onClick={() => {
-                cancelFrequentProviderLookup();
-                setStage("new-number");
-              }}
-            >
-              <span className="transfer-row-icon">
-                <AssetIcon name="ic_smartphone_outline_yape" />
-              </span>
-              <strong>Nuevo número</strong>
-              <AssetIcon name="ic_chevron_right_yape" />
-            </button>
-            {contactPickerSupported ? (
-              <button
-                type="button"
-                className="phone-contacts-access"
-                onClick={requestPhoneContacts}
-                disabled={contactsLoading}
-              >
-                <span className="transfer-row-icon">
-                  <AssetIcon name="ic_person_outline_yape" />
-                </span>
-                <span>
-                  <strong>
-                    {phoneContacts.length
-                      ? "Actualizar contactos"
-                      : "Usar contactos del teléfono"}
-                  </strong>
-                </span>
-                <AssetIcon name="ic_chevron_right_yape" />
-              </button>
-            ) : null}
-            {frequentPhoneContacts.length ? (
-              <>
-                <h2 className="transfer-section-title">Yaperos frecuentes</h2>
-                <div className="frequent-contacts-row">
-                  {frequentPhoneContacts.map((contact) => (
-                    <button
-                      type="button"
-                      className="frequent-contact"
-                      key={`frequent-${contact.phone}`}
-                      onClick={() => pickContact(contact.name, contact.phone)}
-                    >
-                      <span className="contact-avatar">{contact.initials}</span>
-                      <strong>{contact.name}</strong>
-                      <small>{maskPhone(contact.phone)}</small>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : null}
-            <h2 className="transfer-section-title">Todos tus contactos</h2>
-            <div className="all-contacts-list">
-              {filteredPhoneContacts.map((contact) => (
-                <button
-                  type="button"
-                  className="contact-row"
-                  key={contact.phone}
-                  onClick={() => pickContact(contact.name, contact.phone)}
-                >
-                  <strong>{contact.name}</strong>
-                  <small>{contact.phone}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      ) : null}
-
-      {stage === "new-number" ? (
-        <section className="transfer-new-number-screen">
-          <header className="transfer-flow-header">
-            <button
-              type="button"
-              className="transfer-header-back"
-              onClick={() => setStage("contact")}
-              aria-label="Volver"
-            >
-              <AssetIcon name="ic_back_arrow_yape" />
-            </button>
-            <span className="transfer-header-spacer" aria-hidden="true" />
-            <span className="transfer-header-spacer" aria-hidden="true" />
-          </header>
-          <div className="transfer-flow-content">
-            <h1 className="transfer-new-number-title">Yapear a nuevo número</h1>
-            <form
-              id="new-number-form"
-              className="new-number-form"
-              onSubmit={submitNewNumber}
-            >
-              <label className="phone-prefix-field">
-                <span>Ingresa el número de celular</span>
-                <div>
-                  <b>+51</b>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={11}
-                    value={newNumber}
-                    onChange={(event) => {
-                      recipientLookupAbortRef.current?.abort();
-                      cancelFrequentProviderLookup();
-                      recipientLookupSequenceRef.current += 1;
-                      recipientLookupInFlightRef.current = false;
-                      setRecipientLookupLoading(false);
-                      setRecipientId("");
-                      setRecipientName("");
-                      setRecipientPhone("");
-                      setManualRecipientMode(false);
-                      setNewNumber(formatEditablePhone(event.target.value));
-                    }}
-                    required
-                  />
-                  {newNumber ? (
-                    <button
-                      type="button"
-                      aria-label="Limpiar número"
-                      onClick={() => {
-                        recipientLookupAbortRef.current?.abort();
-                        cancelFrequentProviderLookup();
-                        recipientLookupSequenceRef.current += 1;
-                        recipientLookupInFlightRef.current = false;
-                        setRecipientLookupLoading(false);
-                        setRecipientId("");
-                        setRecipientName("");
-                        setRecipientPhone("");
-                        setManualRecipientMode(false);
-                        setNewNumber("");
-                      }}
-                    >
-                      ×
-                    </button>
-                  ) : null}
-                </div>
-              </label>
-              {notice ? (
-                <p className="inline-notice" role="status">
-                  {notice}
-                </p>
-              ) : null}
-            </form>
-          </div>
-          <div className="transfer-flow-footer">
-            <button
-              className="transfer-primary-button transfer-full-width-button"
-              type="submit"
-              form="new-number-form"
-              disabled={
-                newNumber.replace(/\D/g, "").length < 9 ||
-                recipientLookupLoading
-              }
-            >
-              Continuar
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {showAmountScreen ? (
-        <section className="transfer-amount-screen">
-          <header className="transfer-flow-header">
-            <button
-              type="button"
-              className="transfer-header-back"
-              onClick={() => setStage("contact")}
-              aria-label="Volver"
-            >
-              <AssetIcon name="ic_back_arrow_yape" />
-            </button>
-            <span>Yapear a</span>
-            <Link
-              href="/inicio"
-              className="transfer-header-close"
-              aria-label="Cerrar"
-            >
-              <AssetIcon name="ic_close_yape" />
-            </Link>
-          </header>
-          <div
-            className="transfer-flow-content transfer-amount-content"
-            aria-busy={recipientLookupLoading || recipientProviderLoading}
-          >
-            <div
-              className="transfer-recipient-editor"
-              aria-busy={recipientLookupLoading}
-            >
-              <div className="transfer-recipient-name-slot">
-                {recipientLookupLoading ? (
-                  <div
-                    className="recipient-name-skeleton"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <span className="sr-only">
-                      Consultando el titular del destinatario.
-                    </span>
-                  </div>
-                ) : (
-                  <input
-                    className="transfer-recipient-name-input"
-                    aria-label="Nombre del destinatario"
-                    placeholder="Nombre del destinatario"
-                    value={recipientName}
-                    readOnly={Boolean(recipientId || recipientQrId)}
-                    onChange={(event) =>
-                      setRecipientName(event.target.value.slice(0, 48))
-                    }
-                  />
-                )}
-              </div>
-              <input
-                className="transfer-recipient-phone-input"
-                aria-label="Número del destinatario"
-                inputMode="numeric"
-                value={
-                  phoneIsEditing && !recipientId && !recipientQrId
-                    ? formatEditablePhone(recipientPhone)
-                    : recipientDisplayReference
-                }
-                readOnly={Boolean(recipientId || recipientQrId)}
-                onFocus={(event) => {
-                  if (recipientId || recipientQrId) return;
-                  setPhoneIsEditing(true);
-                  event.currentTarget.select();
-                }}
-                onBlur={() => setPhoneIsEditing(false)}
-                onChange={(event) => {
-                  recipientLookupAbortRef.current?.abort();
-                  cancelFrequentProviderLookup();
-                  recipientLookupSequenceRef.current += 1;
-                  recipientLookupInFlightRef.current = false;
-                  setRecipientLookupLoading(false);
-                  setRecipientId("");
-                  setRecipientQrId("");
-                  setRecipientFromQr(false);
-                  setRecipientProviders(["Yape"]);
-                  setRecipientName("");
-                  setManualRecipientMode(false);
-                  setRecipientIsNewNumber(true);
-                  setRecipientPhone(formatEditablePhone(event.target.value));
-                  setDestination("Yape");
-                }}
-              />
-            </div>
-            {notice ? (
-              <p className="inline-notice" role="status">
-                {notice}
-              </p>
-            ) : null}
-            <label className="transfer-amount-field">
-              <span>S/</span>
-              <input
-                inputMode="decimal"
-                value={amount}
-                onChange={(event) =>
-                  setAmount(event.target.value.replace(/[^0-9.]/g, ""))
-                }
-                placeholder="0"
-                style={{
-                  width: `${Math.min(4.8, Math.max(0.58, Math.max(1, amount.length) * 0.58))}em`,
-                }}
-              />
-            </label>
-            <p className="transfer-amount-hint">
-              Puedes yapear hasta S/ 500 diarios
-            </p>
-          </div>
-          <div className="transfer-flow-footer transfer-amount-footer">
-            <label className="transfer-message-field">
-              <input
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Agregar mensaje"
-              />
-            </label>
-            <div
-              className="transfer-amount-actions"
-              aria-busy={recipientProviderLoading}
-            >
-              {providerActions.showOtherBanks ||
-              recipientLookupLoading ||
-              recipientProviderLoading ? (
-                <button
-                  type="button"
-                  className="transfer-secondary-button"
-                  onClick={requestOtherBanks}
-                  disabled={
-                    !yapearEnabled ||
-                    recipientProviderLoading ||
-                    transferSubmitting
-                  }
-                >
-                  Otros bancos
-                </button>
-              ) : null}
-              {providerActions.directYapear ? (
-                <button
-                  type="button"
-                  className="transfer-primary-button transfer-full-width-button"
-                  onClick={requestYapear}
-                  disabled={
-                    !yapearEnabled ||
-                    recipientProviderLoading ||
-                    transferSubmitting
-                  }
-                >
-                  {transferSubmitting ? "Validando…" : "Yapear"}
-                </button>
-              ) : null}
-            </div>
-          </div>
-          {stage === "amount-processing" ? (
-            <LoadingOverlay text="Yapeando..." />
-          ) : null}
-        </section>
-      ) : null}
-
-      {showEntitiesScreen ? (
-        <section className="transfer-entities-screen">
-          <header className="transfer-flow-header">
-            <button
-              type="button"
-              className="transfer-header-back"
-              onClick={() => setStage("amount")}
-              aria-label="Volver"
-            >
-              <AssetIcon name="ic_back_arrow_yape" />
-            </button>
-            <span className="transfer-header-spacer" aria-hidden="true" />
-            <Link
-              href="/inicio"
-              className="transfer-header-close"
-              aria-label="Cerrar"
-            >
-              <AssetIcon name="ic_close_yape" />
-            </Link>
-          </header>
-          <div className="transfer-flow-content">
-            <h1 className="entity-screen-title">Yapear a</h1>
-            <div className="entity-recipient-card">
-              <span>
-                <strong>{recipientName.trim() || "Número nuevo"}</strong>
-                <small>
-                  {recipientId ? recipientDisplayReference : recipientPhone}
-                </small>
-              </span>
-              {isNewNumber ? (
-                <button type="button" className="invite-link-button">
-                  Invitar a Yape
-                </button>
-              ) : null}
-            </div>
-            <div className="entity-screen-divider" aria-hidden="true" />
-            <h2 className="transfer-section-title">
-              Selecciona una entidad financiera
-            </h2>
-            <div className="entities-list">
-              {availableEntities.length > 0 ? (
-                availableEntities.map((entity) => (
-                  <button
-                    type="button"
-                    className="entity-row"
-                    key={entity}
-                    onClick={() => chooseEntity(entity)}
-                  >
-                    <span className="entity-icon">
-                      <AssetIcon name="ic_duotone_money_arrows_around" />
-                    </span>
-                    <strong>{financialEntityLabel(entity)}</strong>
-                  </button>
-                ))
-              ) : (
-                <p className="empty-state">
-                  No hay otros bancos configurados para este número.
-                </p>
-              )}
-            </div>
-          </div>
-
-          {stage === "confirm" ? (
-            <div
-              className={`transfer-confirm-overlay${
-                confirmationClosing ? " is-closing" : ""
-              }`}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="transfer-confirm-title"
-              onClick={(event) => {
-                if (event.target === event.currentTarget) closeConfirmation();
-              }}
-            >
-              <div
-                ref={confirmDialogRef}
-                className="transfer-confirm-modal"
-                tabIndex={-1}
-              >
-                <span className="entity-icon confirm-modal-icon">
-                  <AssetIcon name="ic_duotone_money_arrows_around" />
-                </span>
-                <p>Vas a yapear a:</p>
-                <h2 id="transfer-confirm-title">{voucherRecipientName}</h2>
-                <div className="transfer-confirm-warning">
-                  <span className="transfer-confirm-warning-icon">i</span>
-                  <span>
-                    Este tipo de yapeo puede necesitar más tiempo para llegar a
-                    la entidad destino.
-                  </span>
-                </div>
-                <div className="transfer-confirm-summary">
-                  <div>
-                    <span>Monto:</span>
-                    <strong>S/ {amountValue.toFixed(2)}</strong>
-                  </div>
-                  <div>
-                    <span>Destino:</span>
-                    <strong>{destination}</strong>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="transfer-confirm-button"
-                  onClick={confirmTransfer}
-                  disabled={transferSubmitting}
-                >
-                  {transferSubmitting ? "Validando saldo…" : "Confirmar yapeo"}
-                </button>
-                <button
-                  type="button"
-                  className="transfer-confirm-cancel"
-                  onClick={closeConfirmation}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {stage === "confirm-processing" ? (
-            <LoadingOverlay text="Yapeando..." />
-          ) : null}
-        </section>
-      ) : null}
-
-      {stage === "success" ? (
-        <section className="yape-voucher yape-success-voucher" role="status">
-          <LottiePlayer
-            src="/assets/captured/lottie/animacion_yape.json"
-            renderer="canvas"
-            loop={false}
-            className="voucher-success-animation"
-            preserveAspectRatio="xMidYMid slice"
-          />
-          <div className="voucher-content" ref={voucherCaptureRef}>
-            <div className="voucher-share-capture">
-              <div className="voucher-banner">
-                <img
-                  src={`${APK_ASSET_ROOT}/images/${voucherHero}.webp`}
-                  alt=""
-                  className="voucher-banner-image"
-                />
-                <span className="voucher-logo-badge" aria-hidden="true">
-                  <LottiePlayer name="logo" className="voucher-logo-lottie" />
-                </span>
-              </div>
-              <div className="voucher-card">
-                <div className="voucher-card-headline">
-                  <h2>¡Yapeaste!</h2>
-                  <button
-                    type="button"
-                    className="voucher-share-button"
-                    aria-label="Compartir comprobante"
-                    data-share-ready={voucherShareFile ? "true" : "false"}
-                    onClick={shareTransferVoucher}
-                  >
-                    <img
-                      src="/assets/captured/voucher/compartir-icon.svg"
-                      alt=""
-                      aria-hidden="true"
-                    />
-                    <span>Compartir</span>
-                  </button>
-                </div>
-                <p className="voucher-amount">
-                  <span>S/</span>
-                  <strong>{formatVoucherAmount(amountValue)}</strong>
-                </p>
-                <p className="voucher-recipient">{voucherRecipientName}</p>
-                <div className="voucher-datetime">
-                  <span>
-                    <img
-                      src="/assets/captured/voucher/fecha-icon.svg"
-                      alt=""
-                      aria-hidden="true"
-                    />
-                    {formattedDate}
-                  </span>
-                  <i aria-hidden="true">|</i>
-                  <span>
-                    <img
-                      src="/assets/captured/voucher/hora-icon.svg"
-                      alt=""
-                      aria-hidden="true"
-                    />
-                    {formattedTime}
-                  </span>
-                </div>
-
-                {hideVoucherSecurity ? (
-                  <div
-                    className="voucher-divider voucher-divider-izipay"
-                    aria-hidden="true"
-                  />
-                ) : null}
-
-                {!hideVoucherSecurity ? <div className="voucher-security">
-                  <span className="voucher-section-label">
-                    CÓDIGO DE SEGURIDAD{" "}
-                    <img
-                      src="/assets/captured/voucher/codigo-seguridad-icon.svg"
-                      alt=""
-                      aria-hidden="true"
-                    />
-                  </span>
-                  <div className="voucher-security-digits">
-                    {(voucher?.code ?? "---").split("").map((digit, index) => (
-                      <span key={index}>{digit}</span>
-                    ))}
-                  </div>
-                </div> : null}
-
-                <div className="voucher-details">
-                  <span className="voucher-section-label">
-                    DATOS DE LA TRANSACCIÓN
-                  </span>
-                  {isYapeDestination(destination) && recipientDisplayReference ? (
-                    <div>
-                      <span>Nro. de celular</span>
-                      <strong>{recipientDisplayReference}</strong>
-                    </div>
-                  ) : null}
-                  <div>
-                    <span>Destino</span>
-                    <strong>{destination}</strong>
-                  </div>
-                  <div>
-                    <span>Nro. de operación</span>
-                    <strong>{voucher?.operation ?? ""}</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="voucher-more-section">
-              <h3>
-                Más en Yape <small className="voucher-new-badge">Nuevo</small>
-              </h3>
-              <VoucherSinglePromo />
-            </div>
-          </div>
-          <Link
-            href="/inicio"
-            className="voucher-close-button"
-            aria-label="Cerrar"
-          >
-            <img
-              src="/assets/captured/voucher/equis1.svg"
-              alt=""
-              aria-hidden="true"
-            />
-          </Link>
-
-          {notice ? (
-            <p className="inline-notice voucher-notice" role="status">
-              {notice}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-      {insufficientBalance ? (
-        <div
-          ref={insufficientDialogRef}
-          className="transfer-confirm-overlay insufficient-balance-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="insufficient-balance-title"
-          tabIndex={-1}
-        >
-          <div className="transfer-confirm-modal insufficient-balance-dialog">
-            <span className="insufficient-balance-icon" aria-hidden="true">
-              <AssetIcon name="ic_money_bag_soles_outline_yape_primary" />
-            </span>
-            <h2 id="insufficient-balance-title">Saldo insuficiente</h2>
-            <p>
-              No tienes saldo disponible para yapear S/ {amountValue.toFixed(2)}
-              .
-            </p>
-            <div className="insufficient-balance-summary">
-              <span>Tu saldo actual</span>
-              <strong>
-                {availableBalance === null
-                  ? "S/ 0.00"
-                  : `S/ ${formatAccountBalance(availableBalance)}`}
-              </strong>
-            </div>
-            <button
-              type="button"
-              className="transfer-confirm-button"
-              onClick={() => setInsufficientBalance(false)}
-            >
-              Entendido
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </>
+    <TransferStageViews
+      stage={stage}
+      showAmountScreen={showAmountScreen}
+      providerActions={providerActions}
+      showEntitiesScreen={showEntitiesScreen}
+      availableEntities={availableEntities}
+      notice={notice}
+      contactSearch={contactSearch}
+      setContactSearch={setContactSearch}
+      cancelFrequentProviderLookup={cancelFrequentProviderLookup}
+      setStage={setStage}
+      contactPickerSupported={contactPickerSupported}
+      requestPhoneContacts={requestPhoneContacts}
+      contactsLoading={contactsLoading}
+      phoneContacts={phoneContacts}
+      frequentPhoneContacts={frequentPhoneContacts}
+      pickContact={pickContact}
+      filteredPhoneContacts={filteredPhoneContacts}
+      submitNewNumber={submitNewNumber}
+      recipientLookupAbortRef={recipientLookupAbortRef}
+      recipientLookupSequenceRef={recipientLookupSequenceRef}
+      recipientLookupInFlightRef={recipientLookupInFlightRef}
+      setRecipientLookupLoading={setRecipientLookupLoading}
+      setRecipientId={setRecipientId}
+      setRecipientQrId={setRecipientQrId}
+      setRecipientName={setRecipientName}
+      setRecipientPhone={setRecipientPhone}
+      setManualRecipientMode={setManualRecipientMode}
+      setNewNumber={setNewNumber}
+      newNumber={newNumber}
+      recipientProviderLoading={recipientProviderLoading}
+      recipientLookupLoading={recipientLookupLoading}
+      recipientId={recipientId}
+      recipientQrId={recipientQrId}
+      recipientName={recipientName}
+      setPhoneIsEditing={setPhoneIsEditing}
+      phoneIsEditing={phoneIsEditing}
+      recipientPhone={recipientPhone}
+      recipientDisplayReference={recipientDisplayReference}
+      setRecipientFromQr={setRecipientFromQr}
+      setRecipientProviders={setRecipientProviders}
+      setRecipientIsNewNumber={setRecipientIsNewNumber}
+      setDestination={setDestination}
+      amount={amount}
+      setAmount={setAmount}
+      message={message}
+      setMessage={setMessage}
+      yapearEnabled={yapearEnabled}
+      transferSubmitting={transferSubmitting}
+      requestOtherBanks={requestOtherBanks}
+      requestYapear={requestYapear}
+      isNewNumber={isNewNumber}
+      chooseEntity={chooseEntity}
+      confirmationClosing={confirmationClosing}
+      closeConfirmation={closeConfirmation}
+      confirmDialogRef={confirmDialogRef}
+      voucherRecipientName={voucherRecipientName}
+      amountValue={amountValue}
+      destination={destination}
+      confirmTransfer={confirmTransfer}
+      voucherCaptureRef={voucherCaptureRef}
+      voucherShareFile={voucherShareFile}
+      shareTransferVoucher={shareTransferVoucher}
+      formattedDate={formattedDate}
+      formattedTime={formattedTime}
+      voucherHero={voucherHero}
+      hideVoucherSecurity={hideVoucherSecurity}
+      voucher={voucher}
+      insufficientBalance={insufficientBalance}
+      insufficientDialogRef={insufficientDialogRef}
+      availableBalance={availableBalance}
+      setInsufficientBalance={setInsufficientBalance}
+    />
   );
 }

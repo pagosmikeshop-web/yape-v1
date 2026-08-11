@@ -13,60 +13,18 @@ import {
 } from "@/app/lib/auth-server";
 import { lookupGlobalRecipient } from "@/app/lib/global-recipient-directory";
 import { RecipientLookupError } from "@/app/lib/recipient-lookup/errors";
-import { maskRecipientName } from "@/app/lib/recipient-lookup/name-masker";
 import { normalizeRecipientPhone } from "@/app/lib/recipient-lookup/phone";
 import { lookupRecipientPhone } from "@/app/lib/recipient-lookup/service";
+import {
+  lookupErrorResponse,
+  protectedRecipientName,
+  saveExternalRecipient,
+  type SavedRecipientRow,
+} from "@/app/lib/recipient-lookup/route-support";
 
 export const dynamic = "force-dynamic";
 
-type SavedRecipientRow = { id: string; display_name: string };
-
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-
-function protectedName(value: string) {
-  return maskRecipientName(value);
-}
-
-async function saveExternalRecipient(requesterUserId: string, phoneE164: string, displayName: string) {
-  const now = new Date().toISOString();
-  const saved = await dbBinding().prepare(
-    `INSERT INTO saved_payment_recipients (
-      id, user_id, phone_e164, display_name, source, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, 'claro', ?, ?)
-    ON CONFLICT(user_id, phone_e164) DO UPDATE SET
-      display_name = excluded.display_name,
-      source = excluded.source,
-      updated_at = excluded.updated_at
-    RETURNING id, display_name`,
-  ).bind(
-    crypto.randomUUID(),
-    requesterUserId,
-    phoneE164,
-    displayName,
-    now,
-    now,
-  ).first<SavedRecipientRow>();
-  if (!saved) throw new Error("No se pudo guardar el destinatario verificado.");
-  return saved;
-}
-
-function lookupErrorResponse(error: RecipientLookupError) {
-  switch (error.code) {
-    case "INVALID_PHONE":
-      return jsonError("Ingresa un número de celular válido de 9 dígitos.", 400);
-    case "RECIPIENT_NOT_FOUND":
-      return jsonError("No encontramos un titular para ese número.", 404);
-    case "RATE_LIMITED":
-      return jsonError("La consulta no está disponible temporalmente. Intenta más tarde.", 429);
-    case "PROVIDER_TIMEOUT":
-      return jsonError("La consulta tardó demasiado. Puedes intentarlo nuevamente.", 504);
-    case "PROVIDER_INVALID_RESPONSE":
-    case "PROVIDER_UNAVAILABLE":
-      return jsonError("No pudimos verificar el titular en este momento.", 503);
-    default:
-      return jsonError("No pudimos verificar el destinatario.", 503);
-  }
-}
 
 export async function POST(request: Request) {
   try {
@@ -107,7 +65,7 @@ export async function POST(request: Request) {
       return jsonOk({
         recipient: {
           id: recipient.id,
-          displayName: protectedName(recipient.display_name),
+          displayName: protectedRecipientName(recipient.display_name),
           phone: recipient.phone_e164,
           provider: "Yape",
           providers: ["Yape"],
@@ -149,7 +107,7 @@ export async function POST(request: Request) {
     if (saved) {
       return jsonOk({
         recipient: {
-          displayName: protectedName(saved.display_name),
+          displayName: protectedRecipientName(saved.display_name),
           provider: "Yape",
           providers: ["Yape"],
           phone: normalized.e164,
@@ -162,7 +120,7 @@ export async function POST(request: Request) {
       if (internal.id === user.id) return jsonError("No puedes transferirte a tu propia cuenta.", 409);
       return jsonOk({
         recipient: {
-          displayName: protectedName(internal.display_name),
+          displayName: protectedRecipientName(internal.display_name),
           provider: "Yape",
           providers: ["Yape"],
           phone: normalized.e164,

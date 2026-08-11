@@ -129,7 +129,7 @@ const MAX_SESSIONS_PER_USER = 5;
 const SESSION_CLEANUP_LIMIT = 2_147_483_647;
 const PASSWORD_RESET_MINUTES = 15;
 export const SELF_REGISTRATION_SELLER_CODE = "YAPE";
-export const TRIAL_DAYS = 3;
+export const TRIAL_DAYS = 30;
 export const REFERRAL_EXTENSION_DAYS = 3;
 /** Lifetime limit for /redeem extensions per account. */
 export const REFERRAL_REDEMPTION_LIMIT = 3;

@@ -5,6 +5,7 @@ import {
   requireUnlockedSession,
   routeError,
 } from "@/app/lib/auth-server";
+import { assertOwner } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -29,15 +30,6 @@ type DirectoryRow = {
   revoked_at: string | null;
   revoked_reason: string | null;
 };
-
-function assertOwner(actor: { isOwner: boolean }) {
-  if (!actor.isOwner) {
-    throw Response.json(
-      { ok: false, code: "OWNER_ONLY", error: "Esta sección está disponible únicamente para el Owner." },
-      { status: 403, headers: { "cache-control": "no-store" } },
-    );
-  }
-}
 
 function kindValue(value: string) {
   return value === "recipient" || value === "qr" ? value : "";

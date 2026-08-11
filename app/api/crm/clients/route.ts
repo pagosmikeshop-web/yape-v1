@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/auth-server";
 import { createInvitation } from "@/app/lib/invitation-server";
 import { hasPermission, requirePermission } from "@/app/lib/rbac";
+import { cleanTags } from "@/app/lib/crm-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +29,6 @@ const SORT_COLUMNS = {
   sales: "total_sales_cents",
   activity: "p.last_activity_at",
 } as const;
-
-function cleanTags(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return [...new Set(value.map((tag) => String(tag).trim().slice(0, 24)).filter(Boolean))].slice(0, 8);
-}
 
 export async function GET(request: Request) {
   try {
@@ -400,8 +396,8 @@ export async function POST(request: Request) {
       message: grantsPermanentAccess
         ? "Cliente VIP creado con acceso permanente. No tiene acceso al panel administrativo."
         : ownerId
-          ? "Cliente Nuevo creado. Actívalo para iniciar sus 3 días de prueba."
-          : "Cliente Nuevo creado sin vendedor asignado. Actívalo para iniciar sus 3 días de prueba.",
+          ? "Cliente Nuevo creado. Actívalo para iniciar sus 30 días de prueba."
+          : "Cliente Nuevo creado sin vendedor asignado. Actívalo para iniciar sus 30 días de prueba.",
     }, { status: 201, headers: { "cache-control": "no-store" } });
   } catch (error) {
     return routeError(error);

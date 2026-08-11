@@ -153,7 +153,7 @@ export async function POST(request: Request) {
         accessExpiresAt,
       },
       accessExpiresAt,
-      message: "Registro completado. Confirmamos tu Telegram y activamos tus 3 días gratuitos.",
+      message: "Registro completado. Confirmamos tu Telegram y activamos tus 30 días gratuitos.",
     }, {
       status: 201,
       headers: { "cache-control": "no-store", "set-cookie": cookie },

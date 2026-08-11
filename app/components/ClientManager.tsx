@@ -484,7 +484,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
                   <small>
                     {client.seller_code === "YAPE" && !client.owner_id
                       ? "Registro app sin prueba: usa Activar o que inicie sesión."
-                      : "Creado en panel: debes Activar 3 días (o VIP)."}
+                      : "Creado en panel: debes Activar 30 días (o VIP)."}
                   </small>
                 ) : null}
                 <small>{displayPhone(client.phone_e164)} · @{client.username}</small>
@@ -502,7 +502,7 @@ export function ClientManager({ role }: { role: ManagerRole }) {
                     ? "Pendiente"
                     : "Deshabilitado"}
               </span>
-              {client.status === "pending" ? <button type="button" onClick={() => void activateClient(client)} disabled={Boolean(busyId)}>{busyId === client.id ? "Activando..." : "Activar 3 días"}</button> : null}
+              {client.status === "pending" ? <button type="button" onClick={() => void activateClient(client)} disabled={Boolean(busyId)}>{busyId === client.id ? "Activando..." : "Activar 30 días"}</button> : null}
               {client.status === "active" && client.access_expires_at ? <button type="button" onClick={() => void issuePermanentToken(client)} disabled={Boolean(busyId)}>{busyId === `token-${client.id}` ? "Creando..." : "Crear token"}</button> : null}
               {role === "admin" ? <button type="button" onClick={() => void resetClientDevice(client)} disabled={Boolean(busyId)}>{busyId === `device-${client.id}` ? "Restableciendo..." : "Restablecer dispositivo"}</button> : null}
               <button type="button" onClick={() => void deleteClient(client)} disabled={Boolean(busyId)}>{busyId === `delete-${client.id}` ? "Eliminando..." : "Eliminar"}</button>

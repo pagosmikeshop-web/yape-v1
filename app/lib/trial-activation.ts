@@ -27,7 +27,7 @@ export type ActivateClientTrialResult =
   };
 
 /**
- * Activa un cliente pending con prueba gratuita (72h vía trialExpiresAt).
+ * Activa un cliente pending con prueba gratuita de 30 días vía trialExpiresAt.
  * Idempotente: activations.user_id es UNIQUE; no reinicia fechas si ya hay activation.
  */
 export async function activateClientTrial(input: {

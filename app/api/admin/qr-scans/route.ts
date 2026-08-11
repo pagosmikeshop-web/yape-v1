@@ -1,16 +1,8 @@
 import { jsonOk } from "@/app/lib/api-utils";
 import { dbBinding, requireUnlockedSession, routeError } from "@/app/lib/auth-server";
+import { assertOwner } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
-
-function assertOwner(actor: { isOwner: boolean }) {
-  if (!actor.isOwner) {
-    throw Response.json(
-      { ok: false, code: "OWNER_ONLY", error: "Esta sección está disponible únicamente para el Owner." },
-      { status: 403, headers: { "cache-control": "no-store" } },
-    );
-  }
-}
 
 export async function GET(request: Request) {
   try {

@@ -61,6 +61,7 @@ docs/
 !/tests/security-contracts.test.ts
 !/tests/recipient-lookup.test.ts
 !/tests/password-reset-flow.test.ts
+!/tests/*.test.ts
 /.vinext/
 /.wrangler/
 fix.mjs

@@ -4,6 +4,9 @@ import { useEffect, useLayoutEffect } from "react";
 import type { RefObject } from "react";
 
 const FALLBACK_DESIGN_WIDTH = 412;
+// La referencia visual ocupa 853 px frente a los 911 px de la versión ampliada.
+// Este tope deja ese margen exterior sin alterar las proporciones internas.
+export const REFERENCE_VOUCHER_MAX_SCALE = 0.9363;
 
 // La medición debe ocurrir antes de pintar para que el comprobante no aparezca
 // un fotograma a tamaño de diseño antes de reducirse.
@@ -21,8 +24,14 @@ const useIsomorphicLayoutEffect =
  * lo usa para devolver al flujo el espacio que la escala visual deja libre y
  * evitar así un hueco morado bajo el comprobante.
  */
-export function useVoucherScale(surfaceRef: RefObject<HTMLDivElement | null>) {
+export function useVoucherScale(
+  surfaceRef: RefObject<HTMLDivElement | null>,
+  active = true,
+  maxScale = 1,
+) {
   useIsomorphicLayoutEffect(() => {
+    if (!active) return;
+
     const surface = surfaceRef.current;
     const frame = surface?.parentElement ?? null;
     if (!surface || !frame) return;
@@ -55,7 +64,10 @@ export function useVoucherScale(surfaceRef: RefObject<HTMLDivElement | null>) {
           - Number.parseFloat(frameStyle.paddingRight || "0");
         if (!Number.isFinite(available) || available <= 0) return;
 
-        const scale = Math.min(1, available / readDesignWidth());
+        const scale = Math.min(
+          maxScale,
+          available / readDesignWidth(),
+        );
         write("--voucher-scale", String(scale));
         // offsetHeight ignora la transformación: es el alto real de maquetación.
         write("--voucher-surface-height", `${surface.offsetHeight}px`);
@@ -73,5 +85,5 @@ export function useVoucherScale(surfaceRef: RefObject<HTMLDivElement | null>) {
       frame.style.removeProperty("--voucher-scale");
       frame.style.removeProperty("--voucher-surface-height");
     };
-  }, [surfaceRef]);
+  }, [active, maxScale, surfaceRef]);
 }

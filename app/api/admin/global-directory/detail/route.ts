@@ -6,6 +6,7 @@ import {
   routeError,
 } from "@/app/lib/auth-server";
 import { decryptGlobalQrPayload, QrContactError } from "@/app/lib/qr-contact-server";
+import { assertOwner } from "@/app/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -31,15 +32,6 @@ type DetailRow = {
   qr_payload_ciphertext?: string | null;
   qr_payload_iv?: string | null;
 };
-
-function assertOwner(actor: { isOwner: boolean }) {
-  if (!actor.isOwner) {
-    throw Response.json(
-      { ok: false, code: "OWNER_ONLY", error: "Esta sección está disponible únicamente para el Owner." },
-      { status: 403, headers: { "cache-control": "no-store" } },
-    );
-  }
-}
 
 function kindValue(value: string): DirectoryKind | "" {
   return value === "recipient" || value === "qr" ? value : "";

@@ -16,6 +16,11 @@ function findThemeMeta() {
 }
 
 const PWA_BUILD_VERSION_KEY = "yape-pwa-build-version";
+const PWA_BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION?.trim() || "development";
+
+function serviceWorkerUrl() {
+  return `/sw.js?build=${encodeURIComponent(PWA_BUILD_VERSION)}`;
+}
 
 export function PwaRuntime() {
   const pathname = usePathname();
@@ -116,7 +121,7 @@ export function PwaRuntime() {
     );
 
     void navigator.serviceWorker
-      .register("/sw.js", { scope: "/", updateViaCache: "none" })
+      .register(serviceWorkerUrl(), { scope: "/", updateViaCache: "none" })
       .then((nextRegistration) => {
         if (disposed) return;
         registration = nextRegistration;

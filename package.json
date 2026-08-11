@@ -30,7 +30,7 @@
     "drizzle-orm": "0.45.2",
     "html-to-image": "1.11.13",
     "lottie-web": "^5.13.0",
-    "next": "16.2.12",
+    "next": "16.3.0",
     "postgres": "^3.4.7",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
@@ -53,7 +53,8 @@
     "@esbuild-kit/core-utils": {
       "esbuild": "0.25.12"
     },
-    "postcss": "8.5.22",
+    "nanoid": "^3.3.17",
+    "postcss": "8.5.23",
     "sharp": "0.35.3"
   },
   "type": "module"

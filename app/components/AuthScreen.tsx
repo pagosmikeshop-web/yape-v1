@@ -614,7 +614,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
           ? new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(data.accessExpiresAt))
           : "";
         setNotice({
-          text: `${safeApiMessage(data.message, "Registro completado y prueba de 3 días activada.")}${expiresLabel ? ` Vence: ${expiresLabel}.` : ""} Tu ID de ingreso es ${String(user.loginId ?? "")}.`,
+          text: `${safeApiMessage(data.message, "Registro completado y prueba de 30 días activada.")}${expiresLabel ? ` Vence: ${expiresLabel}.` : ""} Tu ID de ingreso es ${String(user.loginId ?? "")}.`,
           tone: "info",
         });
         sessionStorage.setItem(UNLOCK_KEY, "1");

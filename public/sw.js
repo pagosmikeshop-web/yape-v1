@@ -1,7 +1,9 @@
 const APP_CACHE_PREFIX = "yape-app-shell-";
 const RUNTIME_CACHE_PREFIX = "yape-runtime-assets-";
-const APP_CACHE_NAME = `${APP_CACHE_PREFIX}v5`;
-const RUNTIME_CACHE_NAME = `${RUNTIME_CACHE_PREFIX}v5`;
+const requestedCacheVersion = new URL(self.location.href).searchParams.get("build") ?? "";
+const CACHE_VERSION = requestedCacheVersion.replace(/[^a-zA-Z0-9._-]/g, "") || "v5";
+const APP_CACHE_NAME = `${APP_CACHE_PREFIX}${CACHE_VERSION}`;
+const RUNTIME_CACHE_NAME = `${RUNTIME_CACHE_PREFIX}${CACHE_VERSION}`;
 const OFFLINE_PAGE = "/offline.html";
 const PUBLIC_SHELL = [
   OFFLINE_PAGE,

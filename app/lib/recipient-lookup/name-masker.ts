@@ -1,16 +1,16 @@
 import { RecipientLookupError } from "./errors";
 
 const NAME_TOKEN = /^\p{L}+(?:['\u2019\u2018-]\p{L}+)*$/u;
-const PROTECTED_NAME_TOKEN = "\\p{L}+(?:['\\u2019\\u2018-]\\p{L}+)*";
+const PROTECTED_NAME_FRAGMENT = "\\p{L}+(?:['\\u2019\\u2018-]\\p{L}+)*";
 const LEGACY_PROTECTED_NAME_PATTERN = new RegExp(
-  `^${PROTECTED_NAME_TOKEN} ${"\\p{L}"}{1,3}\\*$`,
+  `^${PROTECTED_NAME_FRAGMENT} ${"\\p{L}"}{1,3}\\*$`,
   "u",
 );
 // Algunos registros (especialmente QR) llegan con el asterisco en medio,
 // por ejemplo "Izi*Butri". Sigue siendo un valor protegido porque no expone
 // el nombre completo; conservarlo evita que el movimiento quede sin titular.
 const EMBEDDED_PROTECTED_NAME_PATTERN = new RegExp(
-  `^${PROTECTED_NAME_TOKEN}(?:\\s+${PROTECTED_NAME_TOKEN})*\\*${PROTECTED_NAME_TOKEN}(?:\\s+${PROTECTED_NAME_TOKEN})*$`,
+  `^${PROTECTED_NAME_FRAGMENT}(?:\\s+${PROTECTED_NAME_FRAGMENT})*\\*${PROTECTED_NAME_FRAGMENT}(?:\\s+${PROTECTED_NAME_FRAGMENT})*$`,
   "u",
 );
 

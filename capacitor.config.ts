@@ -1,11 +1,11 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 /**
- * Capacitor queda preparado para una futura exportación estática del cliente.
- * La aplicación actual usa Next.js SSR, por lo que no existe todavía un
- * bundle local `out/index.html` que pueda sincronizarse con una plataforma
- * nativa. No se utiliza `server.url` y no se crean plataformas nativas en esta
- * etapa.
+ * Decisión vigente: este proyecto se entrega como una única web/PWA.
+ * Next.js usa SSR, por lo que no existe un bundle local `out/index.html` ni se
+ * deben crear o sincronizar plataformas nativas. No se usa `server.url`: una
+ * eventual app nativa requeriría primero una arquitectura de exportación
+ * estática compatible y una decisión explícita.
  */
 const config: CapacitorConfig = {
   appId: "com.norathomas.yape",
