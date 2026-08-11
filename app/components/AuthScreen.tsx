@@ -37,6 +37,7 @@ type AccessLookup = {
 };
 
 const UNLOCK_KEY = "yape-unlocked";
+let welcomeDismissedForAppSession = false;
 const keypadOrder = ["4", "9", "6", "8", "1", "3", "2", "5", "0", "bio", "7", "del"];
 const returningActions: Array<{ href: string; label: string; icon: string; external?: boolean }> = [
   { href: "/recuperar", label: "Olvido de clave", icon: "ic_lock_outline_yape" },
@@ -410,7 +411,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   const [registerChecking, setRegisterChecking] = useState(screen === "register");
   const [groupInviteUrl, setGroupInviteUrl] = useState("/api/telegram/group");
   const [accessLookup, setAccessLookup] = useState<AccessLookup | null>(null);
-  const [showWelcome, setShowWelcome] = useState(screen === "login");
+  const [showWelcome, setShowWelcome] = useState(screen === "login" && !welcomeDismissedForAppSession);
   const authActionInFlightRef = useRef(false);
   const loginSessionCheckStartedRef = useRef(false);
   const redirectInFlightRef = useRef(false);
@@ -900,7 +901,10 @@ export function AuthScreen({ screen }: { screen: Screen }) {
               <h2 id="welcome-title">¡Bienvenido!</h2>
               <p id="welcome-description">¿Cómo quieres continuar?</p>
               <div className="welcome-actions">
-                <button className="welcome-action welcome-action-primary" type="button" autoFocus onClick={() => setShowWelcome(false)}>
+                <button className="welcome-action welcome-action-primary" type="button" autoFocus onClick={() => {
+                  welcomeDismissedForAppSession = true;
+                  setShowWelcome(false);
+                }}>
                   Ya tengo cuenta
                 </button>
                 <Link className="welcome-action welcome-action-secondary" href="/registro">
