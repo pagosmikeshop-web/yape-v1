@@ -70,11 +70,12 @@ export async function GET(request: Request) {
     }
     if (search) {
       conditions.push(`(
+        LOWER(u.id) LIKE ? OR LOWER(COALESCE(u.telegram_user_id, '')) LIKE ? OR
         LOWER(u.display_name) LIKE ? OR LOWER(u.username) LIKE ? OR
         LOWER(u.email) LIKE ? OR d.phone_e164 LIKE ? OR LOWER(COALESCE(p.tags_json, '')) LIKE ?
       )`);
       const term = `%${search}%`;
-      values.push(term, term, term, term, term);
+      values.push(term, term, term, term, term, term, term);
     }
     if (CRM_STATUSES.has(status)) {
       conditions.push(`${CRM_STATUS_SQL} = ?`);
