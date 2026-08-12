@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
-    "@capacitor/cli": "8.4.2",
+    "@capacitor/cli": "8.5.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.19.19",
     "@types/qrcode": "^1.5.6",
