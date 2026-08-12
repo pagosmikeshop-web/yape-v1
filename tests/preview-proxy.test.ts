@@ -10,6 +10,7 @@ const ENVIRONMENT_KEYS = [
   "DATABASE_PROVIDER",
   "SUPABASE_DATABASE_URL",
   "PUBLIC_APP_URL",
+  "PUBLIC_APP_ALLOWED_ORIGINS",
   "ADMIN_WEB_URL",
   "ADMIN_PROXY_SECRET",
   "AUTH_OWNER_TELEGRAM_ID",
@@ -48,6 +49,16 @@ function setPreviewEnvironment() {
   delete process.env.VERCEL_URL;
 }
 
+function setProductionEnvironment() {
+  setPreviewEnvironment();
+  Object.assign(process.env, {
+    APP_ENV: "production",
+    PUBLIC_APP_ALLOWED_ORIGINS: "https://yape.pro,https://yape-v1.vercel.app",
+  });
+  delete process.env.VERCEL_ENV;
+  delete process.env.VERCEL_BRANCH_URL;
+}
+
 afterEach(() => {
   for (const key of ENVIRONMENT_KEYS) {
     const value = originalEnvironment[key];
@@ -74,5 +85,13 @@ describe("proxy de Preview", () => {
     const response = proxy(new NextRequest("https://unexpected.example/"));
 
     expect(response.status).toBe(421);
+  });
+
+  it("acepta solo los dominios de producción configurados", () => {
+    setProductionEnvironment();
+
+    expect(proxy(new NextRequest("https://yape.pro/")).status).toBe(200);
+    expect(proxy(new NextRequest("https://yape-v1.vercel.app/")).status).toBe(200);
+    expect(proxy(new NextRequest("https://unexpected.example/")).status).toBe(421);
   });
 });

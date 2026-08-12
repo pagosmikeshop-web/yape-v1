@@ -47,6 +47,25 @@ function configuredPublicAppUrl() {
   return previewPublicAppUrl() || process.env.PUBLIC_APP_URL;
 }
 
+function configuredPublicOrigins() {
+  const previewUrl = previewPublicAppUrl();
+  const candidates = previewUrl
+    ? [previewUrl]
+    : [
+      process.env.PUBLIC_APP_URL,
+      ...(process.env.PUBLIC_APP_ALLOWED_ORIGINS?.split(",") ?? []),
+    ];
+  const origins = new Set<string>();
+
+  for (const candidate of candidates) {
+    const value = candidate?.trim();
+    if (!value || !validHttpsOrigin(value)) continue;
+    origins.add(new URL(value).origin);
+  }
+
+  return origins;
+}
+
 function isHostedEnvironment() {
   return (
     HOSTED_ENVIRONMENTS.has(process.env.APP_ENV ?? "")
@@ -170,16 +189,14 @@ export function proxy(request: NextRequest) {
   }
 
   if (hosted) {
-    const publicUrl = new URL(configuredPublicAppUrl()!);
-    if (
-      request.nextUrl.hostname !== publicUrl.hostname
-      || request.nextUrl.port !== publicUrl.port
-    ) {
+    if (!configuredPublicOrigins().has(request.nextUrl.origin)) {
       return jsonError("Host no permitido.", 421, requestId);
     }
     if (request.nextUrl.protocol !== "https:") {
+      const secureUrl = request.nextUrl.clone();
+      secureUrl.protocol = "https:";
       return NextResponse.redirect(
-        new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, publicUrl.origin),
+        secureUrl,
         308,
       );
     }

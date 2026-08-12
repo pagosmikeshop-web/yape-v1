@@ -14,6 +14,7 @@ type AuthEnv = {
   ADMIN_PROXY_SECRET?: string;
   TOKEN_ENCRYPTION_SECRET?: string;
   PUBLIC_APP_URL?: string;
+  PUBLIC_APP_ALLOWED_ORIGINS?: string;
   AUTH_BOOTSTRAP_ENABLED?: string;
   AUTH_BOOTSTRAP_SECRET?: string;
   AUTH_OWNER_PASSWORD_RESET_ENABLED?: string;
@@ -181,7 +182,20 @@ export function publicAppBaseUrl(request: Request) {
   if (configured) {
     try {
       const url = new URL(configured);
-      if (url.protocol === "https:" || isLocalUrl(url)) return url.origin;
+      if (url.protocol === "https:" || isLocalUrl(url)) {
+        const allowedOrigins = new Set([url.origin]);
+        for (const candidate of authEnv().PUBLIC_APP_ALLOWED_ORIGINS?.split(",") ?? []) {
+          try {
+            const allowed = new URL(candidate.trim());
+            if (allowed.protocol === "https:") allowedOrigins.add(allowed.origin);
+          } catch {
+            // Las entradas inválidas nunca amplían los orígenes permitidos.
+          }
+        }
+
+        const requestOrigin = new URL(request.url).origin;
+        return allowedOrigins.has(requestOrigin) ? requestOrigin : url.origin;
+      }
     } catch {
       // La respuesta genérica se genera debajo.
     }
