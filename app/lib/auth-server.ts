@@ -326,13 +326,18 @@ async function verifiedAdminProxyIp(request: Request) {
 }
 
 export async function requestIpRateLimitSubject(request: Request) {
-  const cloudflareIp = request.headers.get("cf-connecting-ip")?.trim();
-  if (cloudflareIp) return cloudflareIp.slice(0, 128);
   const adminProxyIp = await verifiedAdminProxyIp(request);
   if (adminProxyIp) return adminProxyIp;
-  const vercelIp = request.headers.get("x-vercel-forwarded-for")?.split(",", 1)[0]?.trim();
-  if (vercelIp) return vercelIp.slice(0, 128);
+
+  // En producción Vercel entrega esta cabecera. No se acepta
+  // `cf-connecting-ip` como fuente primaria: un cliente directo podría
+  // enviarla si Cloudflare no es el proxy verificado delante de Vercel.
+  const vercelIp = request.headers.get("x-vercel-forwarded-for")?.split(",", 1)[0]?.trim() ?? "";
+  if (/^[0-9A-Fa-f:.]{3,64}$/u.test(vercelIp)) return vercelIp;
   if (isHostedEnvironment()) return "unavailable";
+
+  const cloudflareIp = request.headers.get("cf-connecting-ip")?.trim() ?? "";
+  if (/^[0-9A-Fa-f:.]{3,64}$/u.test(cloudflareIp)) return cloudflareIp;
   const forwarded = request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim();
   return (
     request.headers.get("x-real-ip")?.trim()

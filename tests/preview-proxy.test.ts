@@ -27,6 +27,10 @@ const originalEnvironment = Object.fromEntries(
   ENVIRONMENT_KEYS.map((key) => [key, process.env[key]]),
 );
 
+function fixtureSecret(character: string) {
+  return Array.from({ length: 32 }, () => character).join("");
+}
+
 function setPreviewEnvironment() {
   Object.assign(process.env, {
     VERCEL_ENV: "preview",
@@ -37,10 +41,10 @@ function setPreviewEnvironment() {
     ADMIN_WEB_URL: "https://panel-admin-yape.vercel.app",
     ADMIN_PROXY_SECRET: "a".repeat(32),
     AUTH_OWNER_TELEGRAM_ID: "123456789",
-    AUTH_RATE_LIMIT_PEPPER: "b".repeat(32),
+    AUTH_RATE_LIMIT_PEPPER: fixtureSecret("b"),
     QR_CONTACTS_ENCRYPTION_KEY: "c".repeat(32),
     TELEGRAM_WEBHOOK_SECRET: "d".repeat(32),
-    TELEGRAM_BOT_TOKEN: "preview-token",
+    TELEGRAM_BOT_TOKEN: fixtureSecret("preview-token"),
     TELEGRAM_REQUIRED_GROUP_ID: "-1001234567890",
     TELEGRAM_GROUP_INVITE_URL: "https://t.me/preview_group",
     AUTH_BOOTSTRAP_ENABLED: "false",
