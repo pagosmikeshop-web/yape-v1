@@ -1600,207 +1600,315 @@ a:focus-visible {
   }
 }
 
-/* Auth-only action surfaces: keep the authenticated session-retry button on its
- * existing treatment while giving the entry flow a quieter, tactile hierarchy. */
+/* Auth actions borrow the reference's inset surface and separate bevel frame.
+ * The wrappers are deliberately restricted to the login, welcome and register
+ * actions, leaving signed-in controls on their existing treatment. */
 .bank-app {
-  --auth-action-transition: 170ms cubic-bezier(0.16, 1, 0.3, 1);
-  --auth-action-border-duration: 7.5s;
-  --auth-action-primary-rest: 0 8px 18px rgba(103, 8, 136, 0.22), 0 2px 4px rgba(46, 9, 59, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  --auth-action-primary-hover: 0 10px 20px rgba(103, 8, 136, 0.25), 0 3px 6px rgba(46, 9, 59, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.28);
-  --auth-action-primary-pressed: 0 4px 10px rgba(103, 8, 136, 0.2), 0 1px 2px rgba(46, 9, 59, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  --auth-action-blue-rest: 0 7px 16px rgba(0, 94, 168, 0.2), 0 2px 4px rgba(8, 74, 120, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  --auth-action-blue-hover: 0 9px 18px rgba(0, 94, 168, 0.24), 0 3px 6px rgba(8, 74, 120, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.28);
-  --auth-action-blue-pressed: 0 4px 9px rgba(0, 94, 168, 0.18), 0 1px 2px rgba(8, 74, 120, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  --auth-action-transition: 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --auth-frame-padding: 4px;
 }
 
-.bank-app :is(.login-button, .telegram-check-button, .create-account, .welcome-action) {
+.auth-action-frame {
+  --auth-frame-radius: 18px;
+  --auth-frame-hue: 292deg;
+  position: relative;
+  display: block;
+  isolation: isolate;
+  z-index: 0;
+}
+
+.auth-action-frame::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--auth-frame-padding) * -1);
+  z-index: -1;
+  border-radius: calc(var(--auth-frame-radius) + var(--auth-frame-padding));
+  /* Only the exposed four-pixel frame moves. The dark ends make the loop
+   * seamless while the light travels slowly across the bevel. */
+  background-image: linear-gradient(
+    100deg,
+    rgba(15, 5, 20, 0.66) 0%,
+    rgba(15, 5, 20, 0.48) 39%,
+    hsla(var(--auth-frame-hue), 95%, 75%, 0.52) 47%,
+    rgba(255, 255, 255, 0.74) 50%,
+    hsla(var(--auth-frame-hue), 95%, 75%, 0.52) 53%,
+    rgba(15, 5, 20, 0.48) 61%,
+    rgba(15, 5, 20, 0.66) 100%
+  );
+  background-size: 260% 100%;
+  background-position: 220% 0;
+  box-shadow:
+    0 -8px 8px -6px transparent inset,
+    0 -16px 16px -8px transparent inset,
+    1px 1px 1px rgba(255, 255, 255, 0.18),
+    2px 2px 2px rgba(255, 255, 255, 0.08),
+    -1px -1px 1px rgba(0, 0, 0, 0.14),
+    -2px -2px 2px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  animation: auth-action-frame-radiance 6s linear infinite;
+  transition: box-shadow var(--auth-action-transition), filter var(--auth-action-transition);
+}
+
+.auth-action-frame-form {
+  width: 100%;
+}
+
+.auth-action-frame-primary {
+  margin-top: 12px;
+}
+
+.auth-action-frame-link {
+  --auth-frame-radius: 26px;
+  display: inline-block;
+}
+
+.auth-action-frame-welcome {
+  --auth-frame-radius: 19px;
+  width: 100%;
+}
+
+.auth-action-frame:has(> :is(.telegram-check-button, .create-account-blue)) {
+  --auth-frame-hue: 202deg;
+}
+
+.auth-action-frame > :is(.login-button, .telegram-check-button, .create-account, .welcome-action) {
+  width: 100%;
+  margin: 0;
+}
+
+.bank-app.screen-login :is(.login-button, .create-account, .welcome-action),
+.bank-app.screen-register :is(.login-button, .telegram-check-button) {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  box-shadow: var(--auth-action-rest-shadow);
-  transition: transform var(--auth-action-transition), box-shadow var(--auth-action-transition), border-color var(--auth-action-transition);
-}
-
-.bank-app :is(.login-button, .welcome-action-primary) {
-  --auth-action-rest-shadow: var(--auth-action-primary-rest);
-  --auth-action-hover-shadow: var(--auth-action-primary-hover);
-  --auth-action-pressed-shadow: var(--auth-action-primary-pressed);
-  --auth-action-focus-outline: #fff;
-  --auth-action-focus-ring: rgba(94, 24, 108, 0.3);
-}
-
-.bank-app :is(.telegram-check-button, .create-account-blue) {
-  --auth-action-rest-shadow: var(--auth-action-blue-rest);
-  --auth-action-hover-shadow: var(--auth-action-blue-hover);
-  --auth-action-pressed-shadow: var(--auth-action-blue-pressed);
-  --auth-action-focus-outline: #fff;
-  --auth-action-focus-ring: rgba(0, 94, 168, 0.3);
-}
-
-.bank-app .create-account {
-  min-height: 44px;
-  padding-block: 10px;
-  border-radius: 999px;
-}
-
-.bank-app .create-account:not(.create-account-blue) {
-  --auth-action-rest-shadow: 0 5px 11px rgba(103, 8, 136, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  --auth-action-hover-shadow: 0 7px 14px rgba(103, 8, 136, 0.19), inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  --auth-action-pressed-shadow: 0 3px 7px rgba(103, 8, 136, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  --auth-action-focus-outline: #fff;
-  --auth-action-focus-ring: rgba(94, 24, 108, 0.28);
-}
-
-.bank-app .welcome-action-secondary {
-  --auth-action-rest-shadow: 0 3px 8px rgba(103, 8, 136, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.72);
-  --auth-action-hover-shadow: 0 5px 12px rgba(103, 8, 136, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.78);
-  --auth-action-pressed-shadow: 0 2px 5px rgba(103, 8, 136, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.64);
-  --auth-action-focus-outline: var(--auth-primary-700);
-  --auth-action-focus-ring: rgba(146, 11, 193, 0.16);
+  border: solid 1px rgba(255, 255, 255, 0.13);
+  border-radius: var(--auth-action-radius);
+  color: #fff;
+  background-color: var(--auth-action-color);
+  background-image: none;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.2),
+    inset 0 2px 2px rgba(255, 255, 255, 0.15),
+    inset 0 4px 4px rgba(255, 255, 255, 0.1),
+    inset 0 8px 8px rgba(255, 255, 255, 0.05),
+    inset 0 16px 16px rgba(255, 255, 255, 0.05),
+    0 -1px 1px rgba(0, 0, 0, 0.02),
+    0 -2px 2px rgba(0, 0, 0, 0.03),
+    0 -4px 4px rgba(0, 0, 0, 0.05),
+    0 -8px 8px rgba(0, 0, 0, 0.06),
+    0 -16px 16px rgba(0, 0, 0, 0.08);
+  transition: box-shadow var(--auth-action-transition), border-color var(--auth-action-transition), background-color var(--auth-action-transition);
 }
 
 .bank-app.screen-login :is(.login-button, .create-account:not(.create-account-blue), .welcome-action-primary),
 .bank-app.screen-register .login-button {
-  --auth-action-border-gradient: linear-gradient(90deg, #74108d 0%, #c13add 24%, #f1a8ff 50%, #a62bd1 76%, #74108d 100%);
-  border: 2px solid transparent;
-  background-image:
-    linear-gradient(105deg, #a62bd1 0%, #c13add 26%, var(--auth-primary-600) 51%, #8a12ab 76%, #a62bd1 100%) padding-box,
-    var(--auth-action-border-gradient) border-box;
-  background-size: 100% 100%, 400% 100%;
-  background-position: 0 0, 0 50%;
-  background-repeat: no-repeat;
-  animation: auth-action-border-flow var(--auth-action-border-duration) linear infinite;
+  --auth-action-color: #571064;
+  --auth-action-hue: 292deg;
+  --auth-action-radius: 14px;
+  --auth-action-focus-ring: hsla(292, 100%, 72%, 0.36);
 }
 
 .bank-app.screen-login .create-account-blue,
 .bank-app.screen-register .telegram-check-button {
-  --auth-action-border-gradient: linear-gradient(90deg, #005ea8 0%, #24b9f2 24%, #b6edff 50%, #1597e5 76%, #005ea8 100%);
-  border: 2px solid transparent;
-  background-image:
-    linear-gradient(105deg, #1597e5 0%, #23afea 26%, #087cc3 51%, #005ea8 76%, #1597e5 100%) padding-box,
-    var(--auth-action-border-gradient) border-box;
-  background-size: 100% 100%, 400% 100%;
-  background-position: 0 0, 0 50%;
-  background-repeat: no-repeat;
-  animation: auth-action-border-flow var(--auth-action-border-duration) linear infinite;
+  --auth-action-color: #075885;
+  --auth-action-hue: 202deg;
+  --auth-action-radius: 14px;
+  --auth-action-focus-ring: hsla(202, 100%, 72%, 0.36);
 }
 
-.bank-app .welcome-action-secondary {
-  --auth-action-border-gradient: linear-gradient(90deg, #74108d 0%, #bb32d7 24%, #efb1ff 50%, #8d14af 76%, #74108d 100%);
-  border: 2px solid transparent;
-  background:
-    linear-gradient(#fff, #fff) padding-box,
-    var(--auth-action-border-gradient) border-box;
-  background-size: 100% 100%, 400% 100%;
-  background-position: 0 0, 0 50%;
-  background-repeat: no-repeat;
-  animation: auth-action-border-flow var(--auth-action-border-duration) linear infinite;
+.bank-app.screen-login .create-account,
+.bank-app.screen-login .welcome-action {
+  min-height: 44px;
 }
 
-.bank-app.screen-login :is(.login-button, .telegram-check-button, .create-account, .welcome-action),
-.bank-app.screen-register :is(.login-button, .telegram-check-button) {
-  overflow: visible;
-  z-index: 0;
+.bank-app.screen-login .create-account {
+  --auth-action-radius: 22px;
+  padding-block: 10px;
 }
 
-.bank-app.screen-login :is(.login-button, .telegram-check-button, .create-account, .welcome-action)::before,
-.bank-app.screen-register :is(.login-button, .telegram-check-button)::before {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  z-index: -1;
-  border-radius: inherit;
-  background: var(--auth-action-border-gradient, linear-gradient(90deg, #74108d, #c13add, #f1a8ff, #74108d));
-  background-size: 400% 100%;
-  background-position: 0 50%;
-  filter: blur(5px);
-  opacity: 0.92;
-  pointer-events: none;
-  animation: auth-action-border-glow var(--auth-action-border-duration) linear infinite;
+.bank-app.screen-login .welcome-action {
+  --auth-action-radius: 15px;
 }
 
-.bank-app.screen-login :is(.login-button, .telegram-check-button, .create-account, .welcome-action)::after,
+.bank-app.screen-login .welcome-action-secondary {
+  --auth-action-color: #3e0d49;
+  --auth-action-hue: 292deg;
+  --auth-action-focus-ring: hsla(292, 100%, 72%, 0.32);
+}
+
+.auth-action-label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  justify-content: center;
+  white-space: pre;
+}
+
+.auth-action-label__letter {
+  display: inline-block;
+  color: rgba(255, 255, 255, 0.58);
+  text-shadow: 0 0 0 transparent;
+  animation: auth-action-letter-anim 2s ease-in-out infinite;
+}
+
+.bank-app.screen-login :is(.login-button, .create-account, .welcome-action)::after,
 .bank-app.screen-register :is(.login-button, .telegram-check-button)::after {
   content: "";
   position: absolute;
-  inset: 1px;
-  z-index: 1;
-  width: auto;
-  border: 1px solid rgba(255, 255, 255, 0.42);
+  inset: 0;
   border-radius: inherit;
-  background: transparent;
-  opacity: 0.72;
-  transform: none;
+  z-index: 0;
   pointer-events: none;
-  animation: none;
-}
-
-.bank-app :is(.login-button, .telegram-check-button, .create-account, .welcome-action):focus-visible {
-  outline: 2px solid var(--auth-action-focus-outline);
-  outline-offset: 3px;
-  box-shadow: var(--auth-action-rest-shadow), 0 0 0 3px var(--auth-action-focus-ring);
-}
-
-.bank-app button.login-button:disabled,
-.bank-app button.telegram-check-button:disabled,
-.bank-app .create-account[aria-disabled="true"] {
-  --auth-action-rest-shadow: 0 2px 6px rgba(61, 51, 65, 0.12);
-  --auth-action-hover-shadow: var(--auth-action-rest-shadow);
-  --auth-action-pressed-shadow: var(--auth-action-rest-shadow);
-  opacity: 0.58;
+  background-image: linear-gradient(0deg, rgba(255, 255, 255, 0.12), transparent 34%);
+  opacity: 0.34;
   transform: none;
-  box-shadow: var(--auth-action-rest-shadow);
+  animation: none;
+  transition: opacity var(--auth-action-transition), filter var(--auth-action-transition);
+}
+
+.bank-app.screen-login :is(.login-button, .create-account, .welcome-action):focus-visible,
+.bank-app.screen-register :is(.login-button, .telegram-check-button):focus-visible {
+  outline: 2px solid hsl(var(--auth-action-hue), 100%, 84%);
+  outline-offset: 3px;
+  border-color: hsla(var(--auth-action-hue), 100%, 84%, 0.68);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.26),
+    inset 0 -8px 12px -6px rgba(255, 255, 255, 0.28),
+    inset 0 -16px 16px -8px hsla(var(--auth-action-hue), 100%, 70%, 0.25),
+    0 0 0 3px var(--auth-action-focus-ring);
+}
+
+.auth-action-frame:focus-within::before {
+  box-shadow:
+    0 -8px 12px -6px rgba(255, 255, 255, 0.24) inset,
+    0 -16px 16px -8px hsla(var(--auth-frame-hue), 100%, 70%, 0.2) inset,
+    1px 1px 1px rgba(255, 255, 255, 0.26),
+    2px 2px 2px rgba(255, 255, 255, 0.12),
+    -1px -1px 1px rgba(0, 0, 0, 0.14),
+    -2px -2px 2px rgba(0, 0, 0, 0.08);
+}
+
+.bank-app.screen-login :is(.login-button, .create-account, .welcome-action):focus-visible::after,
+.bank-app.screen-register :is(.login-button, .telegram-check-button):focus-visible::after {
+  opacity: 0.58;
+}
+
+.bank-app.screen-login button.login-button:disabled,
+.bank-app.screen-register :is(button.login-button, button.telegram-check-button):disabled,
+.bank-app.screen-login .create-account[aria-disabled="true"] {
+  opacity: 0.55;
+  text-shadow: none;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    0 -2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.bank-app.screen-login button.login-button:disabled::after,
+.bank-app.screen-register :is(button.login-button, button.telegram-check-button):disabled::after,
+.bank-app.screen-login .create-account[aria-disabled="true"]::after {
+  opacity: 0;
   animation: none;
 }
 
-.bank-app button.login-button:disabled::before,
-.bank-app button.telegram-check-button:disabled::before,
-.bank-app .create-account[aria-disabled="true"]::before {
-  opacity: 0.22;
+.auth-action-frame:has(> :disabled)::before {
   animation: none;
+  background-position: 220% 0;
+  opacity: 0.5;
+}
+
+.auth-action-frame:has(> :disabled) .auth-action-label__letter {
+  animation: none;
+  color: rgba(255, 255, 255, 0.58);
+  text-shadow: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .bank-app :is(.login-button, .telegram-check-button, .create-account, .welcome-action):hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: var(--auth-action-hover-shadow);
+  .bank-app.screen-login :is(.login-button, .create-account, .welcome-action):hover:not(:disabled),
+  .bank-app.screen-register :is(.login-button, .telegram-check-button):hover:not(:disabled) {
+    border-color: hsla(var(--auth-action-hue), 100%, 80%, 0.42);
   }
 
+  .auth-action-frame:hover::before {
+    box-shadow:
+      0 -8px 8px -6px rgba(255, 255, 255, 0.42) inset,
+      0 -16px 16px -8px hsla(var(--auth-frame-hue), 100%, 70%, 0.3) inset,
+      1px 1px 1px rgba(255, 255, 255, 0.2),
+      2px 2px 2px rgba(255, 255, 255, 0.1),
+      -1px -1px 1px rgba(0, 0, 0, 0.14),
+      -2px -2px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  .bank-app.screen-login :is(.login-button, .create-account, .welcome-action):hover:not(:disabled)::after,
+  .bank-app.screen-register :is(.login-button, .telegram-check-button):hover:not(:disabled)::after {
+    filter: brightness(1.12);
+  }
 }
 
-.bank-app :is(.login-button, .telegram-check-button, .create-account, .welcome-action):active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: var(--auth-action-pressed-shadow);
+.bank-app.screen-login :is(.login-button, .create-account, .welcome-action):active:not(:disabled),
+.bank-app.screen-register :is(.login-button, .telegram-check-button):active:not(:disabled) {
+  border-color: hsla(var(--auth-action-hue), 100%, 80%, 0.7);
+  background-color: hsla(var(--auth-action-hue), 50%, 20%, 0.92);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.16),
+    inset 0 -8px 12px -6px rgba(255, 255, 255, 0.66),
+    inset 0 -16px 16px -8px hsla(var(--auth-action-hue), 100%, 70%, 0.55),
+    0 -2px 4px rgba(0, 0, 0, 0.08);
 }
 
-@keyframes auth-action-border-flow {
+.bank-app.screen-login :is(.login-button, .create-account, .welcome-action):active:not(:disabled)::after,
+.bank-app.screen-register :is(.login-button, .telegram-check-button):active:not(:disabled)::after {
+  opacity: 0.9;
+  filter: brightness(1.45);
+}
+
+@keyframes auth-action-frame-radiance {
   from {
-    background-position: 0 0, 0 50%;
+    background-position: 220% 0;
   }
 
   to {
-    background-position: 0 0, 100% 50%;
+    background-position: -120% 0;
   }
 }
 
-@keyframes auth-action-border-glow {
-  from {
-    background-position: 0 50%;
+@keyframes auth-action-letter-anim {
+  0%,
+  100% {
+    color: rgba(255, 255, 255, 0.58);
+    text-shadow: 0 0 0 transparent;
+    transform: translateY(0);
   }
 
-  to {
-    background-position: 400% 50%;
+  50% {
+    color: #fff;
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.86);
+    transform: translateY(-0.5px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bank-app :is(.login-button, .telegram-check-button, .create-account, .welcome-action) {
+  .auth-action-frame::before,
+  .bank-app.screen-login :is(.login-button, .create-account, .welcome-action),
+  .bank-app.screen-register :is(.login-button, .telegram-check-button),
+  .bank-app.screen-login :is(.login-button, .create-account, .welcome-action)::after,
+  .bank-app.screen-register :is(.login-button, .telegram-check-button)::after {
     transition: none;
     animation: none;
   }
 
-  .bank-app.screen-login :is(.login-button, .telegram-check-button, .create-account, .welcome-action)::before,
-  .bank-app.screen-register :is(.login-button, .telegram-check-button)::before {
+  .bank-app.screen-login :is(.login-button, .create-account, .welcome-action),
+  .bank-app.screen-register :is(.login-button, .telegram-check-button) {
+    text-shadow: none;
+  }
+
+  .auth-action-label__letter {
     animation: none;
+    color: #fff;
+    text-shadow: none;
+  }
+
+  .bank-app.screen-login :is(.login-button, .create-account, .welcome-action)::after,
+  .bank-app.screen-register :is(.login-button, .telegram-check-button)::after {
+    opacity: 0.34;
   }
 }

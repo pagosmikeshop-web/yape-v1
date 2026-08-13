@@ -238,6 +238,22 @@ function Header({ screen, onRefresh }: { screen: Screen; onRefresh: () => void }
   );
 }
 
+function AnimatedActionLabel({ label }: { label: string }) {
+  return (
+    <span className="auth-action-label" aria-hidden="true">
+      {Array.from(label).map((letter, index) => (
+        <span
+          className="auth-action-label__letter"
+          key={`${letter}-${index}`}
+          style={{ animationDelay: `${index * 68}ms` }}
+        >
+          {letter}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function ReturningKeypad({
   mode,
   onSubmit,
@@ -800,18 +816,20 @@ export function AuthScreen({ screen }: { screen: Screen }) {
                     {groupInviteUrl ? <a href={groupInviteUrl} target="_blank" rel="noreferrer">Abrir grupo de Telegram</a> : null}
                   </div>
                   <Field id="telegram-id" label="Telegram ID" inputMode="numeric" pattern="[0-9]{4,24}" maxLength={24} />
-                  <button className="telegram-check-button" type="button" disabled={busy || registerChecking || !fingerprintId} onClick={() => void verifyTelegramForRegister()}>
-                    {registerChecking
-                      ? "VALIDANDO DISPOSITIVO"
-                      : "VALIDAR TELEGRAM"}
-                  </button>
+                  <span className="auth-action-frame auth-action-frame-form">
+                    <button className="telegram-check-button" type="button" disabled={busy || registerChecking || !fingerprintId} onClick={() => void verifyTelegramForRegister()} aria-label={registerChecking ? "VALIDANDO DISPOSITIVO" : "VALIDAR TELEGRAM"}>
+                      <AnimatedActionLabel label={registerChecking ? "VALIDANDO DISPOSITIVO" : "VALIDAR TELEGRAM"} />
+                    </button>
+                  </span>
                   <Field id="username" label="Usuario" autoComplete="username" minLength={3} maxLength={40} />
                   <Field id="referral-code" label="Codigo de invitacion opcional" maxLength={16} required={false} />
                   <PasswordField id="new-password" label="Contrasena" autoComplete="new-password" />
                   <PasswordField id="confirm-password" label="Confirmar contrasena" autoComplete="new-password" />
                   <Field id="pin" label="Clave de 6 digitos" type="password" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} minLength={6} />
                   <Field id="confirm-pin" label="Repetir clave de 6 digitos" type="password" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} minLength={6} />
-                  <button className="login-button" type="submit" disabled={busy || !registerAllowed}>CREAR CUENTA</button>
+                  <span className="auth-action-frame auth-action-frame-form auth-action-frame-primary">
+                    <button className="login-button" type="submit" disabled={busy || !registerAllowed} aria-label="CREAR CUENTA"><AnimatedActionLabel label="CREAR CUENTA" /></button>
+                  </span>
                 </>
               ) : null}
               {false ? (
@@ -822,7 +840,9 @@ export function AuthScreen({ screen }: { screen: Screen }) {
                   <Field id="seller-id" label="Telegram ID" inputMode="numeric" pattern="[0-9]{4,24}" maxLength={24} />
                   <Field id="username" label="Usuario" autoComplete="username" />
                   <PasswordField id="password" label="Contraseña" autoComplete="current-password" />
-                  <button className="login-button" type="submit" disabled={busy}>INICIAR SESIÓN</button>
+                  <span className="auth-action-frame auth-action-frame-form auth-action-frame-primary">
+                    <button className="login-button" type="submit" disabled={busy} aria-label="INICIAR SESIÓN"><AnimatedActionLabel label="INICIAR SESIÓN" /></button>
+                  </span>
                 </>
               ) : null}
               {screen === "change-password" ? (
@@ -877,8 +897,12 @@ export function AuthScreen({ screen }: { screen: Screen }) {
           {screen === "login" ? (
             <div className="login-links" aria-label="Opciones de acceso">
               <Link className="quiet-link" href="/recuperar">¿Olvidaste tu contraseña?</Link>
-              <Link className="create-account" href="/registro">Crear una cuenta nueva</Link>
-              <Link className="create-account create-account-blue" href="/api/telegram/group">Unirse al grupo 🔥</Link>
+              <span className="auth-action-frame auth-action-frame-link">
+                <Link className="create-account" href="/registro" aria-label="Crear una cuenta nueva"><AnimatedActionLabel label="Crear una cuenta nueva" /></Link>
+              </span>
+              <span className="auth-action-frame auth-action-frame-link">
+                <Link className="create-account create-account-blue" href="/api/telegram/group" aria-label="Unirse al grupo"><AnimatedActionLabel label="Unirse al grupo 🔥" /></Link>
+              </span>
             </div>
           ) : null}
           {screen === "change-password" ? (
@@ -901,15 +925,19 @@ export function AuthScreen({ screen }: { screen: Screen }) {
               <h2 id="welcome-title">¡Bienvenido!</h2>
               <p id="welcome-description">¿Cómo quieres continuar?</p>
               <div className="welcome-actions">
-                <button className="welcome-action welcome-action-primary" type="button" autoFocus onClick={() => {
-                  welcomeDismissedForAppSession = true;
-                  setShowWelcome(false);
-                }}>
-                  Ya tengo cuenta
-                </button>
-                <Link className="welcome-action welcome-action-secondary" href="/registro">
-                  Crear cuenta nueva
-                </Link>
+                <span className="auth-action-frame auth-action-frame-welcome">
+                  <button className="welcome-action welcome-action-primary" type="button" autoFocus onClick={() => {
+                    welcomeDismissedForAppSession = true;
+                    setShowWelcome(false);
+                  }}>
+                  <AnimatedActionLabel label="Ya tengo cuenta" />
+                  </button>
+                </span>
+                <span className="auth-action-frame auth-action-frame-welcome">
+                  <Link className="welcome-action welcome-action-secondary" href="/registro">
+                  <AnimatedActionLabel label="Crear cuenta nueva" />
+                  </Link>
+                </span>
               </div>
             </div>
           </div>
