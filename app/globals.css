@@ -1737,6 +1737,7 @@ a:focus-visible {
   position: relative;
   display: inline-block;
   color: #fff;
+  opacity: 0.76;
   text-shadow: 0 0 0 transparent;
   animation: auth-action-label-pulse 2.15s ease-in-out infinite;
   transition: color 220ms ease, text-shadow 220ms ease, opacity 220ms ease;
@@ -1873,14 +1874,22 @@ a:focus-visible {
   32%,
   100% {
     color: #fff;
+    opacity: 0.76;
     text-shadow: 0 0 0 transparent;
   }
 
   50% {
     color: #fff;
+    opacity: 1;
     text-shadow:
       0 0 4px rgba(255, 255, 255, 0.98),
       0 0 12px hsla(var(--auth-action-hue), 100%, 88%, 0.82);
+  }
+
+  68% {
+    color: #fff;
+    opacity: 0.86;
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.4);
   }
 }
 
