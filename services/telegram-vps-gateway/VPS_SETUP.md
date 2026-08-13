@@ -15,10 +15,12 @@ Copiar `gateway.env.example` a `.env` y completar:
 ## Despliegue
 
 1. Crear un registro DNS `A` para `bot.yape.pro` hacia la IP del VPS.
-2. Instalar Docker Compose y Caddy en el VPS.
-3. Copiar `Caddyfile.example` como `/etc/caddy/Caddyfile`, ajustar el dominio si corresponde y reiniciar Caddy. Caddy obtiene TLS automáticamente.
-4. Desde esta carpeta ejecutar `docker compose up -d --build`.
+2. Instalar Caddy en el VPS y copiar `Caddyfile.example` como `/etc/caddy/Caddyfile`; ajustar el dominio si corresponde y reiniciar Caddy. Caddy obtiene TLS automáticamente.
+3. Copiar esta carpeta al VPS, por ejemplo a `/opt/yape-telegram-gateway`, y copiar `gateway.env.example` a `.env` allí.
+4. Ejecutar `pm2 startOrReload ecosystem.config.cjs --only yape-telegram-gateway` y después `pm2 save`.
 5. Comprobar `curl https://bot.yape.pro/health`; debe responder `{ "ok": true }`.
+
+El proceso usa el nombre aislado `yape-telegram-gateway`; PM2 no detiene ni reinicia los demás bots.
 
 ## Variables en Vercel
 
@@ -34,7 +36,7 @@ No pongas `TELEGRAM_VPS_FORWARD_SECRET` hasta que el gateway y su HTTPS funcione
 Cuando `/health` responda por HTTPS y las variables de Vercel estén desplegadas, desde esta carpeta en el VPS:
 
 ```sh
-docker compose run --rm telegram-vps-gateway node configure-webhook.mjs
+node configure-webhook.mjs
 ```
 
 No ejecutar `/api/telegram/setup` después: esa ruta volvería a apuntar el webhook a Vercel. El script no descarta updates pendientes.
