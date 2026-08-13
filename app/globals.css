@@ -1639,7 +1639,7 @@ a:focus-visible {
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     0 1px 3px rgba(43, 4, 58, 0.2);
   pointer-events: none;
-  animation: auth-action-frame-radiance 6s linear infinite;
+  animation: none;
   transition: box-shadow var(--auth-action-transition), filter var(--auth-action-transition);
 }
 
@@ -1733,16 +1733,24 @@ a:focus-visible {
   white-space: pre;
 }
 
+.auth-action-label__letter {
+  position: relative;
+  display: inline-block;
+  color: inherit;
+  text-shadow: 0 0 0 transparent;
+  animation: auth-action-label-pulse 2s ease-in-out infinite;
+  transition: color 400ms ease, text-shadow 400ms ease, opacity 400ms ease;
+}
+
 .bank-app.screen-login :is(.login-button, .create-account, .welcome-action)::after,
 .bank-app.screen-register :is(.login-button, .telegram-check-button)::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
   z-index: 0;
   pointer-events: none;
-  background-image: linear-gradient(0deg, rgba(255, 255, 255, 0.12), transparent 34%);
-  opacity: 0.34;
+  background: none;
+  opacity: 0;
   transform: none;
   animation: none;
   transition: opacity var(--auth-action-transition), filter var(--auth-action-transition);
@@ -1837,13 +1845,16 @@ a:focus-visible {
   filter: brightness(1.45);
 }
 
-@keyframes auth-action-frame-radiance {
-  from {
-    background-position: 220% 0;
+@keyframes auth-action-label-pulse {
+  0%,
+  100% {
+    color: inherit;
+    text-shadow: 0 0 0 transparent;
   }
 
-  to {
-    background-position: -120% 0;
+  50% {
+    color: #fff;
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.82), 0 0 8px rgba(255, 255, 255, 0.28);
   }
 }
 
@@ -1862,8 +1873,13 @@ a:focus-visible {
     text-shadow: none;
   }
 
+  .auth-action-label__letter {
+    animation: none;
+    text-shadow: none;
+  }
+
   .bank-app.screen-login :is(.login-button, .create-account, .welcome-action)::after,
   .bank-app.screen-register :is(.login-button, .telegram-check-button)::after {
-    opacity: 0.34;
+    opacity: 0;
   }
 }
