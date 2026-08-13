@@ -1736,11 +1736,34 @@ a:focus-visible {
 .auth-action-label__letter {
   position: relative;
   display: inline-block;
-  color: inherit;
+  color: #fff;
   text-shadow: 0 0 0 transparent;
-  animation: auth-action-label-pulse 2s ease-in-out infinite;
-  transition: color 400ms ease, text-shadow 400ms ease, opacity 400ms ease;
+  animation: auth-action-label-pulse 2.15s ease-in-out infinite;
+  transition: color 220ms ease, text-shadow 220ms ease, opacity 220ms ease;
 }
+
+.auth-action-label__letter:nth-child(1) { animation-delay: 0ms; }
+.auth-action-label__letter:nth-child(2) { animation-delay: 95ms; }
+.auth-action-label__letter:nth-child(3) { animation-delay: 190ms; }
+.auth-action-label__letter:nth-child(4) { animation-delay: 285ms; }
+.auth-action-label__letter:nth-child(5) { animation-delay: 380ms; }
+.auth-action-label__letter:nth-child(6) { animation-delay: 475ms; }
+.auth-action-label__letter:nth-child(7) { animation-delay: 570ms; }
+.auth-action-label__letter:nth-child(8) { animation-delay: 665ms; }
+.auth-action-label__letter:nth-child(9) { animation-delay: 760ms; }
+.auth-action-label__letter:nth-child(10) { animation-delay: 855ms; }
+.auth-action-label__letter:nth-child(11) { animation-delay: 950ms; }
+.auth-action-label__letter:nth-child(12) { animation-delay: 1045ms; }
+.auth-action-label__letter:nth-child(13) { animation-delay: 1140ms; }
+.auth-action-label__letter:nth-child(14) { animation-delay: 1235ms; }
+.auth-action-label__letter:nth-child(15) { animation-delay: 1330ms; }
+.auth-action-label__letter:nth-child(16) { animation-delay: 1425ms; }
+.auth-action-label__letter:nth-child(17) { animation-delay: 1520ms; }
+.auth-action-label__letter:nth-child(18) { animation-delay: 1615ms; }
+.auth-action-label__letter:nth-child(19) { animation-delay: 1710ms; }
+.auth-action-label__letter:nth-child(20) { animation-delay: 1805ms; }
+.auth-action-label__letter:nth-child(21) { animation-delay: 1900ms; }
+.auth-action-label__letter:nth-child(22) { animation-delay: 1995ms; }
 
 .bank-app.screen-login :is(.login-button, .create-account, .welcome-action)::after,
 .bank-app.screen-register :is(.login-button, .telegram-check-button)::after {
@@ -1847,14 +1870,17 @@ a:focus-visible {
 
 @keyframes auth-action-label-pulse {
   0%,
+  32%,
   100% {
-    color: inherit;
+    color: #fff;
     text-shadow: 0 0 0 transparent;
   }
 
   50% {
     color: #fff;
-    text-shadow: 0 0 3px rgba(255, 255, 255, 0.82), 0 0 8px rgba(255, 255, 255, 0.28);
+    text-shadow:
+      0 0 4px rgba(255, 255, 255, 0.98),
+      0 0 12px hsla(var(--auth-action-hue), 100%, 88%, 0.82);
   }
 }
 

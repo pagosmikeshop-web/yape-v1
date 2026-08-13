@@ -242,7 +242,10 @@ function ActionLabel({ label }: { label: string }) {
   return (
     <span className="auth-action-label" aria-hidden="true">
       {Array.from(label).map((character, index) => (
-        <span className="auth-action-label__letter" key={`${index}-${character}`}>
+        <span
+          className="auth-action-label__letter"
+          key={`${index}-${character}`}
+        >
           {character === " " ? "\u00a0" : character}
         </span>
       ))}
