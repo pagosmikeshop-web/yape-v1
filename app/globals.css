@@ -1605,7 +1605,7 @@ a:focus-visible {
  * actions, leaving signed-in controls on their existing treatment. */
 .bank-app {
   --auth-action-transition: 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  --auth-frame-padding: 4px;
+  --auth-frame-padding: 2px;
 }
 
 .auth-action-frame {
@@ -1623,27 +1623,21 @@ a:focus-visible {
   inset: calc(var(--auth-frame-padding) * -1);
   z-index: -1;
   border-radius: calc(var(--auth-frame-radius) + var(--auth-frame-padding));
-  /* Only the exposed four-pixel frame moves. The dark ends make the loop
-   * seamless while the light travels slowly across the bevel. */
+  /* A narrow, moving accent separates the control from its background without
+   * creating the thick metallic rails of the prior treatment. */
   background-image: linear-gradient(
     100deg,
-    rgba(15, 5, 20, 0.66) 0%,
-    rgba(15, 5, 20, 0.48) 39%,
-    hsla(var(--auth-frame-hue), 95%, 75%, 0.52) 47%,
-    rgba(255, 255, 255, 0.74) 50%,
-    hsla(var(--auth-frame-hue), 95%, 75%, 0.52) 53%,
-    rgba(15, 5, 20, 0.48) 61%,
-    rgba(15, 5, 20, 0.66) 100%
+    hsla(var(--auth-frame-hue), 92%, 72%, 0.3) 0%,
+    hsla(var(--auth-frame-hue), 92%, 72%, 0.4) 43%,
+    rgba(255, 255, 255, 0.82) 50%,
+    hsla(var(--auth-frame-hue), 92%, 72%, 0.4) 57%,
+    hsla(var(--auth-frame-hue), 92%, 72%, 0.3) 100%
   );
   background-size: 260% 100%;
   background-position: 220% 0;
   box-shadow:
-    0 -8px 8px -6px transparent inset,
-    0 -16px 16px -8px transparent inset,
-    1px 1px 1px rgba(255, 255, 255, 0.18),
-    2px 2px 2px rgba(255, 255, 255, 0.08),
-    -1px -1px 1px rgba(0, 0, 0, 0.14),
-    -2px -2px 2px rgba(0, 0, 0, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 1px 3px rgba(43, 4, 58, 0.2);
   pointer-events: none;
   animation: auth-action-frame-radiance 6s linear infinite;
   transition: box-shadow var(--auth-action-transition), filter var(--auth-action-transition);
@@ -1684,25 +1678,18 @@ a:focus-visible {
   border: solid 1px rgba(255, 255, 255, 0.13);
   border-radius: var(--auth-action-radius);
   color: #fff;
-  background-color: var(--auth-action-color);
-  background-image: none;
+  background: var(--auth-action-surface);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.2),
-    inset 0 2px 2px rgba(255, 255, 255, 0.15),
-    inset 0 4px 4px rgba(255, 255, 255, 0.1),
-    inset 0 8px 8px rgba(255, 255, 255, 0.05),
-    inset 0 16px 16px rgba(255, 255, 255, 0.05),
-    0 -1px 1px rgba(0, 0, 0, 0.02),
-    0 -2px 2px rgba(0, 0, 0, 0.03),
-    0 -4px 4px rgba(0, 0, 0, 0.05),
-    0 -8px 8px rgba(0, 0, 0, 0.06),
-    0 -16px 16px rgba(0, 0, 0, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -3px 6px rgba(44, 3, 61, 0.2),
+    0 4px 9px rgba(77, 8, 101, 0.16);
   transition: box-shadow var(--auth-action-transition), border-color var(--auth-action-transition), background-color var(--auth-action-transition);
 }
 
 .bank-app.screen-login :is(.login-button, .create-account:not(.create-account-blue), .welcome-action-primary),
 .bank-app.screen-register .login-button {
-  --auth-action-color: #571064;
+  --auth-action-color: #941abd;
+  --auth-action-surface: linear-gradient(105deg, #b72ed9 0%, #991bc0 48%, #7d109f 100%);
   --auth-action-hue: 292deg;
   --auth-action-radius: 14px;
   --auth-action-focus-ring: hsla(292, 100%, 72%, 0.36);
@@ -1710,7 +1697,8 @@ a:focus-visible {
 
 .bank-app.screen-login .create-account-blue,
 .bank-app.screen-register .telegram-check-button {
-  --auth-action-color: #075885;
+  --auth-action-color: #0b86cf;
+  --auth-action-surface: linear-gradient(105deg, #1aa7ec 0%, #0d87d1 52%, #066ca9 100%);
   --auth-action-hue: 202deg;
   --auth-action-radius: 14px;
   --auth-action-focus-ring: hsla(202, 100%, 72%, 0.36);
@@ -1731,7 +1719,8 @@ a:focus-visible {
 }
 
 .bank-app.screen-login .welcome-action-secondary {
-  --auth-action-color: #3e0d49;
+  --auth-action-color: #74208f;
+  --auth-action-surface: linear-gradient(105deg, #9d37b7 0%, #7d238f 52%, #641772 100%);
   --auth-action-hue: 292deg;
   --auth-action-focus-ring: hsla(292, 100%, 72%, 0.32);
 }
@@ -1746,8 +1735,8 @@ a:focus-visible {
 
 .auth-action-label__letter {
   display: inline-block;
-  color: rgba(255, 255, 255, 0.58);
-  text-shadow: 0 0 0 transparent;
+  color: rgba(255, 255, 255, 0.74);
+  text-shadow: 0 1px 1px rgba(44, 3, 61, 0.26);
   animation: auth-action-letter-anim 2s ease-in-out infinite;
 }
 
@@ -1874,14 +1863,14 @@ a:focus-visible {
 @keyframes auth-action-letter-anim {
   0%,
   100% {
-    color: rgba(255, 255, 255, 0.58);
-    text-shadow: 0 0 0 transparent;
+    color: rgba(255, 255, 255, 0.74);
+    text-shadow: 0 1px 1px rgba(44, 3, 61, 0.26);
     transform: translateY(0);
   }
 
   50% {
     color: #fff;
-    text-shadow: 0 0 4px rgba(255, 255, 255, 0.86);
+    text-shadow: 0 1px 1px rgba(44, 3, 61, 0.22), 0 0 6px rgba(255, 255, 255, 0.9);
     transform: translateY(-0.5px);
   }
 }
