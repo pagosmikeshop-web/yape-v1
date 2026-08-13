@@ -28,8 +28,16 @@ type AuthEnv = {
   CRON_SECRET?: string;
   ACCOUNT_SMS_VALIDATION_TOKEN?: string;
   ACCOUNT_AUTO_VALIDATION_TOKEN?: string;
+  /** Legacy single-bot token. Used as a fallback during the two-bot migration. */
   TELEGRAM_BOT_TOKEN?: string;
+  /** Bot used exclusively for getChatMember membership checks. */
+  TELEGRAM_MEMBERSHIP_BOT_TOKEN?: string;
+  /** Bot that receives /redeem and /me commands through the webhook. */
+  TELEGRAM_COMMAND_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
+  /** Secret for the command bot webhook; falls back to TELEGRAM_WEBHOOK_SECRET. */
+  TELEGRAM_COMMAND_WEBHOOK_SECRET?: string;
+  TELEGRAM_WEBHOOK_DIAGNOSTICS?: string;
   TELEGRAM_ADMIN_IDS?: string;
   TELEGRAM_BOT_USERNAME?: string;
   TELEGRAM_SUPPORT_USERNAME?: string;

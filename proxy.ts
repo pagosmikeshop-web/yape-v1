@@ -96,10 +96,24 @@ function hostedConfigurationErrors() {
   if ((process.env.QR_CONTACTS_ENCRYPTION_KEY?.trim().length ?? 0) < 32) {
     missing.push("QR_CONTACTS_ENCRYPTION_KEY");
   }
-  if ((process.env.TELEGRAM_WEBHOOK_SECRET?.trim().length ?? 0) < 32) {
-    missing.push("TELEGRAM_WEBHOOK_SECRET");
+  const commandWebhookSecret = process.env.TELEGRAM_COMMAND_WEBHOOK_SECRET?.trim()
+    || process.env.TELEGRAM_WEBHOOK_SECRET?.trim()
+    || "";
+  if (commandWebhookSecret.length < 32) {
+    missing.push("TELEGRAM_COMMAND_WEBHOOK_SECRET (o TELEGRAM_WEBHOOK_SECRET)");
   }
-  if (!process.env.TELEGRAM_BOT_TOKEN?.trim()) missing.push("TELEGRAM_BOT_TOKEN");
+  const membershipBotToken = process.env.TELEGRAM_MEMBERSHIP_BOT_TOKEN?.trim()
+    || process.env.TELEGRAM_BOT_TOKEN?.trim()
+    || "";
+  if (!membershipBotToken) {
+    missing.push("TELEGRAM_MEMBERSHIP_BOT_TOKEN (o TELEGRAM_BOT_TOKEN)");
+  }
+  const commandBotToken = process.env.TELEGRAM_COMMAND_BOT_TOKEN?.trim()
+    || process.env.TELEGRAM_BOT_TOKEN?.trim()
+    || "";
+  if (!commandBotToken) {
+    missing.push("TELEGRAM_COMMAND_BOT_TOKEN (o TELEGRAM_BOT_TOKEN)");
+  }
   if (!process.env.TELEGRAM_REQUIRED_GROUP_ID?.trim()) missing.push("TELEGRAM_REQUIRED_GROUP_ID");
   if (!/^https:\/\/t\.me\/[A-Za-z0-9_+/-]+$/u.test(process.env.TELEGRAM_GROUP_INVITE_URL?.trim() ?? "")) {
     missing.push("TELEGRAM_GROUP_INVITE_URL");

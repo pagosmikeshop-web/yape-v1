@@ -7,7 +7,11 @@ import {
   routeError,
 } from "@/app/lib/auth-server";
 import { writeSecurityEvent } from "@/app/lib/security-log";
-import { sameSecret } from "@/app/lib/telegram-manager";
+import {
+  sameSecret,
+  telegramCommandBotToken,
+  telegramCommandWebhookSecret,
+} from "@/app/lib/telegram-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -35,19 +39,21 @@ export async function POST(request: Request) {
         { status: 401, headers: { "cache-control": "no-store" } },
       );
     }
-    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_WEBHOOK_SECRET) {
+    const commandBotToken = telegramCommandBotToken();
+    const commandWebhookSecret = telegramCommandWebhookSecret();
+    if (!commandBotToken || !commandWebhookSecret) {
       return Response.json(
         { ok: false, error: "La integración de Telegram no está configurada." },
         { status: 503, headers: { "cache-control": "no-store" } },
       );
     }
     const webhookUrl = new URL("/api/telegram/webhook", publicAppBaseUrl(request)).toString();
-    const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/setWebhook`, {
+    const response = await fetch(`https://api.telegram.org/bot${commandBotToken}/setWebhook`, {
       method: "POST",
       headers: { "content-type": "application/json; charset=utf-8" },
       body: JSON.stringify({
         url: webhookUrl,
-        secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+        secret_token: commandWebhookSecret,
         allowed_updates: ["message"],
         drop_pending_updates: true,
       }),

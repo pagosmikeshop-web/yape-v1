@@ -1,12 +1,18 @@
 import { readJson } from "@/app/lib/api-utils";
-import { authEnv } from "@/app/lib/auth-server";
 import { writeSecurityEvent } from "@/app/lib/security-log";
-import { processTelegramUpdate, sameSecret, TelegramUpdate } from "@/app/lib/telegram-manager";
+import {
+  inspectTelegramWebhookUpdate,
+  processTelegramUpdate,
+  sameSecret,
+  telegramCommandWebhookSecret,
+  telegramWebhookDiagnosticsEnabled,
+  TelegramUpdate,
+} from "@/app/lib/telegram-manager";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const expected = authEnv().TELEGRAM_WEBHOOK_SECRET ?? "";
+  const expected = telegramCommandWebhookSecret();
   const received = request.headers.get("x-telegram-bot-api-secret-token") ?? "";
   if (!expected || !received || !(await sameSecret(received, expected))) {
     writeSecurityEvent(request, "telegram.webhook", "denied", { reason: "authentication" });
@@ -27,8 +33,25 @@ export async function POST(request: Request) {
         { status: 400, headers: { "cache-control": "no-store" } },
       );
     }
-    await processTelegramUpdate(body as TelegramUpdate);
-    writeSecurityEvent(request, "telegram.webhook", "success");
+    const update = body as TelegramUpdate;
+    const inspection = inspectTelegramWebhookUpdate(update);
+    const processingResult = await processTelegramUpdate(update);
+    const duplicate = processingResult === "duplicate";
+
+    if (telegramWebhookDiagnosticsEnabled()) {
+      // Fixed categories only: no message text, Telegram IDs, chat IDs or secrets.
+      console.info("[telegram-webhook-diagnostic]", {
+        timestamp: new Date().toISOString(),
+        updateId: inspection.updateId,
+        updateType: inspection.updateType,
+        chatType: inspection.chatType,
+        duplicate,
+        processingResult,
+      });
+    }
+    if (processingResult === "processed-me" || processingResult === "processed-redeem") {
+      writeSecurityEvent(request, "telegram.webhook", "success", { result: processingResult });
+    }
     return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof Response) {

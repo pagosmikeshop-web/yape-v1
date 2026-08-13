@@ -20,7 +20,88 @@ export type TelegramUpdate = {
   update_id: number;
   message?: TelegramMessage;
   edited_message?: TelegramMessage;
+  [key: string]: unknown;
 };
+
+const TELEGRAM_UPDATE_TYPES = [
+  "message",
+  "callback_query",
+  "edited_message",
+  "channel_post",
+  "my_chat_member",
+  "chat_member",
+] as const;
+
+export type TelegramWebhookUpdateType = (typeof TELEGRAM_UPDATE_TYPES)[number] | "other";
+export type TelegramWebhookChatType = "private" | "group" | "supergroup" | "channel" | "unknown";
+
+export type TelegramWebhookInspection = {
+  updateId: string;
+  updateType: TelegramWebhookUpdateType;
+  chatType: TelegramWebhookChatType;
+};
+
+export type TelegramProcessingResult =
+  | "ignored-no-message"
+  | "ignored-no-sender"
+  | "ignored-non-text"
+  | "ignored-private"
+  | "ignored-unconfigured-group"
+  | "ignored-other-chat"
+  | "ignored-command"
+  | "duplicate"
+  | "processed-me"
+  | "processed-redeem";
+
+function configuredTelegramValue(...values: Array<string | undefined>) {
+  return values.map((value) => value?.trim() ?? "").find(Boolean) ?? "";
+}
+
+/**
+ * The legacy token keeps current production working until the membership and
+ * command bot variables are configured independently.
+ */
+export function telegramMembershipBotToken() {
+  const env = authEnv();
+  return configuredTelegramValue(env.TELEGRAM_MEMBERSHIP_BOT_TOKEN, env.TELEGRAM_BOT_TOKEN);
+}
+
+export function telegramCommandBotToken() {
+  const env = authEnv();
+  return configuredTelegramValue(env.TELEGRAM_COMMAND_BOT_TOKEN, env.TELEGRAM_BOT_TOKEN);
+}
+
+export function telegramCommandWebhookSecret() {
+  const env = authEnv();
+  return configuredTelegramValue(env.TELEGRAM_COMMAND_WEBHOOK_SECRET, env.TELEGRAM_WEBHOOK_SECRET);
+}
+
+export function telegramWebhookDiagnosticsEnabled() {
+  return authEnv().TELEGRAM_WEBHOOK_DIAGNOSTICS?.trim().toLowerCase() === "true";
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+/** Returns only finite categories; it never exposes Telegram message contents or identities. */
+export function inspectTelegramWebhookUpdate(update: TelegramUpdate): TelegramWebhookInspection {
+  const updateType = TELEGRAM_UPDATE_TYPES.find((type) => update[type] !== undefined) ?? "other";
+  const payload = updateType === "other" ? null : asRecord(update[updateType]);
+  const message = asRecord(payload?.message) ?? payload;
+  const chat = asRecord(message?.chat);
+  const chatType = chat?.type;
+
+  return {
+    updateId: String(update.update_id),
+    updateType,
+    chatType: chatType === "private" || chatType === "group" || chatType === "supergroup" || chatType === "channel"
+      ? chatType
+      : "unknown",
+  };
+}
 
 function commandParts(text: string) {
   const trimmed = text.trim();
@@ -137,7 +218,7 @@ export async function checkCurrentTelegramGroupMember(
   if (!/^\d{4,24}$/u.test(telegramUserId)) {
     return { member: false, reason: "invalid-user-id" };
   }
-  const token = authEnv().TELEGRAM_BOT_TOKEN?.trim() ?? "";
+  const token = telegramMembershipBotToken();
   const configuredGroup = authEnv().TELEGRAM_REQUIRED_GROUP_ID?.trim() ?? "";
   const inviteGroup = publicGroupReferenceFromInviteUrl(
     authEnv().TELEGRAM_GROUP_INVITE_URL,
@@ -434,8 +515,8 @@ export async function sendTelegramMessage(
   text: string,
   replyToMessageId?: number,
 ) {
-  const token = authEnv().TELEGRAM_BOT_TOKEN;
-  if (!token) throw new Error("TELEGRAM_BOT_TOKEN no esta configurado.");
+  const token = telegramCommandBotToken();
+  if (!token) throw new Error("El bot de comandos de Telegram no esta configurado.");
   const payload = {
     chat_id: chatId,
     text: text.slice(0, 4000),
@@ -458,32 +539,31 @@ export async function sendTelegramMessage(
   if (!response.ok) throw new Error("Telegram no pudo entregar la respuesta del manager.");
 }
 
-export async function processTelegramUpdate(update: TelegramUpdate) {
+export async function processTelegramUpdate(update: TelegramUpdate): Promise<TelegramProcessingResult> {
   const message = update.message;
   const groupId = requiredGroupId();
-  if (
-    !message?.from
-    || !message.text
-    || message.chat.type === "private"
-    || !groupId
-    || !isRequiredGroupChat(message.chat, groupId)
-  ) return;
+  if (!message) return "ignored-no-message";
+  if (!message.from) return "ignored-no-sender";
+  if (!message.text) return "ignored-non-text";
+  if (message.chat.type === "private") return "ignored-private";
+  if (!groupId) return "ignored-unconfigured-group";
+  if (!isRequiredGroupChat(message.chat, groupId)) return "ignored-other-chat";
 
   const { command, args } = commandParts(message.text);
-  if (command !== "/redeem" && command !== "/me") return;
+  if (command !== "/redeem" && command !== "/me") return "ignored-command";
 
   await ensureAuthSchema();
   const updateId = String(update.update_id);
   const inserted = await dbBinding().prepare(
     "INSERT OR IGNORE INTO telegram_updates (update_id, received_at) VALUES (?, ?)",
   ).bind(updateId, new Date().toISOString()).run();
-  if (Number(inserted.meta.changes ?? 0) !== 1) return;
+  if (Number(inserted.meta.changes ?? 0) !== 1) return "duplicate";
 
   const telegramId = String(message.from.id);
   if (command === "/me") {
     await audit(telegramId, command, "me reply ok");
     await sendTelegramMessage(message.chat.id, telegramId, message.message_id);
-    return;
+    return "processed-me";
   }
 
   try {
@@ -497,6 +577,7 @@ export async function processTelegramUpdate(update: TelegramUpdate) {
       safeClientMessage(error, "No se pudo completar la activacion."),
     );
   }
+  return "processed-redeem";
 }
 
 export async function sameSecret(left: string, right: string) {
