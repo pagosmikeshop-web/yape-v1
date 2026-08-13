@@ -1735,8 +1735,8 @@ a:focus-visible {
 
 .auth-action-label__letter {
   display: inline-block;
-  color: rgba(255, 255, 255, 0.74);
-  text-shadow: 0 1px 1px rgba(44, 3, 61, 0.26);
+  color: rgba(255, 255, 255, 0.68);
+  text-shadow: 0 1px 1px rgba(44, 3, 61, 0.26), 0 0 1px rgba(255, 255, 255, 0.2);
   animation: auth-action-letter-anim 2s ease-in-out infinite;
 }
 
@@ -1863,15 +1863,15 @@ a:focus-visible {
 @keyframes auth-action-letter-anim {
   0%,
   100% {
-    color: rgba(255, 255, 255, 0.74);
-    text-shadow: 0 1px 1px rgba(44, 3, 61, 0.26);
+    color: rgba(255, 255, 255, 0.68);
+    text-shadow: 0 1px 1px rgba(44, 3, 61, 0.26), 0 0 1px rgba(255, 255, 255, 0.2);
     transform: translateY(0);
   }
 
   50% {
     color: #fff;
-    text-shadow: 0 1px 1px rgba(44, 3, 61, 0.22), 0 0 6px rgba(255, 255, 255, 0.9);
-    transform: translateY(-0.5px);
+    text-shadow: 0 1px 1px rgba(44, 3, 61, 0.22), 0 0 10px rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
   }
 }
 

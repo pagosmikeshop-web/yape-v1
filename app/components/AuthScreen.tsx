@@ -926,7 +926,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
               <p id="welcome-description">¿Cómo quieres continuar?</p>
               <div className="welcome-actions">
                 <span className="auth-action-frame auth-action-frame-welcome">
-                  <button className="welcome-action welcome-action-primary" type="button" autoFocus onClick={() => {
+                  <button className="welcome-action welcome-action-primary" type="button" onClick={() => {
                     welcomeDismissedForAppSession = true;
                     setShowWelcome(false);
                   }}>
