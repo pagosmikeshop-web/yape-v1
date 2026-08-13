@@ -37,6 +37,8 @@ type AuthEnv = {
   TELEGRAM_WEBHOOK_SECRET?: string;
   /** Secret for the command bot webhook; falls back to TELEGRAM_WEBHOOK_SECRET. */
   TELEGRAM_COMMAND_WEBHOOK_SECRET?: string;
+  /** HMAC shared secret used by the VPS Telegram gateway to call Vercel. */
+  TELEGRAM_VPS_FORWARD_SECRET?: string;
   TELEGRAM_WEBHOOK_DIAGNOSTICS?: string;
   TELEGRAM_ADMIN_IDS?: string;
   TELEGRAM_BOT_USERNAME?: string;

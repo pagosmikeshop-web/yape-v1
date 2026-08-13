@@ -53,6 +53,17 @@ export type TelegramProcessingResult =
   | "processed-me"
   | "processed-redeem";
 
+export type TelegramCommandReply = {
+  chatId: number;
+  text: string;
+  replyToMessageId?: number;
+};
+
+export type TelegramCommandProcessing = {
+  processingResult: TelegramProcessingResult;
+  reply?: TelegramCommandReply;
+};
+
 function configuredTelegramValue(...values: Array<string | undefined>) {
   return values.map((value) => value?.trim() ?? "").find(Boolean) ?? "";
 }
@@ -539,45 +550,67 @@ export async function sendTelegramMessage(
   if (!response.ok) throw new Error("Telegram no pudo entregar la respuesta del manager.");
 }
 
-export async function processTelegramUpdate(update: TelegramUpdate): Promise<TelegramProcessingResult> {
+/**
+ * Applies command rules and returns the reply for the caller to deliver.
+ * The VPS gateway uses this so Telegram delivery does not require duplicate
+ * command, membership or idempotency logic outside Vercel.
+ */
+export async function processTelegramCommand(update: TelegramUpdate): Promise<TelegramCommandProcessing> {
   const message = update.message;
   const groupId = requiredGroupId();
-  if (!message) return "ignored-no-message";
-  if (!message.from) return "ignored-no-sender";
-  if (!message.text) return "ignored-non-text";
-  if (message.chat.type === "private") return "ignored-private";
-  if (!groupId) return "ignored-unconfigured-group";
-  if (!isRequiredGroupChat(message.chat, groupId)) return "ignored-other-chat";
+  if (!message) return { processingResult: "ignored-no-message" };
+  if (!message.from) return { processingResult: "ignored-no-sender" };
+  if (!message.text) return { processingResult: "ignored-non-text" };
+  if (message.chat.type === "private") return { processingResult: "ignored-private" };
+  if (!groupId) return { processingResult: "ignored-unconfigured-group" };
+  if (!isRequiredGroupChat(message.chat, groupId)) return { processingResult: "ignored-other-chat" };
 
   const { command, args } = commandParts(message.text);
-  if (command !== "/redeem" && command !== "/me") return "ignored-command";
+  if (command !== "/redeem" && command !== "/me") return { processingResult: "ignored-command" };
 
   await ensureAuthSchema();
   const updateId = String(update.update_id);
   const inserted = await dbBinding().prepare(
     "INSERT OR IGNORE INTO telegram_updates (update_id, received_at) VALUES (?, ?)",
   ).bind(updateId, new Date().toISOString()).run();
-  if (Number(inserted.meta.changes ?? 0) !== 1) return "duplicate";
+  if (Number(inserted.meta.changes ?? 0) !== 1) return { processingResult: "duplicate" };
 
   const telegramId = String(message.from.id);
   if (command === "/me") {
     await audit(telegramId, command, "me reply ok");
-    await sendTelegramMessage(message.chat.id, telegramId, message.message_id);
-    return "processed-me";
+    return {
+      processingResult: "processed-me",
+      reply: { chatId: message.chat.id, text: telegramId, replyToMessageId: message.message_id },
+    };
   }
 
   try {
     const reply = await redeemReferralCode(telegramId, args);
     await audit(telegramId, command, "redeem ok");
-    await sendTelegramMessage(message.chat.id, reply);
+    return { processingResult: "processed-redeem", reply: { chatId: message.chat.id, text: reply } };
   } catch (error) {
     await audit(telegramId, command, `redeem error: ${error instanceof Error ? error.name : "desconocido"}`);
+    return {
+      processingResult: "processed-redeem",
+      reply: {
+        chatId: message.chat.id,
+        text: safeClientMessage(error, "No se pudo completar la activacion."),
+      },
+    };
+  }
+}
+
+/** Legacy Vercel webhook adapter. The VPS gateway uses processTelegramCommand directly. */
+export async function processTelegramUpdate(update: TelegramUpdate): Promise<TelegramProcessingResult> {
+  const processing = await processTelegramCommand(update);
+  if (processing.reply) {
     await sendTelegramMessage(
-      message.chat.id,
-      safeClientMessage(error, "No se pudo completar la activacion."),
+      processing.reply.chatId,
+      processing.reply.text,
+      processing.reply.replyToMessageId,
     );
   }
-  return "processed-redeem";
+  return processing.processingResult;
 }
 
 export async function sameSecret(left: string, right: string) {

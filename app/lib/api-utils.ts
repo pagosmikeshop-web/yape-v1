@@ -86,7 +86,7 @@ async function readTextWithinLimit(request: Request, maxBytes: number) {
   }
 }
 
-export async function readJson(request: Request, options: ReadJsonOptions = {}) {
+export async function readJsonText(request: Request, options: ReadJsonOptions = {}) {
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_JSON_BYTES;
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 1024 * 1024) {
     throw new Error("Invalid JSON body-size policy.");
@@ -103,8 +103,10 @@ export async function readJson(request: Request, options: ReadJsonOptions = {}) 
     throw jsonError("La solicitud excede el tamaño permitido.", 413);
   }
 
-  const text = await readTextWithinLimit(request, maxBytes);
+  return readTextWithinLimit(request, maxBytes);
+}
 
+export function parseJsonObject(text: string) {
   let value: unknown;
   try {
     value = JSON.parse(text);
@@ -115,6 +117,10 @@ export async function readJson(request: Request, options: ReadJsonOptions = {}) 
     throw jsonError("El cuerpo JSON debe ser un objeto.", 400);
   }
   return value as Record<string, unknown>;
+}
+
+export async function readJson(request: Request, options: ReadJsonOptions = {}) {
+  return parseJsonObject(await readJsonText(request, options));
 }
 
 export function asString(value: unknown) {
