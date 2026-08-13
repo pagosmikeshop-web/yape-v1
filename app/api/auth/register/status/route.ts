@@ -23,8 +23,8 @@ function cleanTelegramId(value: string) {
   return value.replace(/\D/gu, "").slice(0, 24);
 }
 
-const GENERIC_DENIAL =
-  "No se pudo habilitar el registro. Verifica tu ID, tu acceso al grupo y que no exista una cuenta vinculada.";
+const TELEGRAM_ALREADY_REGISTERED_MESSAGE =
+  "Este usuario ya está registrado. Inicia sesión para continuar.";
 
 export async function POST(request: Request) {
   try {
@@ -72,16 +72,27 @@ export async function POST(request: Request) {
       ).bind(telegramUserId).first(),
     ]);
 
-    if (!telegramCheck.member && telegramMembershipIsUnavailable(telegramCheck)) {
-      return jsonError(telegramMembershipError(telegramCheck), 503);
-    }
-
-    if (!telegramCheck.member || linkedTelegram) {
+    // La misma consulta determina ambas condiciones. Se responden por separado
+    // para que la interfaz explique la causa real sin exponer detalles internos.
+    if (linkedTelegram) {
       return jsonOk({
         allowed: false,
         pending: false,
         groupInviteUrl: "/api/telegram/group",
-        error: GENERIC_DENIAL,
+        error: TELEGRAM_ALREADY_REGISTERED_MESSAGE,
+      });
+    }
+
+    if (!telegramCheck.member && telegramMembershipIsUnavailable(telegramCheck)) {
+      return jsonError(telegramMembershipError(telegramCheck), 503);
+    }
+
+    if (!telegramCheck.member) {
+      return jsonOk({
+        allowed: false,
+        pending: false,
+        groupInviteUrl: "/api/telegram/group",
+        error: telegramMembershipError(telegramCheck),
       });
     }
 

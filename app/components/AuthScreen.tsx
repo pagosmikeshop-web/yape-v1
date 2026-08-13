@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useRef, useState } from "react";
 import { createDeviceProof } from "../lib/device-key";
 import { authErrorMessage, createAuthAttemptId, requestAuthJson } from "../lib/auth-client";
 import { safeApiMessage, safeClientMessage } from "../lib/client-error";
@@ -14,6 +14,7 @@ import { unlockWithPlatformBiometric, WebAuthnClientError } from "../lib/webauth
 
 type Screen = "login" | "register" | "change-password" | "recover" | "change-number";
 type Notice = { text: string; tone: "info" | "error" } | null;
+type TelegramValidationPhase = "idle" | "loading" | "resolving" | "error-resolving" | "success" | "error";
 type AuthUser = {
   id: string;
   sellerCode: string;
@@ -37,6 +38,27 @@ type AccessLookup = {
 };
 
 const UNLOCK_KEY = "yape-unlocked";
+const TELEGRAM_MIN_LOADING_MS = 240;
+const TELEGRAM_RESOLVE_MS = 700;
+const TELEGRAM_OUTCOME_SETTLE_MS = 620;
+const TELEGRAM_ASSEMBLY_COLUMNS = 30;
+const TELEGRAM_ASSEMBLY_ROWS = 5;
+const telegramAssemblyCells = Array.from(
+  { length: TELEGRAM_ASSEMBLY_COLUMNS * TELEGRAM_ASSEMBLY_ROWS },
+  (_, index) => {
+    const column = index % TELEGRAM_ASSEMBLY_COLUMNS;
+    const row = Math.floor(index / TELEGRAM_ASSEMBLY_COLUMNS);
+
+    return {
+      key: `${row}-${column}`,
+      style: {
+        "--telegram-cell-column": column,
+        "--telegram-cell-delay": (row * 7 + column * 3) % 22,
+        "--telegram-cell-offset-y": ((column * 5 + row * 3) % 9) - 4,
+      } as CSSProperties,
+    };
+  },
+);
 let welcomeDismissedForAppSession = false;
 const keypadOrder = ["4", "9", "6", "8", "1", "3", "2", "5", "0", "bio", "7", "del"];
 const returningActions: Array<{ href: string; label: string; icon: string; external?: boolean }> = [
@@ -253,6 +275,60 @@ function ActionLabel({ label }: { label: string }) {
   );
 }
 
+function TelegramValidationPerimeter() {
+  return (
+    <span className="telegram-validation-perimeter" aria-hidden="true">
+      <svg className="telegram-validation-perimeter-svg" focusable="false" preserveAspectRatio="none">
+        <rect className="telegram-perimeter-base" pathLength="1" />
+        <rect className="telegram-perimeter-tail" pathLength="1" />
+        <rect className="telegram-perimeter-head" pathLength="1" />
+      </svg>
+    </span>
+  );
+}
+
+function TelegramValidationAssembly({ active }: { active: boolean }) {
+  if (!active) return null;
+
+  return (
+    <span className="telegram-validation-assembly" aria-hidden="true">
+      {telegramAssemblyCells.map(({ key, style }) => (
+        <span className="telegram-validation-assembly-cell" key={key} style={style} />
+      ))}
+      <span className="telegram-validation-build-front" />
+    </span>
+  );
+}
+
+function TelegramValidationLabel({
+  phase,
+  registerChecking,
+}: {
+  phase: TelegramValidationPhase;
+  registerChecking: boolean;
+}) {
+  const label = registerChecking ? "VALIDANDO DISPOSITIVO" : "VALIDAR TELEGRAM";
+
+  return (
+    <span className={`telegram-validation-label is-${phase}`} aria-hidden="true">
+      <span className="telegram-validation-idle-content">
+        <ActionLabel label={label} />
+      </span>
+      <span className="telegram-validation-status-content">
+        <span className="telegram-validation-icon">
+          <span className="telegram-validation-outcome-halo" />
+          <svg viewBox="0 0 24 24" focusable="false">
+            <circle className="telegram-validation-outcome-circle" cx="12" cy="12" r="8.75" pathLength="1" />
+            <path className="telegram-validation-check" d="m6.9 12.25 3.1 3.1 7.15-7.3" pathLength="1" />
+            <path className="telegram-validation-error-stem" d="M12 7.2v5.8" pathLength="1" />
+            <circle className="telegram-validation-error-dot" cx="12" cy="16.3" r="1.05" />
+          </svg>
+        </span>
+      </span>
+    </span>
+  );
+}
+
 function ReturningKeypad({
   mode,
   onSubmit,
@@ -424,10 +500,12 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   const [fingerprintId, setFingerprintId] = useState("");
   const [registerAllowed, setRegisterAllowed] = useState(false);
   const [registerChecking, setRegisterChecking] = useState(screen === "register");
+  const [telegramValidationPhase, setTelegramValidationPhase] = useState<TelegramValidationPhase>("idle");
   const [groupInviteUrl, setGroupInviteUrl] = useState("/api/telegram/group");
   const [accessLookup, setAccessLookup] = useState<AccessLookup | null>(null);
   const [showWelcome, setShowWelcome] = useState(screen === "login" && !welcomeDismissedForAppSession);
   const authActionInFlightRef = useRef(false);
+  const telegramMotionSequenceRef = useRef(0);
   const loginSessionCheckStartedRef = useRef(false);
   const redirectInFlightRef = useRef(false);
 
@@ -497,6 +575,10 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     return () => { cancelled = true; };
   }, [screen]);
 
+  useEffect(() => () => {
+    telegramMotionSequenceRef.current += 1;
+  }, []);
+
   useEffect(() => {
     if (screen !== "recover" || !recoveryRequest || recoveryChallenge) return;
     let cancelled = false;
@@ -539,6 +621,8 @@ export function AuthScreen({ screen }: { screen: Screen }) {
     formRef.current?.reset();
     setNotice(null);
     setRegisterAllowed(false);
+    telegramMotionSequenceRef.current += 1;
+    setTelegramValidationPhase("idle");
     if (screen === "recover") {
       setRecoveryRequest(null);
       setRecoveryChallenge(null);
@@ -723,8 +807,20 @@ export function AuthScreen({ screen }: { screen: Screen }) {
   }
 
   async function verifyTelegramForRegister() {
-    if (screen !== "register" || busy || authActionInFlightRef.current) return;
+    if (screen !== "register" || busy || authActionInFlightRef.current || telegramValidationPhase === "success") return;
     authActionInFlightRef.current = true;
+    const motionSequence = ++telegramMotionSequenceRef.current;
+    const motionStartedAt = performance.now();
+    const isCurrentMotion = () => motionSequence === telegramMotionSequenceRef.current;
+    const waitForMotion = async (duration: number) => {
+      if (duration > 0) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, duration));
+      }
+      return isCurrentMotion();
+    };
+    const waitForMinimumLoading = () => waitForMotion(Math.max(0, TELEGRAM_MIN_LOADING_MS - (performance.now() - motionStartedAt)));
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTelegramValidationPhase("loading");
     setBusy(true);
     setNotice(null);
     const attemptId = createAuthAttemptId();
@@ -732,6 +828,7 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       if (!fingerprintId) throw new Error("Espera la validacion del dispositivo.");
       const telegramId = String(new FormData(formRef.current ?? undefined).get("telegram-id") ?? "");
       const data = await apiPost("/api/auth/register/status", { telegramUserId: telegramId, fingerprintId }, attemptId);
+      if (!isCurrentMotion()) return;
       setGroupInviteUrl(String(data.groupInviteUrl ?? ""));
       if (!data.allowed) {
         throw new Error(safeApiMessage(data.error, "Aun no puedes registrarte."));
@@ -740,14 +837,31 @@ export function AuthScreen({ screen }: { screen: Screen }) {
       if (await hasLocalRegistrationAnchor(fingerprintId)) {
         await clearLocalRegistrationAnchor().catch(() => undefined);
       }
+      if (!await waitForMinimumLoading()) return;
+      if (!reducedMotion) {
+        setTelegramValidationPhase("resolving");
+        if (!await waitForMotion(TELEGRAM_RESOLVE_MS)) return;
+      }
+      if (!isCurrentMotion()) return;
       setRegisterAllowed(true);
+      setTelegramValidationPhase("success");
       setNotice({ text: "Telegram confirmado. Ya puedes crear tu cuenta.", tone: "info" });
+      if (!reducedMotion && !await waitForMotion(TELEGRAM_OUTCOME_SETTLE_MS)) return;
     } catch (error) {
+      if (!await waitForMinimumLoading()) return;
+      if (!isCurrentMotion()) return;
+      if (!reducedMotion) {
+        setTelegramValidationPhase("error-resolving");
+        if (!await waitForMotion(TELEGRAM_RESOLVE_MS)) return;
+      }
+      if (!isCurrentMotion()) return;
       setRegisterAllowed(false);
+      setTelegramValidationPhase("error");
       setNotice({ text: authErrorMessage(error, "No se pudo validar Telegram."), tone: "error" });
+      if (!reducedMotion && !await waitForMotion(TELEGRAM_OUTCOME_SETTLE_MS)) return;
     } finally {
       authActionInFlightRef.current = false;
-      setBusy(false);
+      if (isCurrentMotion()) setBusy(false);
     }
   }
 
@@ -816,8 +930,17 @@ export function AuthScreen({ screen }: { screen: Screen }) {
                   </div>
                   <Field id="telegram-id" label="Telegram ID" inputMode="numeric" pattern="[0-9]{4,24}" maxLength={24} />
                   <span className="auth-action-frame auth-action-frame-form">
-                    <button className="telegram-check-button" type="button" disabled={busy || registerChecking || !fingerprintId} onClick={() => void verifyTelegramForRegister()} aria-label={registerChecking ? "VALIDANDO DISPOSITIVO" : "VALIDAR TELEGRAM"}>
-                      <ActionLabel label={registerChecking ? "VALIDANDO DISPOSITIVO" : "VALIDAR TELEGRAM"} />
+                    <button
+                      className={`telegram-check-button${telegramValidationPhase === "loading" ? " is-telegram-validating" : telegramValidationPhase === "resolving" ? " is-telegram-resolving" : telegramValidationPhase === "error-resolving" ? " is-telegram-error-resolving" : telegramValidationPhase === "success" ? " is-telegram-validated" : telegramValidationPhase === "error" ? " is-telegram-error" : ""}`}
+                      type="button"
+                      disabled={busy || registerChecking || !fingerprintId || telegramValidationPhase === "success"}
+                      onClick={() => void verifyTelegramForRegister()}
+                      aria-busy={telegramValidationPhase === "loading" || telegramValidationPhase === "resolving" || telegramValidationPhase === "error-resolving"}
+                      aria-label={registerChecking ? "VALIDANDO DISPOSITIVO" : telegramValidationPhase === "loading" ? "Validando Telegram" : telegramValidationPhase === "resolving" ? "Confirmando validación de Telegram" : telegramValidationPhase === "error-resolving" ? "Confirmando error de validación de Telegram" : telegramValidationPhase === "success" ? "Validación completada correctamente" : telegramValidationPhase === "error" ? "No se pudo validar Telegram. Reintentar validación" : "VALIDAR TELEGRAM"}
+                    >
+                      <TelegramValidationPerimeter />
+                      <TelegramValidationAssembly active={telegramValidationPhase === "resolving" || telegramValidationPhase === "error-resolving"} />
+                      <TelegramValidationLabel phase={telegramValidationPhase} registerChecking={registerChecking} />
                     </button>
                   </span>
                   <Field id="username" label="Usuario" autoComplete="username" minLength={3} maxLength={40} />
