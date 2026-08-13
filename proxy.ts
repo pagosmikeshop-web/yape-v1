@@ -99,23 +99,20 @@ function hostedConfigurationErrors() {
   const commandWebhookSecret = process.env.TELEGRAM_COMMAND_WEBHOOK_SECRET?.trim()
     || process.env.TELEGRAM_WEBHOOK_SECRET?.trim()
     || "";
-  const usingVpsTelegramGateway = (process.env.TELEGRAM_VPS_FORWARD_SECRET?.trim().length ?? 0) >= 32;
+  if (commandWebhookSecret.length < 32) {
+    missing.push("TELEGRAM_COMMAND_WEBHOOK_SECRET (o TELEGRAM_WEBHOOK_SECRET)");
+  }
   const membershipBotToken = process.env.TELEGRAM_MEMBERSHIP_BOT_TOKEN?.trim()
     || process.env.TELEGRAM_BOT_TOKEN?.trim()
     || "";
   if (!membershipBotToken) {
     missing.push("TELEGRAM_MEMBERSHIP_BOT_TOKEN (o TELEGRAM_BOT_TOKEN)");
   }
-  if (!usingVpsTelegramGateway) {
-    if (commandWebhookSecret.length < 32) {
-      missing.push("TELEGRAM_COMMAND_WEBHOOK_SECRET (o TELEGRAM_WEBHOOK_SECRET)");
-    }
-    const commandBotToken = process.env.TELEGRAM_COMMAND_BOT_TOKEN?.trim()
-      || process.env.TELEGRAM_BOT_TOKEN?.trim()
-      || "";
-    if (!commandBotToken) {
-      missing.push("TELEGRAM_COMMAND_BOT_TOKEN (o TELEGRAM_BOT_TOKEN)");
-    }
+  const commandBotToken = process.env.TELEGRAM_COMMAND_BOT_TOKEN?.trim()
+    || process.env.TELEGRAM_BOT_TOKEN?.trim()
+    || "";
+  if (!commandBotToken) {
+    missing.push("TELEGRAM_COMMAND_BOT_TOKEN (o TELEGRAM_BOT_TOKEN)");
   }
   if (!process.env.TELEGRAM_REQUIRED_GROUP_ID?.trim()) missing.push("TELEGRAM_REQUIRED_GROUP_ID");
   if (!/^https:\/\/t\.me\/[A-Za-z0-9_+/-]+$/u.test(process.env.TELEGRAM_GROUP_INVITE_URL?.trim() ?? "")) {

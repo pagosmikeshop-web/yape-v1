@@ -1,5 +1,0 @@
-bot.yape.pro {
-  reverse_proxy 127.0.0.1:3001
-  encode zstd gzip
-  header -Server
-}
