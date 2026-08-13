@@ -1,10 +1,6 @@
 bot.yape.pro {
   @telegramWebhook path /telegram/webhook
-  handle @telegramWebhook {
-    reverse_proxy 127.0.0.1:3001
-  }
-
-  respond 404
+  reverse_proxy @telegramWebhook 127.0.0.1:3001
   encode zstd gzip
   header -Server
 }
