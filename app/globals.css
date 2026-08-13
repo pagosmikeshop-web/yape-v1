@@ -1733,13 +1733,6 @@ a:focus-visible {
   white-space: pre;
 }
 
-.auth-action-label__letter {
-  display: inline-block;
-  color: rgba(255, 255, 255, 0.68);
-  text-shadow: 0 1px 1px rgba(44, 3, 61, 0.26), 0 0 1px rgba(255, 255, 255, 0.2);
-  animation: auth-action-letter-anim 2s ease-in-out infinite;
-}
-
 .bank-app.screen-login :is(.login-button, .create-account, .welcome-action)::after,
 .bank-app.screen-register :is(.login-button, .telegram-check-button)::after {
   content: "";
@@ -1805,12 +1798,6 @@ a:focus-visible {
   opacity: 0.5;
 }
 
-.auth-action-frame:has(> :disabled) .auth-action-label__letter {
-  animation: none;
-  color: rgba(255, 255, 255, 0.58);
-  text-shadow: none;
-}
-
 @media (hover: hover) and (pointer: fine) {
   .bank-app.screen-login :is(.login-button, .create-account, .welcome-action):hover:not(:disabled),
   .bank-app.screen-register :is(.login-button, .telegram-check-button):hover:not(:disabled) {
@@ -1860,21 +1847,6 @@ a:focus-visible {
   }
 }
 
-@keyframes auth-action-letter-anim {
-  0%,
-  100% {
-    color: rgba(255, 255, 255, 0.68);
-    text-shadow: 0 1px 1px rgba(44, 3, 61, 0.26), 0 0 1px rgba(255, 255, 255, 0.2);
-    transform: translateY(0);
-  }
-
-  50% {
-    color: #fff;
-    text-shadow: 0 1px 1px rgba(44, 3, 61, 0.22), 0 0 10px rgba(255, 255, 255, 1);
-    transform: translateY(-1px);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .auth-action-frame::before,
   .bank-app.screen-login :is(.login-button, .create-account, .welcome-action),
@@ -1887,12 +1859,6 @@ a:focus-visible {
 
   .bank-app.screen-login :is(.login-button, .create-account, .welcome-action),
   .bank-app.screen-register :is(.login-button, .telegram-check-button) {
-    text-shadow: none;
-  }
-
-  .auth-action-label__letter {
-    animation: none;
-    color: #fff;
     text-shadow: none;
   }
 
