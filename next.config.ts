@@ -19,6 +19,7 @@ function resolveBuildVersion() {
 }
 
 const buildVersion = resolveBuildVersion();
+const useE2eDistDir = process.env.NEXT_DIST_DIR === ".next-e2e";
 
 // La CSP con nonce se genera por solicitud en proxy.ts. Los demás encabezados
 // pueden mantenerse estáticos y también protegen recursos y respuestas de API.
@@ -43,6 +44,9 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // Playwright usa un directorio de compilación aislado para no interferir con
+  // una sesión `next dev` que el equipo pueda tener abierta localmente.
+  distDir: useE2eDistDir ? ".next-e2e" : ".next",
   env: {
     NEXT_PUBLIC_BUILD_VERSION: buildVersion,
   },

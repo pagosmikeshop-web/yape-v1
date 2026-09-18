@@ -433,12 +433,13 @@ export function TransferStageViews({
                 ) : (
                   <input
                     className="transfer-recipient-name-input"
-                    aria-label="Nombre del destinatario"
-                    placeholder="Nombre del destinatario"
+                    aria-label="Nombre o razón social del destinatario"
+                    placeholder="Nombre o razón social"
                     value={recipientName}
+                    maxLength={80}
                     readOnly={Boolean(recipientId || recipientQrId)}
                     onChange={(event) =>
-                      setRecipientName(event.target.value.slice(0, 48))
+                      setRecipientName(event.target.value.slice(0, 80))
                     }
                   />
                 )}

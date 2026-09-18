@@ -22,10 +22,12 @@ export async function GET(request: Request) {
     const { user } = await requireSession(request);
     const row = await readBalance(user.id);
     const configured = Boolean(row?.is_configured);
-    const balanceCents = configured ? Number(row?.balance_cents) : null;
+    // Las cuentas nuevas comienzan en cero. Nunca devolvemos un saldo vacío
+    // solamente porque aún no hubo una edición manual.
+    const balanceCents = configured ? Number(row?.balance_cents ?? 0) : 0;
     return jsonOk({
       balanceCents,
-      balance: balanceCents === null ? null : balanceCents / 100,
+      balance: balanceCents / 100,
       configured,
       updatedAt: configured ? row?.updated_at ?? null : null,
     }, { headers: { "cache-control": "no-store" } });

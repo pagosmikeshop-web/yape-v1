@@ -68,7 +68,9 @@ export async function POST(request: Request) {
     if (!/^[A-Za-z0-9_-]{8,128}$/u.test(fingerprintId)) {
       return jsonError("No se pudo validar este dispositivo.", 403);
     }
-    if (!validateUsername(username)) return jsonError("El usuario debe tener de 3 a 40 caracteres.");
+    if (!validateUsername(username)) {
+      return jsonError("El usuario debe tener de 3 a 40 caracteres y no puede contener espacios.");
+    }
     if (!validatePassword(password)) return jsonError("La contraseña debe tener entre 8 y 128 caracteres.");
     if (!/^\d{6}$/u.test(pin)) {
       return jsonError("La clave de ingreso debe tener exactamente 6 dígitos.");

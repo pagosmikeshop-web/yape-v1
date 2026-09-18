@@ -76,12 +76,13 @@ export async function POST(request: Request) {
     const kind = asString(body.kind);
     const token = asString(body.token).trim();
 
-    if (kind !== "sms" && kind !== "auto") return jsonError("Tipo de token inválido.");
+    if (kind === "sms") {
+      return jsonError("Los SMS se activan canjeando créditos desde Mis datos.", 410);
+    }
+    if (kind !== "auto") return jsonError("Tipo de token inválido.");
     if (!token) return jsonError("Ingresa el token que deseas validar.");
 
-    const master = (kind === "sms"
-      ? authEnv().ACCOUNT_SMS_VALIDATION_TOKEN
-      : authEnv().ACCOUNT_AUTO_VALIDATION_TOKEN)?.trim() ?? "";
+    const master = authEnv().ACCOUNT_AUTO_VALIDATION_TOKEN?.trim() ?? "";
 
     const rateLimitSubject = `${user.id}:${kind}`;
     await enforceAuthRateLimits([{

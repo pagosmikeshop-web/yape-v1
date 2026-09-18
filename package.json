@@ -10,8 +10,10 @@
     "build": "next build && node scripts/verify-public-build.mjs .next/static",
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit",
-    "lint": "biome check app db scripts tests proxy.ts next.config.ts capacitor.config.ts --diagnostic-level=error",
+    "lint": "biome check app db scripts tests e2e proxy.ts next.config.ts playwright.config.ts capacitor.config.ts --diagnostic-level=error",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:visual": "playwright test e2e/auth-visual.spec.ts",
     "security:scan": "node scripts/security-scan.mjs",
     "security:audit": "npm audit --audit-level=high",
     "db:generate": "drizzle-kit generate",
@@ -21,41 +23,44 @@
     "cap:check:webdir": "node scripts/verify-capacitor-webdir.mjs out"
   },
   "dependencies": {
-    "@capacitor/core": "8.4.2",
+    "@capacitor/core": "8.5.2",
     "@fingerprintjs/fingerprintjs": "5.2.0",
-    "@simplewebauthn/browser": "^13.3.0",
-    "@simplewebauthn/server": "^13.3.2",
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.0.2",
     "@vercel/speed-insights": "^2.0.0",
     "@zxing/browser": "^0.2.1",
     "drizzle-orm": "0.45.2",
     "html-to-image": "1.11.13",
     "lottie-web": "^5.13.0",
-    "next": "16.3.0",
+    "next": "16.3.5",
     "postgres": "^3.4.9",
     "qrcode": "^1.5.4",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.5",
-    "@capacitor/cli": "8.4.2",
+    "@biomejs/biome": "2.5.14",
+    "@capacitor/cli": "8.5.2",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.3.3",
-    "@types/node": "22.19.19",
+    "@types/node": "26.6.1",
     "@types/qrcode": "^1.5.6",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "drizzle-kit": "0.31.10",
     "tailwindcss": "4.3.3",
-    "typescript": "5.9.3",
-    "vitest": "^4.1.10"
+    "typescript": "7.0.2",
+    "vitest": "^5.0.1"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {
       "esbuild": "0.25.12"
     },
-    "nanoid": "^3.3.17",
+    "@xmldom/xmldom": "0.9.12",
+    "nanoid": "^3.3.18",
     "postcss": "8.5.23",
-    "sharp": "0.35.3"
+    "sharp": "0.35.4",
+    "uuid": "11.1.1"
   },
   "type": "module"
 }

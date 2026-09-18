@@ -13,7 +13,7 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
   type AuthenticationResponseJSON,
-  type AuthenticatorTransportFuture,
+  type AuthenticatorTransport,
   type RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
@@ -276,12 +276,12 @@ export async function deleteAllUserCredentials(userId: string) {
   ]);
 }
 
-function parseTransports(value: string | null): AuthenticatorTransportFuture[] | undefined {
+function parseTransports(value: string | null): AuthenticatorTransport[] | undefined {
   if (!value) return undefined;
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!Array.isArray(parsed)) return undefined;
-    return parsed.filter((entry): entry is AuthenticatorTransportFuture => typeof entry === "string");
+    return parsed.filter((entry): entry is AuthenticatorTransport => typeof entry === "string");
   } catch {
     return undefined;
   }

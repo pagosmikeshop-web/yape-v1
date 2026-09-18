@@ -13,6 +13,11 @@ const EMBEDDED_PROTECTED_NAME_PATTERN = new RegExp(
   `^${PROTECTED_NAME_FRAGMENT}(?:\\s+${PROTECTED_NAME_FRAGMENT})*\\*${PROTECTED_NAME_FRAGMENT}(?:\\s+${PROTECTED_NAME_FRAGMENT})*$`,
   "u",
 );
+// Las razones sociales no se enmascaran como nombres de personas. Se permite
+// puntuación comercial habitual, pero solo cuando el valor termina en una
+// forma societaria reconocible; así no se acepta texto arbitrario como titular.
+const BUSINESS_NAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} .,'’\-‐-―&()/]*$/u;
+const LEGAL_ENTITY_SUFFIX_PATTERN = /(?:S\.?\s*A\.?\s*C\.?|S\.?\s*A\.?\s*A\.?|S\.?\s*R\.?\s*L\.?|E\.?\s*I\.?\s*R\.?\s*L\.?|L\.?\s*T\.?\s*D\.?\s*A\.?|L\.?\s*L\.?\s*C\.?|INC\.?|CORP(?:ORACI[ÓO]N)?\.?|C[ÍI]A\.?|COMPAÑ[ÍI]A|COOPERATIVA|ASOCIACI[ÓO]N|FUNDACI[ÓO]N)$/iu;
 
 function titleCase(value: string) {
   const lower = value.toLocaleLowerCase("es-PE");
@@ -20,6 +25,19 @@ function titleCase(value: string) {
   return characters.length === 0
     ? ""
     : `${characters[0].toLocaleUpperCase("es-PE")}${characters.slice(1).join("")}`;
+}
+
+function businessRecipientName(value: string) {
+  const normalized = value.normalize("NFC").replace(/\s+/gu, " ").trim();
+  if (
+    normalized.length < 2
+    || normalized.length > 80
+    || !BUSINESS_NAME_PATTERN.test(normalized)
+    || !LEGAL_ENTITY_SUFFIX_PATTERN.test(normalized)
+  ) {
+    return "";
+  }
+  return normalized;
 }
 
 /**
@@ -53,6 +71,8 @@ export function isProtectedRecipientName(value: string) {
 export function maskRecipientName(value: string) {
   const trimmed = value.trim();
   if (isProtectedRecipientName(trimmed)) return trimmed;
+  const businessName = businessRecipientName(trimmed);
+  if (businessName) return businessName;
   try {
     return protectRecipientName(trimmed);
   } catch {
@@ -65,13 +85,7 @@ export function maskRecipientName(value: string) {
  * un nombre aparentemente válido. El valor vacío indica que debe rechazarse.
  */
 export function tryMaskRecipientName(value: string) {
-  const trimmed = value.trim();
-  if (isProtectedRecipientName(trimmed)) return trimmed;
-  try {
-    return protectRecipientName(trimmed);
-  } catch {
-    return "";
-  }
+  return maskRecipientName(value);
 }
 
 /**

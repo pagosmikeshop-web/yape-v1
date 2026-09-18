@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/recipient-lookup/name-masker";
 import { normalizeRecipientPhone } from "@/app/lib/recipient-lookup/phone";
 import { writeSecurityEvent } from "@/app/lib/security-log";
+import { dispatchPaymentSms } from "@/app/lib/sms-credits-server";
 import {
   resolveTransferRecipient,
   type ResolvedRecipient,
@@ -167,6 +168,13 @@ export async function POST(request: Request) {
         return jsonError("La clave de idempotencia ya fue usada para otra operación.", 409);
       }
       const balanceCents = await currentBalance(user.id);
+      await dispatchPaymentSms({
+        userId: user.id,
+        movementId: existing.id,
+        phoneE164: recipient.phoneE164,
+        amountCents: Number(existing.amount_cents),
+        securityCode: existing.security_code,
+      });
       writeSecurityEvent(request, "payment.transfer", "success", {
         actorId: user.id,
         movementId: existing.id,
@@ -243,6 +251,13 @@ export async function POST(request: Request) {
             return jsonError("La clave de idempotencia ya fue usada para otra operación.", 409);
           }
           const balanceCents = await currentBalance(user.id);
+          await dispatchPaymentSms({
+            userId: user.id,
+            movementId: concurrent.id,
+            phoneE164: recipient.phoneE164,
+            amountCents: Number(concurrent.amount_cents),
+            securityCode: concurrent.security_code,
+          });
           writeSecurityEvent(request, "payment.transfer", "success", {
             actorId: user.id,
             movementId: concurrent.id,
@@ -276,6 +291,13 @@ export async function POST(request: Request) {
     }
     if (!inserted) throw new Error("Could not allocate a unique operation number.");
 
+    await dispatchPaymentSms({
+      userId: user.id,
+      movementId: inserted.id,
+      phoneE164: recipient.phoneE164,
+      amountCents: inserted.amount_cents,
+      securityCode: inserted.security_code,
+    });
     const balanceCents = await currentBalance(user.id);
     writeSecurityEvent(request, "payment.transfer", "success", {
       actorId: user.id,

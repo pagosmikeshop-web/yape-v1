@@ -5,7 +5,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useModalLayer } from "../../hooks/useModalLayer";
 import { fetchAccountBalance, clearBalanceCache } from "../../lib/balance-cache";
 import { safeApiMessage, safeClientMessage } from "../../lib/client-error";
-import { fetchSession } from "../../lib/session-cache";
 import { resetIOSViewport } from "../../lib/ios-viewport";
 import { maskPhone } from "../../lib/masked-phone";
 import {
@@ -23,25 +22,16 @@ import {
   normalizeMobileNumber,
   useTransferRecipient,
 } from "./useTransferRecipient";
+import { useTransferContacts } from "./useTransferContacts";
 import { useTransferVoucher } from "./useTransferVoucher";
+import { contactInitials } from "./contactInitials";
 import type {
-  ContactPickerNavigator,
-  PhoneContact,
   TransferStage,
 } from "./types";
 
 const TRANSFER_LOADING_MS = 900;
 
-const PHONE_CONTACTS_CACHE_KEY = "yape-authorized-phone-contacts";
-
-export function contactInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return (
-    parts.length > 1
-      ? `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}`
-      : (parts[0]?.slice(0, 2) ?? "")
-  ).toUpperCase();
-}
+export { contactInitials } from "./contactInitials";
 
 const DAILY_YAPE_LIMIT = 500;
 export { maskPhone } from "../../lib/masked-phone";
@@ -55,13 +45,7 @@ export function TransferView() {
   const [availableBalance, setAvailableBalance] = useState<number | null>(null);
   const [insufficientBalance, setInsufficientBalance] = useState(false);
   const [transferSubmitting, setTransferSubmitting] = useState(false);
-  const [phoneContacts, setPhoneContacts] = useState<PhoneContact[]>([]);
   const [contactSearch, setContactSearch] = useState("");
-  const [contactPickerSupported, setContactPickerSupported] = useState(false);
-  const [contactsLoading, setContactsLoading] = useState(false);
-  const [contactsCacheKey, setContactsCacheKey] = useState(
-    `${PHONE_CONTACTS_CACHE_KEY}:local`,
-  );
   const transferSubmittingRef = useRef(false);
   const transferIdempotencyRef = useRef<{
     key: string;
@@ -75,6 +59,14 @@ export function TransferView() {
     insufficientBalance,
     () => setInsufficientBalance(false),
   );
+  const {
+    phoneContacts,
+    setPhoneContacts,
+    contactPickerSupported,
+    contactsLoading,
+    contactsCacheKey,
+    requestPhoneContacts,
+  } = useTransferContacts();
   const recipient = useTransferRecipient({
     stage,
     setStage,
@@ -137,42 +129,6 @@ export function TransferView() {
     };
   }, []);
 
-  useEffect(() => {
-    const contactPicker = (navigator as ContactPickerNavigator).contacts;
-    const supportTimer = window.setTimeout(() => {
-      setContactPickerSupported(Boolean(contactPicker?.select));
-    }, 0);
-
-    let cancelled = false;
-    void fetchSession().then((result) => {
-      if (cancelled) return;
-      const userId =
-        result.ok && typeof result.user.id === "string"
-          ? result.user.id
-          : "local";
-      setContactsCacheKey(`${PHONE_CONTACTS_CACHE_KEY}:${userId}`);
-    });
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(supportTimer);
-    };
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      try {
-        const cachedContacts = window.sessionStorage.getItem(contactsCacheKey);
-        if (!cachedContacts) return;
-        const parsedContacts = JSON.parse(cachedContacts) as PhoneContact[];
-        if (Array.isArray(parsedContacts)) setPhoneContacts(parsedContacts);
-      } catch {
-        window.sessionStorage.removeItem(contactsCacheKey);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [contactsCacheKey]);
-
   useEffect(() => () => {
     if (confirmationCloseTimerRef.current !== null) {
       window.clearTimeout(confirmationCloseTimerRef.current);
@@ -231,48 +187,6 @@ export function TransferView() {
     );
   });
   const frequentPhoneContacts = phoneContacts.slice(0, 4);
-
-  async function requestPhoneContacts() {
-    const contactPicker = (navigator as ContactPickerNavigator).contacts;
-    if (!contactPicker?.select) return;
-
-    setContactsLoading(true);
-    try {
-      const selectedContacts = await contactPicker.select(["name", "tel"], {
-        multiple: true,
-      });
-      const contactsByPhone = new Map<string, PhoneContact>();
-
-      for (const selectedContact of selectedContacts) {
-        const name =
-          selectedContact.name?.find((entry) => entry.trim())?.trim() ||
-          "Contacto";
-        for (const rawPhone of selectedContact.tel ?? []) {
-          const phone = normalizeMobileNumber(rawPhone);
-          if (!phone) continue;
-          contactsByPhone.set(phone.replace(/\s/g, ""), {
-            name,
-            phone,
-            initials: contactInitials(name),
-          });
-        }
-      }
-
-      const authorizedContacts = Array.from(contactsByPhone.values()).sort(
-        (first, second) =>
-          first.name.localeCompare(second.name, "es", { sensitivity: "base" }),
-      );
-
-      if (authorizedContacts.length === 0) return;
-      setPhoneContacts(authorizedContacts);
-      window.sessionStorage.setItem(
-        contactsCacheKey,
-        JSON.stringify(authorizedContacts),
-      );
-    } finally {
-      setContactsLoading(false);
-    }
-  }
 
   function showInsufficientBalance() {
     setInsufficientBalance(true);

@@ -5,9 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
-  buildPaymentQrPayload,
-} from "../lib/payment-qr";
-import {
   clearSessionCache,
   fetchSession,
   setOptimisticUnlock,
@@ -20,7 +17,7 @@ import {
   normalizeAccountBalanceInput,
   parseAccountBalanceCents,
 } from "../lib/money";
-import { copyText, shareText } from "../lib/platform-adapters";
+import { copyText } from "../lib/platform-adapters";
 import { safeApiMessage, safeClientMessage } from "../lib/client-error";
 import { useModalLayer } from "../hooks/useModalLayer";
 import {
@@ -28,7 +25,6 @@ import {
   AssetIcon,
   AssetIllustration,
   LottiePlayer,
-  Money,
 } from "./bank/primitives";
 import {
   createVoucherImage,
@@ -38,105 +34,32 @@ import {
   getVoucherHero,
   isIzipayDestination,
   isYapeDestination,
-  MovementVoucher,
   shareVoucherImage,
   VoucherSinglePromo,
 } from "./bank/MovementVoucher";
 import { useVoucherScale } from "./bank/useVoucherScale";
 import { HomeView } from "./bank/HomeView";
-import { contactInitials, maskPhone, TransferView } from "./bank/TransferView";
+import { InnerHeader } from "./bank/InnerHeader";
+import { maskPhone, TransferView } from "./bank/TransferView";
+import { PersonalQrView } from "./bank/PersonalQrView";
+import { ProfileView } from "./bank/ProfileView";
+import { NotificationsView } from "./bank/NotificationsView";
 import { RecipientContactsView } from "./bank/RecipientContactsView";
 import { QRCodeScanner } from "./bank/QRCodeScanner";
 import { QrView } from "./bank/QrView";
+import { MovementsView } from "./bank/MovementsView";
+import {
+  fetchStoredMovements,
+  HISTORY_CLEARED_EVENT,
+  MOVEMENT_HISTORY_CLEARED_KEY,
+} from "./bank/movement-history";
+import { SimpleMovementList } from "./bank/SimpleMovementList";
 import type {
   BankView,
   Movement,
-  MovementHistoryGroup,
-  MovementHistoryItem,
-  StoredAccountMovement,
 } from "./bank/types";
 
 export type { BankView } from "./bank/types";
-
-export const movements: Movement[] = [];
-
-export const MOVEMENT_HISTORY_CLEARED_KEY = "yape-movement-history-cleared";
-export const HISTORY_CLEARED_EVENT = "yape-history-cleared";
-
-const movementColors: Movement["color"][] = [
-  "violet",
-  "amber",
-  "blue",
-  "green",
-];
-
-function storedMovementToHistoryItem(
-  movement: StoredAccountMovement,
-  index: number,
-): MovementHistoryItem {
-  const date = new Date(movement.createdAt);
-  const validDate = !Number.isNaN(date.getTime());
-  const fullDate = validDate
-    ? `${formatVoucherDate(date)} - ${formatVoucherTime(date)}`
-    : "Movimiento reciente";
-  const shortDate = validDate
-    ? `${new Intl.DateTimeFormat("es-PE", { day: "2-digit", month: "short" }).format(date)} · ${formatVoucherTime(date)}`
-    : "Movimiento reciente";
-  const amount = -(movement.amountCents / 100);
-  return {
-    id: movement.id,
-    name: movement.recipientName,
-    detail: movement.recipientReference,
-    date: fullDate,
-    displayDate: shortDate,
-    amount,
-    amountLabel: `- S/ ${Math.abs(amount).toFixed(2)}`,
-    initials: contactInitials(movement.recipientName) || "--",
-    color: movementColors[index % movementColors.length],
-    securityCode: movement.securityCode,
-    operationNumber: movement.operationNumber,
-    destination: movement.destination,
-    createdAt: movement.createdAt,
-  };
-}
-
-function groupStoredMovements(items: MovementHistoryItem[]) {
-  const groups = new Map<string, MovementHistoryItem[]>();
-  for (const item of items) {
-    const date = item.createdAt ? new Date(item.createdAt) : null;
-    const rawMonth =
-      date && !Number.isNaN(date.getTime())
-        ? new Intl.DateTimeFormat("es-PE", {
-            month: "long",
-            year: "numeric",
-          }).format(date)
-        : "Movimientos recientes";
-    const month =
-      rawMonth.charAt(0).toLocaleUpperCase("es-PE") + rawMonth.slice(1);
-    groups.set(month, [...(groups.get(month) ?? []), item]);
-  }
-  return Array.from(groups, ([month, groupItems]) => ({
-    month,
-    items: groupItems,
-  }));
-}
-
-export async function fetchStoredMovements() {
-  const response = await fetch("/api/account/movements", { cache: "no-store" });
-  const data = (await response.json()) as {
-    ok?: boolean;
-    historyCleared?: boolean;
-    movements?: StoredAccountMovement[];
-    error?: string;
-  };
-  if (!response.ok || !data.ok || !Array.isArray(data.movements)) {
-    throw new Error(safeApiMessage(data.error, "No pudimos cargar los movimientos."));
-  }
-  return {
-    historyCleared: Boolean(data.historyCleared),
-    movements: data.movements.map(storedMovementToHistoryItem),
-  };
-}
 
 const viewTitles: Partial<Record<BankView, string>> = {
   movements: "Movimientos",
@@ -158,553 +81,6 @@ const viewTitles: Partial<Record<BankView, string>> = {
   "online-purchases": "Compras por internet",
   scanner: "Escanear QR",
 };
-
-async function shareContent(
-  payload: { title: string; text: string; url?: string },
-  fallback?: () => void,
-) {
-  const result = await shareText(payload);
-  if (result.ok && result.method === "native-share") {
-    return "Listo para compartir.";
-  }
-  if (result.ok && result.method === "clipboard") {
-    fallback?.();
-    return "Copiado para compartir.";
-  }
-  if (result.ok) return "Listo para compartir.";
-  fallback?.();
-  return result.reason === "cancelled"
-    ? "Compartir cancelado."
-    : "Tu dispositivo no permite compartir desde el navegador.";
-}
-
-export function SimpleMovementList({
-  items,
-  onSelect,
-}: {
-  items: Movement[];
-  onSelect?: (movement: Movement) => void;
-}) {
-  return (
-    <div className="simple-movement-list">
-      {items.map((movement) => {
-        const content = (
-          <>
-            <span>
-              <strong>{movement.name}</strong>
-              <small>{movement.date}</small>
-            </span>
-            <Money value={movement.amount} />
-          </>
-        );
-
-        return onSelect ? (
-          <button
-            className="simple-movement-item"
-            type="button"
-            key={movement.id}
-            onClick={() => onSelect(movement)}
-            aria-label={`Ver comprobante de ${movement.name}`}
-          >
-            {content}
-          </button>
-        ) : (
-          <article className="simple-movement-item" key={movement.id}>
-            {content}
-          </article>
-        );
-      })}
-    </div>
-  );
-}
-
-function FullMovementsList({
-  groups,
-  onSelect,
-}: {
-  groups: MovementHistoryGroup[];
-  onSelect: (movement: MovementHistoryItem) => void;
-}) {
-  return (
-    <div className="reference-full-movements-list">
-      {groups.map((group) => (
-        <section className="reference-full-movement-group" key={group.month}>
-          <h2 className="reference-full-movement-month">{group.month}</h2>
-          {group.items.map((movement) => (
-            <button
-              className="reference-full-movement-item"
-              type="button"
-              key={movement.id}
-              onClick={() => onSelect(movement)}
-              aria-label={
-                movement.name
-                  ? `Ver movimiento de ${movement.name}`
-                  : "Ver movimiento"
-              }
-            >
-              <span className="reference-full-movement-info">
-                <strong>{movement.name}</strong>
-                <small>{movement.displayDate}</small>
-              </span>
-              <span
-                className={
-                  movement.amount < 0
-                    ? "reference-full-movement-amount is-negative"
-                    : "reference-full-movement-amount is-positive"
-                }
-              >
-                {movement.amountLabel}
-              </span>
-            </button>
-          ))}
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function InnerHeader({
-  title,
-  backHref = "/inicio",
-  compact = false,
-}: {
-  title: string;
-  backHref?: string;
-  compact?: boolean;
-}) {
-  return (
-    <header className={`inner-header${compact ? " is-compact" : ""}`}>
-      <Link href={backHref} className="inner-back" aria-label="Volver">
-        <AssetIcon name="ic_arrow_left_yape_on_primary" />
-      </Link>
-      <h1>{title}</h1>
-      <span className="inner-header-spacer" aria-hidden="true" />
-    </header>
-  );
-}
-
-function MovementsView() {
-  const [selectedMovement, setSelectedMovement] = useState<Movement | null>(
-    null,
-  );
-  const [storedMovements, setStoredMovements] = useState<MovementHistoryItem[]>(
-    [],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    function refreshMovements() {
-      void fetchStoredMovements()
-        .then((result) => {
-          if (cancelled) return;
-          setStoredMovements(result.movements);
-          window.localStorage.setItem(
-            MOVEMENT_HISTORY_CLEARED_KEY,
-            result.historyCleared ? "1" : "0",
-          );
-        })
-        .catch(() => undefined);
-    }
-    refreshMovements();
-    window.addEventListener(HISTORY_CLEARED_EVENT, refreshMovements);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(HISTORY_CLEARED_EVENT, refreshMovements);
-    };
-  }, []);
-
-  if (selectedMovement) {
-    return (
-      <MovementVoucher
-        movement={selectedMovement}
-        onClose={() => setSelectedMovement(null)}
-      />
-    );
-  }
-
-  const storedGroups = groupStoredMovements(storedMovements);
-  const visibleGroups = storedGroups;
-
-  return (
-    <div className="reference-movements-view">
-      <header className="reference-movements-header">
-        <Link
-          href="/inicio"
-          aria-label="Volver al inicio"
-          className="reference-movements-back"
-        >
-          <AssetIcon name="ic_arrow_left_yape_on_primary" />
-        </Link>
-        <h1>Movimientos</h1>
-        <span
-          className="reference-movements-header-spacer"
-          aria-hidden="true"
-        />
-      </header>
-      {visibleGroups.length === 0 ? (
-        <div className="cleared-movements-page">
-          <AssetIcon name="ic_list_b_yape" />
-          <strong>No tienes yapeos guardados</strong>
-          <span>Los nuevos movimientos aparecerán aquí.</span>
-        </div>
-      ) : (
-        <FullMovementsList
-          groups={visibleGroups}
-          onSelect={setSelectedMovement}
-        />
-      )}
-    </div>
-  );
-}
-
-function PersonalQrView() {
-  const [notice, setNotice] = useState("");
-  const [qrImage, setQrImage] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [qrPayload, setQrPayload] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchSession().then(async (result) => {
-      if (cancelled) return;
-      if (!result.ok || !result.user) {
-        setNotice("No pudimos preparar tu QR.");
-        return;
-      }
-      const user = result.user;
-      const id = typeof user.id === "string" ? user.id : "";
-      const displayName =
-        typeof user.displayName === "string" ? user.displayName : "";
-      const role = typeof user.role === "string" ? user.role : "";
-      const roles = Array.isArray(user.roles) ? user.roles : [];
-      if (!id || !displayName) {
-        setNotice("No pudimos preparar tu QR.");
-        return;
-      }
-      if (role !== "client" && !roles.includes("client")) {
-        setNotice("El QR de cobro está disponible para cuentas de cliente.");
-        return;
-      }
-      try {
-        let payload = buildPaymentQrPayload(id);
-        try {
-          const paymentDataResponse = await fetch("/api/account/payment-data", {
-            cache: "no-store",
-          });
-          const paymentData = (await paymentDataResponse.json()) as {
-            data?: { qrPayload?: string | null };
-          };
-          if (
-            paymentDataResponse.ok
-            && typeof paymentData.data?.qrPayload === "string"
-            && paymentData.data.qrPayload.trim()
-          ) {
-            payload = paymentData.data.qrPayload;
-          }
-        } catch {
-          // The generated account QR remains a safe fallback when no QR is saved.
-        }
-        const { default: QRCode } = await import("qrcode");
-        const image = await QRCode.toDataURL(payload, {
-          width: 640,
-          margin: 1,
-          errorCorrectionLevel: "H",
-          color: { dark: "#5c1b6d", light: "#ffffff" },
-        });
-        if (cancelled) return;
-        setClientName(displayName);
-        setQrPayload(payload);
-        setQrImage(image);
-      } catch (error) {
-        if (!cancelled)
-          setNotice(
-            error instanceof Error
-              ? safeClientMessage(error, "No pudimos preparar tu QR.")
-              : "No pudimos preparar tu QR.",
-          );
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  function downloadQrImage() {
-    if (typeof document === "undefined" || !qrImage) return;
-    const link = document.createElement("a");
-    link.href = qrImage;
-    link.download = "yape-qr.png";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
-
-  async function shareQr() {
-    try {
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
-      const result = await shareContent(
-        {
-          title: "Mi QR de Yape",
-          text: qrPayload || "Mi QR para recibir yapeos.",
-          url: origin ? `${origin}/qr-personal` : undefined,
-        },
-        downloadQrImage,
-      );
-      setNotice(result);
-    } catch {
-      setNotice("No se pudo compartir tu QR.");
-    }
-  }
-
-  return (
-    <div className="reference-qr-view">
-      <section className="qr-purple-hero">
-        <InnerHeader title="Mi QR personal" backHref="/mi-qr" compact />
-        <p>
-          Muestra tu QR para recibir yapeos sin compartir tu número de celular.
-        </p>
-      </section>
-      <section className="reference-qr-card">
-        {qrImage ? (
-          <span className="personal-yape-qr yape-qr-card">
-            <img
-              className="apk-sample-qr"
-              src={qrImage}
-              alt={`Código QR de ${clientName}`}
-            />
-            <span className="yape-qr-logo-mark" aria-hidden="true">
-              <img src="/assets/apk/icons/ic_logo_static.svg" alt="" />
-            </span>
-          </span>
-        ) : (
-          <div
-            className="qr-loading-placeholder"
-            role="status"
-            aria-label="Preparando código QR"
-          />
-        )}
-        <strong>{clientName || "PREPARANDO TU QR"}</strong>
-      </section>
-      <button
-        className="qr-share-button"
-        type="button"
-        onClick={shareQr}
-        disabled={!qrImage}
-      >
-        <AssetIcon name="ic_share_outline_yape_on_secondary" />
-        Comparte y descarga tu QR
-      </button>
-      {notice ? (
-        <p className="inline-notice qr-share-notice" role="status">
-          {notice}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function ProfileMenuItem({
-  icon,
-  animatedIcon,
-  label,
-  href,
-  badge,
-  onClick,
-  disabled = false,
-}: {
-  icon?: string;
-  animatedIcon?: string;
-  label: string;
-  href?: string;
-  badge?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  const content = (
-    <>
-      <span className="profile-row-icon">
-        {animatedIcon ? (
-          <LottiePlayer
-            name={animatedIcon}
-            className="profile-row-lottie"
-            loop
-            autoplay
-          />
-        ) : icon ? (
-          <AssetIcon name={icon} />
-        ) : null}
-      </span>
-      <strong>{label}</strong>
-      {badge ? <small className="profile-row-badge">{badge}</small> : null}
-    </>
-  );
-  return href ? (
-    <Link className="profile-menu-row" href={href}>
-      {content}
-    </Link>
-  ) : (
-    <button
-      className="profile-menu-row"
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {content}
-    </button>
-  );
-}
-
-function ProfileView() {
-  const router = useRouter();
-
-  async function logout() {
-    clearSessionCache();
-    setOptimisticUnlock(false);
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/");
-  }
-
-  return (
-    <div className="reference-profile">
-      <div className="profile-safe-strip" />
-      <header className="profile-heading">
-        <Link
-          href="/inicio"
-          className="profile-back"
-          aria-label="Volver al inicio"
-        >
-          <AssetIcon name="ic_arrow_left_yape" />
-        </Link>
-        <div>
-          <h1>Mi Perfil</h1>
-        </div>
-        <Link className="profile-help-link" href="/ayuda">
-          <AssetIcon name="ic_headphone_outline_yape" />
-          <span>Ayuda</span>
-        </Link>
-      </header>
-
-      <section className="profile-menu-section">
-        <h2>Mi cuenta</h2>
-        <ProfileMenuItem
-          icon="ic_dni_outline_yape_primary"
-          label="Mis datos"
-          href="/datos-cuenta"
-        />
-        <ProfileMenuItem
-          icon="ic_qrcode_r_yape_primary"
-          label="Mi QR"
-          href="/mi-qr"
-        />
-        <ProfileMenuItem
-          icon="ic_location_r_yape_primary"
-          label="Mis direcciones"
-          onClick={() => undefined}
-        />
-        <ProfileMenuItem
-          icon="ic_broken_heart_outline_yape_primary"
-          label="Eliminar mi cuenta"
-          disabled
-        />
-      </section>
-
-      <section className="profile-menu-section profile-settings-section">
-        <h2>Ajustes</h2>
-        <ProfileMenuItem
-          icon="ic_lock_outline_yape_primary"
-          label="Biometría digital"
-          href="/biometria"
-        />
-        <ProfileMenuItem
-          icon="ic_credit_card_outline_yape_primary"
-          label="Compras por internet y POS"
-          onClick={() => undefined}
-        />
-        <ProfileMenuItem
-          icon="ic_info_outline_yape_primary"
-          label="Confirmación de yapeo alto"
-          onClick={() => undefined}
-        />
-        <ProfileMenuItem
-          icon="ic_bar_chart_outline_yape_primary"
-          label="Límites Transaccionales"
-          onClick={() => undefined}
-        />
-        <ProfileMenuItem
-          icon="ic_bell_r_yape_primary"
-          label="Notificaciones por yapeo"
-          onClick={() => undefined}
-        />
-      </section>
-
-      <footer className="profile-footer">
-        <p>
-          <strong>Versión Yape:</strong> 3.66.1
-        </p>
-        <p>
-          <strong>Tipo de cuenta:</strong> Yape con BCP
-        </p>
-        <p>
-          <strong>Banco de Crédito del Perú</strong>
-        </p>
-        <p>
-          <strong>RUC:</strong> 20100047218
-        </p>
-        <button type="button">
-          <AssetIcon name="ic_document_outline_yape_primary" />
-          Términos y condiciones
-        </button>
-        <button type="button">
-          <AssetIcon name="ic_lock_outline_yape_primary" />
-          Política de privacidad
-        </button>
-        <button type="button" onClick={logout}>
-          <AssetIcon name="ic_sign_out_r_yape_primary" />
-          Cerrar sesión
-        </button>
-      </footer>
-    </div>
-  );
-}
-
-function NotificationsView() {
-  return (
-    <div className="notifications-view">
-      <InnerHeader title="Notificaciones" compact />
-      <section className="notification-group">
-        <h2>Yape para ti</h2>
-        <article>
-          <AssetIllustration name="sp_fullcolor_bell_disable" />
-          <div>
-            <strong>Aún no tenemos novedades para ti.</strong>
-          </div>
-        </article>
-      </section>
-      <section className="notification-group">
-        <h2>Consejos</h2>
-        <article>
-          <AssetIcon name="ic_eye_r_yape_primary" />
-          <div>
-            <strong>Ordena mejor tu dinero</strong>
-            <span>¡Descubre cómo hacerlo!</span>
-          </div>
-        </article>
-      </section>
-      <section className="notification-group">
-        <h2>Comunicados</h2>
-        <article>
-          <AssetIcon name="ic_star_outline_yape_primary" />
-          <div>
-            <strong>Conoce Buen Provecho</strong>
-            <span>Historias con sazón aquí</span>
-          </div>
-        </article>
-      </section>
-    </div>
-  );
-}
 
 function AccountHubMenuItem({
   icon,
@@ -1661,6 +1037,12 @@ type AccountDetailsUser = {
   credits: number;
 };
 
+type SmsAccountSettings = {
+  enabled: boolean;
+  displayName: string;
+  credits: number;
+};
+
 function AccountDetailsView() {
   const [user, setUser] = useState<AccountDetailsUser | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -1669,16 +1051,18 @@ function AccountDetailsView() {
   const [savingBalance, setSavingBalance] = useState(false);
   const [balanceMessage, setBalanceMessage] = useState("");
   const [homeAds, setHomeAds] = useState(true);
-  const [smsActive, setSmsActive] = useState(false);
+  const [smsSettings, setSmsSettings] = useState<SmsAccountSettings>({
+    enabled: false,
+    displayName: "",
+    credits: 0,
+  });
   const [autocomplete, setAutocomplete] = useState(false);
   const [smsToken, setSmsToken] = useState("");
   const [autoToken, setAutoToken] = useState("");
-  const [smsValidated, setSmsValidated] = useState(false);
   const [autoValidated, setAutoValidated] = useState(false);
   const [autoCredits, setAutoCredits] = useState<number | null>(null);
-  const [validatingToken, setValidatingToken] = useState<"sms" | "auto" | null>(
-    null,
-  );
+  const [validatingToken, setValidatingToken] = useState<"auto" | null>(null);
+  const [savingSms, setSavingSms] = useState(false);
   const [smsTokenMessage, setSmsTokenMessage] = useState("");
   const [autoTokenMessage, setAutoTokenMessage] = useState("");
   const [showCredentials, setShowCredentials] = useState(false);
@@ -1723,14 +1107,9 @@ function AccountDetailsView() {
         const entitlements = Array.isArray(data.entitlements)
           ? data.entitlements
           : [];
-        const sms = entitlements.find(
-          (entry: { kind?: string }) => entry.kind === "sms",
-        );
         const auto = entitlements.find(
           (entry: { kind?: string }) => entry.kind === "auto",
         );
-        setSmsValidated(Boolean(sms));
-        setSmsActive(Boolean(sms?.enabled));
         setAutocomplete(Boolean(auto?.enabled));
         setAutoValidated(Boolean(auto?.enabled));
         const autocompleteStatus = data.autocomplete as
@@ -1745,6 +1124,25 @@ function AccountDetailsView() {
           );
           setAutoValidated(Boolean(auto?.enabled || autocompleteStatus.enabled));
         }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/account/sms", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || !data?.ok || cancelled) return;
+        const sms = data.sms as Partial<SmsAccountSettings> | undefined;
+        setSmsSettings({
+          enabled: Boolean(sms?.enabled),
+          displayName: typeof sms?.displayName === "string" ? sms.displayName : "",
+          credits: typeof sms?.credits === "number" ? Math.max(0, sms.credits) : 0,
+        });
       })
       .catch(() => undefined);
     return () => {
@@ -1786,48 +1184,35 @@ function AccountDetailsView() {
     }
   }
 
-  async function validateAccountToken(kind: "sms" | "auto") {
-    const token = (kind === "sms" ? smsToken : autoToken).trim();
-    const setMessage =
-      kind === "sms" ? setSmsTokenMessage : setAutoTokenMessage;
+  async function validateAccountToken() {
+    const token = autoToken.trim();
     if (!token) {
-      setMessage("Ingresa un token antes de validarlo.");
+      setAutoTokenMessage("Ingresa un token antes de validarlo.");
       return;
     }
 
-    setValidatingToken(kind);
-    setMessage("");
+    setValidatingToken("auto");
+    setAutoTokenMessage("");
     try {
       const response = await fetch("/api/account/tokens/validate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind, token }),
+        body: JSON.stringify({ kind: "auto", token }),
       });
       const data = await response.json();
       if (!response.ok)
         throw new Error(safeApiMessage(data?.error, "No pudimos validar el token."));
 
-      if (kind === "sms") {
-        setSmsValidated(true);
-        setSmsActive(true);
-        setSmsTokenMessage("Token validado. SMS activado.");
-      } else {
-        setAutoValidated(true);
-        setAutocomplete(true);
-        setAutoCredits(
-          typeof data?.credits === "number" ? data.credits : null,
-        );
-        setAutoTokenMessage("Token validado. Autocompletado activado.");
-      }
+      setAutoValidated(true);
+      setAutocomplete(true);
+      setAutoCredits(
+        typeof data?.credits === "number" ? data.credits : null,
+      );
+      setAutoTokenMessage("Token validado. Autocompletado activado.");
     } catch (error) {
-      if (kind === "sms") {
-        setSmsValidated(false);
-        setSmsActive(false);
-      } else {
-        setAutoValidated(false);
-        setAutocomplete(false);
-      }
-      setMessage(
+      setAutoValidated(false);
+      setAutocomplete(false);
+      setAutoTokenMessage(
         safeClientMessage(error, "No pudimos validar el token."),
       );
     } finally {
@@ -1837,9 +1222,63 @@ function AccountDetailsView() {
 
   function updateSmsToken(value: string) {
     setSmsToken(value);
-    setSmsValidated(false);
-    setSmsActive(false);
     setSmsTokenMessage("");
+  }
+
+  async function updateSmsSettings(patch: Partial<Pick<SmsAccountSettings, "enabled" | "displayName">>) {
+    setSavingSms(true);
+    setSmsTokenMessage("");
+    try {
+      const response = await fetch("/api/account/sms", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(safeApiMessage(data?.error, "No pudimos guardar los SMS."));
+      const sms = data?.sms as Partial<SmsAccountSettings> | undefined;
+      setSmsSettings({
+        enabled: Boolean(sms?.enabled),
+        displayName: typeof sms?.displayName === "string" ? sms.displayName : "",
+        credits: typeof sms?.credits === "number" ? Math.max(0, sms.credits) : 0,
+      });
+      setSmsTokenMessage("Configuración SMS actualizada.");
+    } catch (error) {
+      setSmsTokenMessage(safeClientMessage(error, "No pudimos guardar los SMS."));
+    } finally {
+      setSavingSms(false);
+    }
+  }
+
+  async function redeemSmsCredits() {
+    const token = smsToken.trim();
+    if (!token) {
+      setSmsTokenMessage("Ingresa un token de créditos SMS.");
+      return;
+    }
+    setSavingSms(true);
+    setSmsTokenMessage("");
+    try {
+      const response = await fetch("/api/account/sms/credits/redeem", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(safeApiMessage(data?.error, "No pudimos canjear el token SMS."));
+      const sms = data?.sms as Partial<SmsAccountSettings> | undefined;
+      setSmsSettings({
+        enabled: Boolean(sms?.enabled),
+        displayName: typeof sms?.displayName === "string" ? sms.displayName : "",
+        credits: typeof sms?.credits === "number" ? Math.max(0, sms.credits) : 0,
+      });
+      setSmsToken("");
+      setSmsTokenMessage("Créditos SMS agregados. Configura tu nombre antes de enviar.");
+    } catch (error) {
+      setSmsTokenMessage(safeClientMessage(error, "No pudimos canjear el token SMS."));
+    } finally {
+      setSavingSms(false);
+    }
   }
 
   function updateAutoToken(value: string) {
@@ -1943,7 +1382,7 @@ function AccountDetailsView() {
           className="account-balance-shortcut"
           type="button"
           onClick={() => {
-            setBalanceInput(balance === null ? "" : formatAccountBalance(balance));
+            setBalanceInput(formatAccountBalance(balance ?? 0));
             setBalanceMessage("");
             setEditingBalance((current) => !current);
           }}
@@ -1952,7 +1391,7 @@ function AccountDetailsView() {
           <AssetIcon name="ic_money_bag_soles_outline_yape_primary" />
           <span>
             <strong>Saldo</strong>
-            <small>{balance === null ? "" : `S/ ${formatAccountBalance(balance)}`}</small>
+            <small>{`S/ ${formatAccountBalance(balance ?? 0)}`}</small>
           </span>
         </button>
         <button type="button" onClick={requestClearHistory}>
@@ -2009,7 +1448,7 @@ function AccountDetailsView() {
               type="button"
               onClick={() => {
                 setEditingBalance(false);
-                setBalanceInput(balance === null ? "" : formatAccountBalance(balance));
+                setBalanceInput(formatAccountBalance(balance ?? 0));
                 setBalanceMessage("");
               }}
             >
@@ -2065,53 +1504,87 @@ function AccountDetailsView() {
               </span>
               <span className="account-setting-copy">
                 <strong>SMS activos</strong>
-                <small>Valida el token para habilitar esta función</small>
+                <small>Envía una constancia al destinatario después de un yapeo</small>
               </span>
               <SwitchControl
-                checked={smsActive}
-                onChange={setSmsActive}
+                checked={smsSettings.enabled}
+                onChange={(enabled) => void updateSmsSettings({
+                  enabled,
+                  displayName: smsSettings.displayName,
+                })}
                 label="Activar SMS"
-                disabled={!smsValidated}
+                disabled={savingSms || smsSettings.credits <= 0 || smsSettings.displayName.trim().length < 2}
               />
             </div>
+            {smsSettings.credits > 0 ? (
+              <label className="account-details-field">
+                <span>Nombre que aparecerá en el SMS</span>
+                <div>
+                  <AssetIcon name="ic_chat_outline_yape_primary" />
+                  <input
+                    aria-label="Nombre para SMS"
+                    value={smsSettings.displayName}
+                    onChange={(event) => setSmsSettings((current) => ({
+                      ...current,
+                      displayName: event.target.value.slice(0, 80),
+                    }))}
+                    placeholder="Ejemplo: Jhon Tas*"
+                    minLength={2}
+                    maxLength={80}
+                    autoComplete="name"
+                  />
+                </div>
+              </label>
+            ) : null}
+            {smsSettings.credits > 0 ? (
+              <button
+                className="account-token-validate"
+                type="button"
+                onClick={() => void updateSmsSettings({ displayName: smsSettings.displayName })}
+                disabled={savingSms || smsSettings.displayName.trim().length < 2}
+              >
+                {savingSms ? "Guardando…" : "Guardar nombre"}
+              </button>
+            ) : null}
             <div className="account-token-entry">
               <label className="account-details-field">
-                <span>Token SMS</span>
+                <span>{smsSettings.credits > 0 ? "Recargar con token" : "Activar con token"}</span>
                 <div>
                   <AssetIcon name="ic_lock_outline_yape_primary" />
                   <input
-                    aria-label="Token SMS"
+                    aria-label="Token de créditos SMS"
                     value={smsToken}
                     onChange={(event) => updateSmsToken(event.target.value)}
-                    placeholder="Ingresa el token"
+                    placeholder="Ingresa el token de créditos"
                     autoComplete="off"
                   />
                 </div>
               </label>
               <button
-                className={`account-token-validate${smsValidated ? " is-valid" : ""}`}
+                className="account-token-validate"
                 type="button"
-                onClick={() => validateAccountToken("sms")}
-                disabled={!smsToken.trim() || validatingToken === "sms"}
+                onClick={() => void redeemSmsCredits()}
+                disabled={!smsToken.trim() || savingSms}
               >
-                {validatingToken === "sms"
-                  ? "Validando…"
-                  : smsValidated
-                    ? "Validado"
-                    : "Validar"}
+                {savingSms ? "Canjeando…" : smsSettings.credits > 0 ? "Recargar" : "Activar"}
               </button>
             </div>
             <div className="account-token-status-row">
               <span
-                className={`account-detail-pill${smsValidated ? " is-validated" : ""}`}
+                className={`account-detail-pill${smsSettings.credits > 0 ? " is-validated" : ""}`}
               >
-                {smsValidated ? "Token válido" : "0 disponibles"}
+                <AssetIcon name="ic_chat_outline_yape_primary" />
+                {smsSettings.credits} crédito{smsSettings.credits === 1 ? "" : "s"}
               </span>
               <small
-                className={smsTokenMessage && !smsValidated ? "is-error" : ""}
+                className={smsTokenMessage && !smsSettings.credits ? "is-error" : ""}
               >
                 {smsTokenMessage ||
-                  "El interruptor se activará automáticamente."}
+                  (smsSettings.credits > 0
+                    ? smsSettings.displayName.trim().length >= 2
+                      ? "El SMS se enviará solo mientras el interruptor esté activo."
+                      : "Guarda el nombre que aparecerá antes de activar SMS."
+                    : "Canjea un token para obtener créditos SMS.")}
               </small>
             </div>
           </article>
@@ -2149,7 +1622,7 @@ function AccountDetailsView() {
               <button
                 className={`account-token-validate${autoValidated ? " is-valid" : ""}`}
                 type="button"
-                onClick={() => validateAccountToken("auto")}
+                onClick={() => validateAccountToken()}
                 disabled={!autoToken.trim() || validatingToken === "auto"}
               >
                 {validatingToken === "auto"

@@ -239,6 +239,80 @@ export const accountFeatureEntitlements = pgTable("account_feature_entitlements"
   check("account_feature_entitlements_enabled_check", sql`${table.enabled} in (0, 1)`),
 ]);
 
+/** Configuración y saldo de SMS transaccionales propiedad de cada cuenta. */
+export const accountSmsSettings = pgTable("account_sms_settings", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  enabled: integer("enabled").notNull().default(0),
+  displayName: text("display_name").notNull().default(""),
+  creditBalance: bigint("credit_balance", { mode: "number" }).notNull().default(0),
+  lastReservationId: text("last_reservation_id"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  check("account_sms_settings_enabled_check", sql`${table.enabled} in (0, 1)`),
+  check("account_sms_settings_credit_balance_check", sql`${table.creditBalance} >= 0`),
+]);
+
+/** Token de un solo uso creado por un administrador para recargar SMS. */
+export const smsCreditTokens = pgTable("sms_credit_tokens", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull(),
+  tokenHint: text("token_hint").notNull(),
+  credits: bigint("credits", { mode: "number" }).notNull(),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: text("created_at").notNull(),
+  revokedAt: text("revoked_at"),
+  redeemedAt: text("redeemed_at"),
+  redeemedByUserId: text("redeemed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  redeemedLedgerId: text("redeemed_ledger_id"),
+}, (table) => [
+  uniqueIndex("sms_credit_tokens_hash_unique").on(table.tokenHash),
+  index("sms_credit_tokens_created_idx").on(table.createdAt),
+  check("sms_credit_tokens_credits_check", sql`${table.credits} > 0`),
+]);
+
+/** Historial inmutable de recargas, consumos y devoluciones de SMS. */
+export const smsCreditLedger = pgTable("sms_credit_ledger", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  delta: bigint("delta", { mode: "number" }).notNull(),
+  reason: text("reason").notNull(),
+  referenceId: text("reference_id").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("sms_credit_ledger_reference_unique").on(table.reason, table.referenceId),
+  index("sms_credit_ledger_user_created_idx").on(table.userId, table.createdAt),
+]);
+
+/** Un único intento de SMS por transferencia, sin almacenar el teléfono real. */
+export const transferSmsNotifications = pgTable("transfer_sms_notifications", {
+  id: text("id").primaryKey(),
+  movementId: text("movement_id")
+    .notNull()
+    .references(() => accountMovements.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull(),
+  reservationId: text("reservation_id"),
+  refundLedgerId: text("refund_ledger_id"),
+  recipientReference: text("recipient_reference").notNull().default(""),
+  providerMessageId: text("provider_message_id"),
+  failureCode: text("failure_code"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("transfer_sms_notifications_movement_unique").on(table.movementId),
+  index("transfer_sms_notifications_user_created_idx").on(table.userId, table.createdAt),
+  check("transfer_sms_notifications_status_check", sql`${table.status} in ('pending', 'reserved', 'sent', 'failed', 'skipped')`),
+]);
+
 /** Claves emitidas desde el panel que financian el autocompletado de una cuenta. */
 export const autocompleteKeys = pgTable("autocomplete_keys", {
   id: text("id").primaryKey(),

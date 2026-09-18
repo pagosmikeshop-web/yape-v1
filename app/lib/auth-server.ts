@@ -1,137 +1,54 @@
-import { assertTrustedMutation } from "@/app/lib/api-utils";
-import { base64UrlToBytes, bytesToBase64Url } from "@/app/lib/base64url";
+import { base64UrlToBytes } from "@/app/lib/base64url";
 import { databaseForEnvironment, isSupabaseDatabase } from "@/app/lib/database-server";
 import { canonicalPublicKey } from "@/app/lib/webauthn-utils";
+import {
+  constantTimeEqual,
+  hashSecret,
+  hmacSha256,
+  randomToken,
+  sha256,
+} from "@/app/lib/auth-server/crypto";
+import {
+  authEnv,
+  configuredOwnerTelegramId,
+  isHostedEnvironment,
+  sessionCookieName,
+  SESSION_DAYS,
+  unlockIdleMinutes,
+} from "@/app/lib/auth-server/environment";
+import { createSessionService } from "@/app/lib/auth-server/session";
+import type {
+  AppRole,
+  AuthRateLimitRule,
+  AuthUser,
+  PasswordResetChallenge,
+  UserRow,
+} from "@/app/lib/auth-server/types";
 
-export type AppRole = "admin" | "seller" | "client";
+export {
+  hashSecret,
+  publicSha256,
+  secretHashNeedsUpgrade,
+  secureCompare,
+  verifySecret,
+} from "@/app/lib/auth-server/crypto";
+export {
+  authEnv,
+  bootstrapIsEnabled,
+  configuredOwnerTelegramId,
+  publicAppBaseUrl,
+} from "@/app/lib/auth-server/environment";
+export type {
+  AppRole,
+  AuthRateLimitRule,
+  AuthUser,
+  PasswordResetChallenge,
+  UserRow,
+} from "@/app/lib/auth-server/types";
+export type { AuthEnv } from "@/app/lib/auth-server/environment";
 
-type AuthEnv = {
-  DB?: D1Database;
-  DATABASE_PROVIDER?: string;
-  SUPABASE_DATABASE_URL?: string;
-  APP_ENV?: string;
-  ADMIN_WEB_URL?: string;
-  ADMIN_PROXY_SECRET?: string;
-  TOKEN_ENCRYPTION_SECRET?: string;
-  PUBLIC_APP_URL?: string;
-  PUBLIC_APP_ALLOWED_ORIGINS?: string;
-  AUTH_BOOTSTRAP_ENABLED?: string;
-  AUTH_BOOTSTRAP_SECRET?: string;
-  AUTH_OWNER_PASSWORD_RESET_ENABLED?: string;
-  AUTH_OWNER_TELEGRAM_ID?: string;
-  AUTH_RATE_LIMIT_PEPPER?: string;
-  RATE_LIMIT_REDIS_URL?: string;
-  RATE_LIMIT_REDIS_TOKEN?: string;
-  KV_REST_API_URL?: string;
-  KV_REST_API_TOKEN?: string;
-  AUTH_UNLOCK_IDLE_MINUTES?: string;
-  CRON_SECRET?: string;
-  ACCOUNT_SMS_VALIDATION_TOKEN?: string;
-  ACCOUNT_AUTO_VALIDATION_TOKEN?: string;
-  /** Legacy single-bot token. Used as a fallback during the two-bot migration. */
-  TELEGRAM_BOT_TOKEN?: string;
-  /** Bot used exclusively for getChatMember membership checks. */
-  TELEGRAM_MEMBERSHIP_BOT_TOKEN?: string;
-  /** Bot that receives /redeem and /me commands through the webhook. */
-  TELEGRAM_COMMAND_BOT_TOKEN?: string;
-  TELEGRAM_WEBHOOK_SECRET?: string;
-  /** Secret for the command bot webhook; falls back to TELEGRAM_WEBHOOK_SECRET. */
-  TELEGRAM_COMMAND_WEBHOOK_SECRET?: string;
-  TELEGRAM_WEBHOOK_DIAGNOSTICS?: string;
-  TELEGRAM_ADMIN_IDS?: string;
-  TELEGRAM_BOT_USERNAME?: string;
-  TELEGRAM_SUPPORT_USERNAME?: string;
-  TELEGRAM_SUPPORT_USER_ID?: string;
-  TELEGRAM_REQUIRED_GROUP_ID?: string;
-  TELEGRAM_GROUP_INVITE_URL?: string;
-  RECIPIENT_LOOKUP_PROVIDER?: string;
-  RECIPIENT_LOOKUP_API_BASE_URL?: string;
-  RECIPIENT_LOOKUP_API_TOKEN?: string;
-};
-
-export type AuthUser = {
-  id: string;
-  sellerCode: string;
-  username: string;
-  displayName: string;
-  email: string;
-  role: AppRole;
-  roles: AppRole[];
-  isOwner: boolean;
-  ownerId: string | null;
-  status: "pending" | "active" | "disabled";
-  credits: number;
-  referralRedemptionCount: number;
-  deviceId: string | null;
-  telegramUserId: string | null;
-  referralCode: string | null;
-  accessExpiresAt: string | null;
-  mustChangePassword: boolean;
-  mustSetPin: boolean;
-  pinSet: boolean;
-  unlocked: boolean;
-};
-
-export type UserRow = {
-  id: string;
-  seller_code: string;
-  username: string;
-  display_name: string;
-  email: string;
-  role: AppRole;
-  roles?: AppRole[];
-  is_owner: number;
-  owner_id: string | null;
-  status: "pending" | "active" | "disabled";
-  password_hash: string;
-  password_salt: string;
-  pin_hash: string | null;
-  pin_salt: string | null;
-  credits: number;
-  device_id: string | null;
-  device_public_key: string | null;
-  fingerprint_id_hash: string | null;
-  telegram_user_id: string | null;
-  referral_code: string | null;
-  referred_by_user_id: string | null;
-  access_expires_at: string | null;
-  referral_redemption_count: number;
-  must_change_password: number;
-  must_set_pin: number;
-  deleted_at: string | null;
-};
-
-type SessionRow = {
-  session_id: string;
-  token_hash: string;
-  expires_at: string;
-  last_seen_at: string;
-  pin_verified_at: string | null;
-  unlocked_until: string | null;
-} & UserRow;
-
-export type AuthRateLimitRule = {
-  bucket: string;
-  subject: string;
-  limit: number;
-  windowSeconds: number;
-};
-
-export type PasswordResetChallenge = {
-  requestId: string;
-  token: string;
-  expiresAt: string;
-};
-
-const LOCAL_SESSION_COOKIE = "yape_session";
-const SECURE_SESSION_COOKIE = "__Host-yape_session";
-const LEGACY_PBKDF2_ITERATIONS = 120_000;
-const CURRENT_PBKDF2_ITERATIONS = 600_000;
-const HASH_FORMAT = "pbkdf2-sha256";
-const SESSION_DAYS = 30;
 // Inactivity only locks the UI again; it must not delete the authenticated
 // session. The session itself remains valid for SESSION_DAYS.
-const DEFAULT_UNLOCK_IDLE_MINUTES = 5;
 const MAX_SESSIONS_PER_USER = 5;
 // PostgreSQL rejects SQLite's `LIMIT -1` syntax. A positive upper bound keeps
 // the cleanup portable while still deleting every session beyond the cap.
@@ -156,89 +73,6 @@ function database() {
   return databaseForEnvironment(env);
 }
 
-export function authEnv() {
-  const globals = globalThis as typeof globalThis & {
-    __YAPE_ENV?: AuthEnv;
-    __MI_BANCO_ENV?: AuthEnv;
-    process?: { env?: Record<string, string | undefined> };
-  };
-  return globals.__YAPE_ENV ?? globals.__MI_BANCO_ENV ?? (globals.process?.env as AuthEnv | undefined) ?? {};
-}
-
-function isHostedEnvironment() {
-  const environment = authEnv().APP_ENV?.trim().toLowerCase();
-  return environment === "staging" || environment === "production";
-}
-
-export function configuredOwnerTelegramId() {
-  const env = authEnv();
-  const explicitOwnerId = env.AUTH_OWNER_TELEGRAM_ID?.trim() ?? "";
-  const ownerId = explicitOwnerId
-    || (!isHostedEnvironment() ? env.TELEGRAM_ADMIN_IDS?.split(",", 1)[0]?.trim() : "")
-    || "";
-  return /^\d{4,24}$/u.test(ownerId) ? ownerId : "";
-}
-
-export function bootstrapIsEnabled() {
-  const configured = authEnv().AUTH_BOOTSTRAP_ENABLED?.trim().toLowerCase();
-  /* Fail-closed: solo se habilita con AUTH_BOOTSTRAP_ENABLED=true explícito. */
-  return configured === "true";
-}
-
-export function publicAppBaseUrl(request: Request) {
-  const configured = authEnv().PUBLIC_APP_URL?.trim();
-  if (configured) {
-    try {
-      const url = new URL(configured);
-      if (url.protocol === "https:" || isLocalUrl(url)) {
-        const allowedOrigins = new Set([url.origin]);
-        for (const candidate of authEnv().PUBLIC_APP_ALLOWED_ORIGINS?.split(",") ?? []) {
-          try {
-            const allowed = new URL(candidate.trim());
-            if (allowed.protocol === "https:") allowedOrigins.add(allowed.origin);
-          } catch {
-            // Las entradas inválidas nunca amplían los orígenes permitidos.
-          }
-        }
-
-        const requestOrigin = new URL(request.url).origin;
-        return allowedOrigins.has(requestOrigin) ? requestOrigin : url.origin;
-      }
-    } catch {
-      // La respuesta genérica se genera debajo.
-    }
-    throw Response.json(
-      { ok: false, error: "La URL pública de la aplicación no está configurada correctamente." },
-      { status: 503, headers: { "cache-control": "no-store" } },
-    );
-  }
-  const requestUrl = new URL(request.url);
-  if (!isHostedEnvironment() && isLocalUrl(requestUrl)) return requestUrl.origin;
-  throw Response.json(
-    { ok: false, error: "La URL pública de la aplicación no está disponible." },
-    { status: 503, headers: { "cache-control": "no-store" } },
-  );
-}
-
-function isLocalUrl(url: URL) {
-  return url.protocol === "http:"
-    && (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]");
-}
-
-function unlockIdleMinutes() {
-  const configured = authEnv().AUTH_UNLOCK_IDLE_MINUTES?.trim();
-  if (!configured) return DEFAULT_UNLOCK_IDLE_MINUTES;
-  const minutes = Number(configured);
-  if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > SESSION_DAYS * 24 * 60) {
-    throw new Error("Invalid AUTH_UNLOCK_IDLE_MINUTES configuration.");
-  }
-  return minutes;
-}
-
-function sessionCookieName(request: Request) {
-  return new URL(request.url).protocol === "https:" ? SECURE_SESSION_COOKIE : LOCAL_SESSION_COOKIE;
-}
-
 export function normalizeUsername(value: string) {
   return value.trim().toLocaleLowerCase("es-PE");
 }
@@ -252,45 +86,6 @@ export function normalizePeruvianMobile(value: string) {
   const localNumber = digits.startsWith("51") && digits.length === 11 ? digits.slice(2) : digits;
   if (!/^9\d{8}$/u.test(localNumber)) return "";
   return `+51${localNumber}`;
-}
-
-async function sha256(value: string | Uint8Array) {
-  const source = typeof value === "string" ? new TextEncoder().encode(value) : Uint8Array.from(value);
-  return bytesToBase64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", source.buffer)));
-}
-
-async function hmacSha256(secret: string, value: string) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return bytesToBase64Url(new Uint8Array(signature));
-}
-
-function randomToken(size = 32) {
-  return bytesToBase64Url(crypto.getRandomValues(new Uint8Array(size)));
-}
-
-export async function publicSha256(value: string) {
-  return sha256(value);
-}
-
-function constantTimeEqual(left: string, right: string) {
-  const a = new TextEncoder().encode(left);
-  const b = new TextEncoder().encode(right);
-  if (a.length !== b.length) return false;
-  let difference = 0;
-  for (let index = 0; index < a.length; index += 1) difference |= a[index] ^ b[index];
-  return difference === 0;
-}
-
-export async function secureCompare(left: string, right: string) {
-  const [leftHash, rightHash] = await Promise.all([sha256(left), sha256(right)]);
-  return constantTimeEqual(leftHash, rightHash);
 }
 
 function rateLimitPepper() {
@@ -525,45 +320,6 @@ export async function clearAuthRateLimit(bucket: string, subject: string) {
   ).bind(bucket, subjectHash).run();
 }
 
-async function deriveSecret(secret: string, salt: string, iterations: number) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: base64UrlToBytes(salt), iterations },
-    key,
-    256,
-  );
-  return bytesToBase64Url(new Uint8Array(bits));
-}
-
-function parseStoredSecretHash(value: string) {
-  const match = /^pbkdf2-sha256\$(\d{5,7})\$([A-Za-z0-9_-]{32,64})$/u.exec(value);
-  if (!match) {
-    return { iterations: LEGACY_PBKDF2_ITERATIONS, digest: value, versioned: false };
-  }
-  const iterations = Number(match[1]);
-  if (!Number.isSafeInteger(iterations) || iterations < 100_000 || iterations > 2_000_000) {
-    return null;
-  }
-  return { iterations, digest: match[2], versioned: true };
-}
-
-export async function hashSecret(secret: string, salt = randomToken(16)) {
-  const digest = await deriveSecret(secret, salt, CURRENT_PBKDF2_ITERATIONS);
-  return { salt, hash: `${HASH_FORMAT}$${CURRENT_PBKDF2_ITERATIONS}$${digest}` };
-}
-
-export async function verifySecret(secret: string, salt: string, expected: string) {
-  const stored = parseStoredSecretHash(expected);
-  if (!stored) return false;
-  const actual = await deriveSecret(secret, salt, stored.iterations);
-  return constantTimeEqual(actual, stored.digest);
-}
-
-export function secretHashNeedsUpgrade(expected: string) {
-  const stored = parseStoredSecretHash(expected);
-  return Boolean(!stored || !stored.versioned || stored.iterations < CURRENT_PBKDF2_ITERATIONS);
-}
-
 export async function ensureAuthSchema() {
   if (schemaReady) return schemaReady;
   const db = database();
@@ -574,6 +330,10 @@ export async function ensureAuthSchema() {
         "sessions",
         "account_balances",
         "account_movements",
+        "account_sms_settings",
+        "sms_credit_tokens",
+        "sms_credit_ledger",
+        "transfer_sms_notifications",
         "account_payment_profiles",
         "global_recipient_directory",
         "global_qr_directory",
@@ -785,6 +545,58 @@ export async function ensureAuthSchema() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )`,
       "CREATE INDEX IF NOT EXISTS account_feature_entitlements_user_idx ON account_feature_entitlements(user_id, kind)",
+      `CREATE TABLE IF NOT EXISTS account_sms_settings (
+        user_id TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+        display_name TEXT NOT NULL DEFAULT '',
+        credit_balance INTEGER NOT NULL DEFAULT 0 CHECK (credit_balance >= 0),
+        last_reservation_id TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS sms_credit_tokens (
+        id TEXT PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        token_hint TEXT NOT NULL,
+        credits INTEGER NOT NULL CHECK (credits > 0),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        revoked_at TEXT,
+        redeemed_at TEXT,
+        redeemed_by_user_id TEXT,
+        redeemed_ledger_id TEXT,
+        FOREIGN KEY (created_by) REFERENCES users(id),
+        FOREIGN KEY (redeemed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS sms_credit_tokens_created_idx ON sms_credit_tokens(created_at)",
+      `CREATE TABLE IF NOT EXISTS sms_credit_ledger (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        delta INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        reference_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(reason, reference_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE INDEX IF NOT EXISTS sms_credit_ledger_user_created_idx ON sms_credit_ledger(user_id, created_at)",
+      `CREATE TABLE IF NOT EXISTS transfer_sms_notifications (
+        id TEXT PRIMARY KEY,
+        movement_id TEXT NOT NULL UNIQUE,
+        user_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('pending','reserved','sent','failed','skipped')),
+        reservation_id TEXT,
+        refund_ledger_id TEXT,
+        recipient_reference TEXT NOT NULL DEFAULT '',
+        provider_message_id TEXT,
+        failure_code TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (movement_id) REFERENCES account_movements(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      "CREATE INDEX IF NOT EXISTS transfer_sms_notifications_user_created_idx ON transfer_sms_notifications(user_id, created_at)",
       `CREATE TABLE IF NOT EXISTS autocomplete_keys (
         id TEXT PRIMARY KEY,
         token_hash TEXT NOT NULL UNIQUE,
@@ -1055,6 +867,16 @@ export async function ensureAuthSchema() {
     ];
     await db.batch(statements.map((sql) => db.prepare(sql)));
 
+    // Las activaciones históricas de SMS no tienen saldo. Se mantienen como
+    // registros inertes hasta que el usuario canjee un token de créditos.
+    const smsMigrationNow = new Date().toISOString();
+    await db.prepare(
+      `INSERT OR IGNORE INTO account_sms_settings (
+        user_id, enabled, display_name, credit_balance, last_reservation_id, created_at, updated_at
+      ) SELECT user_id, 0, '', 0, NULL, ?, ?
+        FROM account_feature_entitlements WHERE kind = 'sms'`,
+    ).bind(smsMigrationNow, smsMigrationNow).run();
+
     const recipientDirectoryColumns = await db.prepare("PRAGMA table_info(global_recipient_directory)").all<{ name: string }>();
     const knownRecipientDirectoryColumns = new Set((recipientDirectoryColumns.results ?? []).map((column) => column.name));
     if (!knownRecipientDirectoryColumns.has("provider")) {
@@ -1314,221 +1136,6 @@ function mapUser(row: UserRow): AuthUser {
   };
 }
 
-function cookieValue(request: Request, name: string) {
-  const cookie = request.headers.get("cookie") ?? "";
-  for (const part of cookie.split(";")) {
-    const [key, ...rest] = part.trim().split("=");
-    if (key === name) return decodeURIComponent(rest.join("="));
-  }
-  return null;
-}
-
-async function findSessionUser(request: Request, roles?: AppRole[], includeExpiredAccess = false) {
-  await ensureAuthSchema();
-  const token = cookieValue(request, sessionCookieName(request));
-  if (!token) return null;
-  const tokenHash = await sha256(token);
-  const now = new Date().toISOString();
-  const unlockIdleMs = unlockIdleMinutes() * 60_000;
-  const unlockCutoff = new Date(Date.now() - unlockIdleMs).toISOString();
-  const statement = database().prepare(
-    `SELECT s.id AS session_id, s.token_hash, s.expires_at,
-      s.last_seen_at, s.pin_verified_at, s.unlocked_until,
-      u.id, u.seller_code, u.username, u.display_name, u.email, u.role, u.is_owner, u.owner_id,
-     u.status, u.password_hash, u.password_salt, u.pin_hash, u.pin_salt, u.credits,
-      u.device_id, u.device_public_key, u.fingerprint_id_hash, u.telegram_user_id,
-      u.referral_code, u.referred_by_user_id, u.access_expires_at, u.referral_redemption_count,
-      u.must_change_password, u.must_set_pin,
-      u.deleted_at
-     FROM sessions s JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = ? AND s.expires_at > ?
-        AND u.status = 'active' AND u.deleted_at IS NULL
-     LIMIT 1`,
-  );
-  const row = await statement.bind(tokenHash, now).first<SessionRow>();
-  if (!row) return null;
-  const unlocked = Boolean(
-    row.unlocked_until
-      && Date.parse(row.unlocked_until) > Date.now()
-      && row.last_seen_at > unlockCutoff,
-  );
-  const shouldTouchSession = Date.parse(row.last_seen_at) <= Date.now() - 60_000;
-  const refreshedUnlockUntil = unlocked
-    ? (shouldTouchSession ? new Date(Date.now() + unlockIdleMs).toISOString() : row.unlocked_until)
-    : null;
-  const unlockChanged = row.unlocked_until !== refreshedUnlockUntil;
-  const [userRoles] = await Promise.all([
-    getUserRoles(row.id),
-    shouldTouchSession || unlockChanged
-      ? database().prepare(
-        "UPDATE sessions SET last_seen_at = ?, unlocked_until = ? WHERE id = ?",
-      ).bind(now, refreshedUnlockUntil, row.session_id).run()
-      : Promise.resolve(),
-  ]);
-  row.roles = userRoles;
-  const effectiveRoles = new Set<AppRole>([row.role, ...(row.roles ?? [])]);
-  if (roles && !roles.some((role) => effectiveRoles.has(role))) return null;
-  const hasStaffRole = effectiveRoles.has("admin") || effectiveRoles.has("seller");
-  if (!includeExpiredAccess && !hasStaffRole && row.access_expires_at && Date.parse(row.access_expires_at) <= Date.now()) {
-    return null;
-  }
-  return {
-    user: {
-      ...mapUser(row),
-      unlocked,
-    },
-    row,
-    sessionId: row.session_id,
-    pinVerifiedAt: row.pin_verified_at,
-    unlockedUntil: refreshedUnlockUntil,
-  };
-}
-
-export async function getSessionUser(request: Request, roles?: AppRole[]) {
-  return findSessionUser(request, roles, false);
-}
-
-export async function getSessionUserIncludingExpired(request: Request, roles?: AppRole[]) {
-  return findSessionUser(request, roles, true);
-}
-
-export async function requireSession(request: Request, roles?: AppRole[]) {
-  assertTrustedMutation(request);
-  const session = await getSessionUser(request, roles);
-  if (!session) throw new Response(JSON.stringify({ error: "Acceso no autorizado." }), {
-    status: 401,
-    headers: {
-      "cache-control": "no-store, max-age=0",
-      "content-type": "application/json; charset=utf-8",
-      pragma: "no-cache",
-      "x-content-type-options": "nosniff",
-    },
-  });
-  return session;
-}
-
-/**
- * Allows only the access-recovery steps (PIN unlock/redeem) to continue after
- * a trial expires. Protected data endpoints must keep using requireSession.
- */
-export async function requireSessionIncludingExpired(request: Request, roles?: AppRole[]) {
-  assertTrustedMutation(request);
-  const session = await getSessionUserIncludingExpired(request, roles);
-  if (!session) throw new Response(JSON.stringify({ error: "Acceso no autorizado." }), {
-    status: 401,
-    headers: {
-      "cache-control": "no-store, max-age=0",
-      "content-type": "application/json; charset=utf-8",
-      pragma: "no-cache",
-      "x-content-type-options": "nosniff",
-    },
-  });
-  return session;
-}
-
-export async function requireUnlockedSession(request: Request, roles?: AppRole[]) {
-  const session = await requireSession(request, roles);
-  if (session.user.mustChangePassword) {
-    throw Response.json(
-      { ok: false, error: "Debes cambiar tu contraseña antes de continuar.", code: "PASSWORD_CHANGE_REQUIRED" },
-      { status: 428, headers: { "cache-control": "no-store" } },
-    );
-  }
-  if (session.user.mustSetPin || !session.user.pinSet) {
-    throw Response.json(
-      { ok: false, error: "Configura tu clave antes de continuar.", code: "PIN_SETUP_REQUIRED" },
-      { status: 428, headers: { "cache-control": "no-store" } },
-    );
-  }
-  if (!session.unlockedUntil || Date.parse(session.unlockedUntil) <= Date.now()) {
-    throw Response.json(
-      { ok: false, error: "Confirma tu clave para continuar.", code: "PIN_REQUIRED" },
-      { status: 423, headers: { "cache-control": "no-store" } },
-    );
-  }
-  return session;
-}
-
-export async function rotateAndUnlockSession(request: Request, sessionId: string) {
-  const token = randomToken(36);
-  const tokenHash = await sha256(token);
-  const now = new Date();
-  const unlockedUntil = new Date(now.getTime() + unlockIdleMinutes() * 60_000);
-  const result = await database().prepare(
-    `UPDATE sessions
-     SET token_hash = ?, pin_verified_at = ?, unlocked_until = ?, last_seen_at = ?
-     WHERE id = ? AND expires_at > ?`,
-  ).bind(
-    tokenHash,
-    now.toISOString(),
-    unlockedUntil.toISOString(),
-    now.toISOString(),
-    sessionId,
-    now.toISOString(),
-  ).run();
-  const changes = Number(result.meta.changes ?? 0);
-  if (changes !== 1) {
-    throw Response.json(
-      { ok: false, error: "La sesion ya no esta disponible." },
-      { status: 401, headers: { "cache-control": "no-store" } },
-    );
-  }
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  const cookie = `${sessionCookieName(request)}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_DAYS * 86_400}${secure}`;
-  return { unlockedUntil: unlockedUntil.toISOString(), cookie };
-}
-
-export async function createSession(request: Request, userId: string, options: { unlocked?: boolean } = {}) {
-  await ensureAuthSchema();
-  const token = randomToken(36);
-  const tokenHash = await sha256(token);
-  const now = new Date();
-  const expires = new Date(now.getTime() + SESSION_DAYS * 86_400_000);
-  const unlockedUntil = options.unlocked
-    ? new Date(now.getTime() + unlockIdleMinutes() * 60_000).toISOString()
-    : null;
-  await database().batch([
-    database().prepare(
-      `INSERT INTO sessions (
-        id, user_id, token_hash, created_at, expires_at, last_seen_at, pin_verified_at, unlocked_until
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(
-      crypto.randomUUID(),
-      userId,
-      tokenHash,
-      now.toISOString(),
-      expires.toISOString(),
-      now.toISOString(),
-      options.unlocked ? now.toISOString() : null,
-      unlockedUntil,
-    ),
-    database().prepare(
-      `DELETE FROM sessions
-       WHERE user_id = ?
-         AND EXISTS (SELECT 1 FROM users WHERE id = ? AND (role = 'client' OR EXISTS (
-           SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = 'client'
-         )) AND deleted_at IS NULL)
-         AND id IN (
-         SELECT id FROM sessions WHERE user_id = ?
-         ORDER BY created_at DESC LIMIT ? OFFSET ?
-       )`,
-    ).bind(userId, userId, userId, SESSION_CLEANUP_LIMIT, MAX_SESSIONS_PER_USER),
-  ]);
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  return `${sessionCookieName(request)}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_DAYS * 86_400}${secure}`;
-}
-
-export async function destroySession(request: Request) {
-  assertTrustedMutation(request);
-  const token = cookieValue(request, sessionCookieName(request));
-  if (token) {
-    await ensureAuthSchema();
-    await database().prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(token)).run();
-  }
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  return `${sessionCookieName(request)}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure}`;
-}
-
 function generateReferralCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -1654,6 +1261,35 @@ export async function getUserRoles(userId: string): Promise<AppRole[]> {
   ).bind(userId).all<{ role: AppRole }>();
   return [...new Set(rows.results?.map((entry) => entry.role) ?? [])];
 }
+
+const sessionService = createSessionService({
+  database,
+  ensureAuthSchema,
+  getUserRoles,
+  mapUser,
+  sessionCookieName,
+  sha256,
+  randomToken,
+  unlockIdleMinutes,
+  sessionDays: SESSION_DAYS,
+  maxSessionsPerUser: MAX_SESSIONS_PER_USER,
+  sessionCleanupLimit: SESSION_CLEANUP_LIMIT,
+});
+
+/**
+ * The facade retains the established auth-server contract. Access recovery
+ * alone uses the including-expired variant; regular app routes use requireSession.
+ */
+export const {
+  createSession,
+  destroySession,
+  getSessionUser,
+  getSessionUserIncludingExpired,
+  requireSession,
+  requireSessionIncludingExpired,
+  requireUnlockedSession,
+  rotateAndUnlockSession,
+} = sessionService;
 
 /** Obtiene los roles de una página completa en una sola consulta. */
 export async function getUserRolesBulk(userIds: string[]) {
@@ -1785,6 +1421,9 @@ export async function createUser(input: {
   trialSellerId?: string;
 }) {
   await ensureAuthSchema();
+  if (!validateUsername(input.username)) {
+    throw new Error("El usuario debe tener de 3 a 40 caracteres y no puede contener espacios.");
+  }
   const phoneE164 = input.phone ? normalizePeruvianMobile(input.phone) : "";
   if (input.phone && !phoneE164) throw new Error("El número de celular debe tener 9 dígitos y comenzar con 9.");
   const referralCode = input.referralCode?.trim()
@@ -1839,6 +1478,10 @@ export async function createUser(input: {
     `INSERT OR IGNORE INTO user_roles (user_id, role, granted_by, created_at)
      VALUES (?, ?, ?, ?)`,
   ).bind(id, input.role, input.ownerId ?? null, now)];
+  statements.push(database().prepare(
+    `INSERT INTO account_balances (user_id, balance_cents, is_configured, updated_at)
+     VALUES (?, 0, 1, ?)`,
+  ).bind(id, now));
   if (phoneE164) {
     statements.push(database().prepare(
       `INSERT INTO payment_directory (

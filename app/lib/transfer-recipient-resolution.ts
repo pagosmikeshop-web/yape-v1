@@ -14,6 +14,8 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 export type ResolvedRecipient = {
   name: string;
   reference: string;
+  /** Solo para servicios del servidor; nunca se serializa al cliente. */
+  phoneE164: string | null;
   provider: string | null;
   providers: string[];
   recipientUserId: string | null;
@@ -63,6 +65,7 @@ export async function resolveTransferRecipient(
       // o una versión protegida escrita por el propio usuario).
       name: qr.holder_name,
       reference: qr.phone_e164 ? maskPhone(qr.phone_e164) : "",
+      phoneE164: qr.phone_e164,
       provider: normalizePaymentProvider(qr.provider),
       providers: [normalizePaymentProvider(qr.provider)],
       recipientUserId: qr.recipient_user_id,
@@ -77,6 +80,7 @@ export async function resolveTransferRecipient(
     return {
       name: maskedName,
       reference: row.phone_e164 ? maskPhone(row.phone_e164) : "",
+      phoneE164: row.phone_e164,
       provider: "Yape",
       providers: ["Yape"],
       recipientUserId: row.id,
@@ -92,6 +96,7 @@ export async function resolveTransferRecipient(
     return {
       name: displayName,
       reference: maskPhone(phoneE164),
+      phoneE164,
       provider: "Yape",
       providers: ["Yape"],
       recipientUserId: internal.id,
@@ -104,6 +109,7 @@ export async function resolveTransferRecipient(
     return {
       name: globalRecipient.displayName,
       reference: maskPhone(phoneE164),
+      phoneE164,
       provider: globalRecipient.provider,
       providers: globalRecipient.providers,
       recipientUserId: null,
@@ -140,6 +146,7 @@ export async function resolveTransferRecipient(
   return {
     name: displayName,
     reference: maskPhone(phoneE164),
+    phoneE164,
     provider: null,
     providers: [],
     recipientUserId: null,

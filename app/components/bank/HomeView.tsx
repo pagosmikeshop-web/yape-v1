@@ -8,8 +8,8 @@ import {
   HISTORY_CLEARED_EVENT,
   MOVEMENT_HISTORY_CLEARED_KEY,
   movements,
-  SimpleMovementList,
-} from "../BankApp";
+} from "./movement-history";
+import { SimpleMovementList } from "./SimpleMovementList";
 import { fetchAccountBalance } from "../../lib/balance-cache";
 import { formatAccountBalance } from "../../lib/money";
 import { settleIOSViewport } from "../../lib/ios-viewport";
@@ -282,9 +282,7 @@ export function HomeView() {
             <strong>{showBalance ? "Ocultar saldo" : "Mostrar saldo"}</strong>
             {showBalance ? (
               <span>
-                {accountBalance === null
-                  ? ""
-                  : `S/ ${formatAccountBalance(accountBalance)}`}
+                {`S/ ${formatAccountBalance(accountBalance ?? 0)}`}
               </span>
             ) : null}
           </button>
