@@ -1,5 +1,11 @@
 import { publicSha256, dbBinding } from "@/app/lib/auth-server";
-import { InfobipSmsError, buildPaymentSmsText, sendInfobipSms } from "@/app/lib/infobip-sms";
+import {
+  type InfobipSmsDelivery,
+  InfobipSmsError,
+  buildPaymentSmsText,
+  getInfobipSmsDelivery,
+  sendInfobipSms,
+} from "@/app/lib/infobip-sms";
 import { maskPhone } from "@/app/lib/masked-phone";
 import { normalizeSmsCreditToken } from "@/app/lib/sms-credit-tokens";
 
@@ -17,7 +23,7 @@ type SmsSettingsRow = {
 
 type SmsNotificationRow = {
   id: string;
-  status: "pending" | "reserved" | "sent" | "failed" | "skipped";
+  status: "pending" | "reserved" | "accepted" | "sent" | "delivered" | "failed" | "skipped";
   reservation_id: string | null;
 };
 
@@ -31,7 +37,17 @@ export type SmsSettingsPatch = {
 type SmsReservation = {
   notificationId: string;
   displayName: string;
+  deliveryCallbackData: string;
 };
+
+type SmsDeliveryCandidate = {
+  id: string;
+  provider_message_id: string;
+  created_at: string;
+};
+
+const SMS_DELIVERY_LOOKUP_LIMIT = 50;
+const SMS_DELIVERY_TIMEOUT_MS = 47 * 60 * 60 * 1_000;
 
 function asSettings(row: SmsSettingsRow | null): SmsSettings {
   if (!row) return { ...DEFAULT_SMS_SETTINGS };
@@ -157,14 +173,25 @@ async function reserveSmsForMovement(input: {
   const now = new Date().toISOString();
   const notificationId = crypto.randomUUID();
   const reservationId = crypto.randomUUID();
+  const deliveryCallbackData = crypto.randomUUID();
+  const deliveryCallbackHash = await publicSha256(`infobip-delivery-v1\n${deliveryCallbackData}`);
   const database = dbBinding();
   const results = await database.batch([
     database.prepare(
       `INSERT OR IGNORE INTO transfer_sms_notifications (
         id, movement_id, user_id, status, reservation_id, refund_ledger_id,
-        recipient_reference, provider_message_id, failure_code, created_at, updated_at
-      ) VALUES (?, ?, ?, 'pending', NULL, NULL, ?, NULL, NULL, ?, ?)`,
-    ).bind(notificationId, input.movementId, input.userId, maskPhone(input.phoneE164), now, now),
+        recipient_reference, provider_message_id, failure_code, delivery_callback_hash,
+        provider_delivery_status, delivery_checked_at, delivery_finalized_at, created_at, updated_at
+      ) VALUES (?, ?, ?, 'pending', NULL, NULL, ?, NULL, NULL, ?, NULL, NULL, NULL, ?, ?)`,
+    ).bind(
+      notificationId,
+      input.movementId,
+      input.userId,
+      maskPhone(input.phoneE164),
+      deliveryCallbackHash,
+      now,
+      now,
+    ),
     database.prepare(
       `INSERT OR IGNORE INTO account_sms_settings (
         user_id, enabled, display_name, credit_balance, last_reservation_id, created_at, updated_at
@@ -205,27 +232,28 @@ async function reserveSmsForMovement(input: {
   if (Number(results[4]?.meta.changes ?? 0) !== 1) return null;
 
   const settings = await getSmsSettings(input.userId);
-  return { notificationId, displayName: settings.displayName };
+  return { notificationId, displayName: settings.displayName, deliveryCallbackData };
 }
 
-async function markSmsSent(notificationId: string, messageId: string) {
+async function markSmsAccepted(notificationId: string, messageId: string) {
   await dbBinding().prepare(
     `UPDATE transfer_sms_notifications
-     SET status = 'sent', provider_message_id = ?, updated_at = ?
+     SET status = 'accepted', provider_message_id = ?, provider_delivery_status = 'ACCEPTED', updated_at = ?
      WHERE id = ? AND status = 'reserved'`,
   ).bind(messageId.slice(0, 256), new Date().toISOString(), notificationId).run();
 }
 
-async function failSmsAndRefund(notificationId: string, failureCode: string) {
+async function failSmsAndRefund(notificationId: string, failureCode: string, providerStatus = "FAILED") {
   const now = new Date().toISOString();
   const refundLedgerId = crypto.randomUUID();
   const database = dbBinding();
   const results = await database.batch([
     database.prepare(
       `UPDATE transfer_sms_notifications
-       SET status = 'failed', failure_code = ?, refund_ledger_id = ?, updated_at = ?
-       WHERE id = ? AND status = 'reserved'`,
-    ).bind(failureCode.slice(0, 48), refundLedgerId, now, notificationId),
+       SET status = 'failed', failure_code = ?, refund_ledger_id = ?,
+           provider_delivery_status = ?, delivery_checked_at = ?, delivery_finalized_at = ?, updated_at = ?
+       WHERE id = ? AND status IN ('reserved', 'accepted', 'sent')`,
+    ).bind(failureCode.slice(0, 48), refundLedgerId, providerStatus.slice(0, 64), now, now, now, notificationId),
     database.prepare(
       `INSERT INTO sms_credit_ledger (
         id, user_id, delta, reason, reference_id, created_at
@@ -241,6 +269,105 @@ async function failSmsAndRefund(notificationId: string, failureCode: string) {
     ).bind(now, refundLedgerId, refundLedgerId),
   ]);
   return Number(results[1]?.meta.changes ?? 0) === 1;
+}
+
+async function markSmsDelivered(notificationId: string, providerStatus: string) {
+  const now = new Date().toISOString();
+  const result = await dbBinding().prepare(
+    `UPDATE transfer_sms_notifications
+     SET status = 'delivered', failure_code = NULL, provider_delivery_status = ?,
+         delivery_checked_at = ?, delivery_finalized_at = ?, updated_at = ?
+     WHERE id = ? AND status IN ('accepted', 'sent')`,
+  ).bind(providerStatus.slice(0, 64), now, now, now, notificationId).run();
+  return Number(result.meta.changes ?? 0) === 1;
+}
+
+async function recordSmsDeliveryCheck(notificationId: string, providerStatus: string) {
+  const now = new Date().toISOString();
+  await dbBinding().prepare(
+    `UPDATE transfer_sms_notifications
+     SET provider_delivery_status = ?, delivery_checked_at = ?, updated_at = ?
+     WHERE id = ? AND status IN ('accepted', 'sent')`,
+  ).bind(providerStatus.slice(0, 64), now, now, notificationId).run();
+}
+
+async function applySmsDelivery(notificationId: string, delivery: InfobipSmsDelivery) {
+  if (delivery.state === "delivered") {
+    return { delivered: await markSmsDelivered(notificationId, delivery.providerStatus), refunded: false };
+  }
+  if (delivery.state === "failed") {
+    return {
+      delivered: false,
+      refunded: await failSmsAndRefund(
+        notificationId,
+        delivery.failureCode ?? "delivery_failed",
+        delivery.providerStatus,
+      ),
+    };
+  }
+  await recordSmsDeliveryCheck(notificationId, delivery.providerStatus);
+  return { delivered: false, refunded: false };
+}
+
+export async function processInfobipDeliveryReport(input: {
+  messageId: string;
+  callbackData: string;
+  delivery: InfobipSmsDelivery;
+}) {
+  const messageId = input.messageId.trim();
+  const callbackData = input.callbackData.trim();
+  if (!messageId || messageId.length > 256 || callbackData.length < 16 || callbackData.length > 256) return false;
+  const callbackHash = await publicSha256(`infobip-delivery-v1\n${callbackData}`);
+  const row = await dbBinding().prepare(
+    `SELECT id, status, reservation_id
+     FROM transfer_sms_notifications
+     WHERE provider_message_id = ? AND delivery_callback_hash = ? LIMIT 1`,
+  ).bind(messageId, callbackHash).first<SmsNotificationRow>();
+  if (!row) return false;
+  await applySmsDelivery(row.id, input.delivery);
+  return true;
+}
+
+function deliveryTimedOut(createdAt: string, now: number) {
+  const startedAt = Date.parse(createdAt);
+  return Number.isFinite(startedAt) && now - startedAt >= SMS_DELIVERY_TIMEOUT_MS;
+}
+
+export async function reconcileSmsDeliveries(input: { limit?: number } = {}) {
+  const limit = Math.max(1, Math.min(SMS_DELIVERY_LOOKUP_LIMIT, Math.floor(input.limit ?? SMS_DELIVERY_LOOKUP_LIMIT)));
+  const rows = await dbBinding().prepare(
+    `SELECT id, provider_message_id, created_at
+     FROM transfer_sms_notifications
+     WHERE status = 'accepted' AND provider_message_id IS NOT NULL
+     ORDER BY created_at ASC LIMIT ?`,
+  ).bind(limit).all<SmsDeliveryCandidate>();
+  const summary = { checked: 0, delivered: 0, refunded: 0, pending: 0, deferred: 0 };
+  const now = Date.now();
+
+  for (const row of rows.results ?? []) {
+    try {
+      const delivery = await getInfobipSmsDelivery(row.provider_message_id);
+      summary.checked += 1;
+      if (!delivery) {
+        if (deliveryTimedOut(row.created_at, now)) {
+          if (await failSmsAndRefund(row.id, "delivery_status_timeout", "STATUS_TIMEOUT")) summary.refunded += 1;
+        } else {
+          summary.pending += 1;
+        }
+        continue;
+      }
+
+      const outcome = await applySmsDelivery(row.id, delivery);
+      if (outcome.delivered) summary.delivered += 1;
+      else if (outcome.refunded) summary.refunded += 1;
+      else summary.pending += 1;
+    } catch {
+      // Un fallo transitorio de consulta no debe dar por perdido un SMS válido.
+      summary.deferred += 1;
+    }
+  }
+
+  return summary;
 }
 
 function failureCode(error: unknown) {
@@ -267,8 +394,9 @@ export async function dispatchPaymentSms(input: {
         amountCents: input.amountCents,
         securityCode: input.securityCode,
       }),
+      deliveryCallbackData: reservation.deliveryCallbackData,
     });
-    await markSmsSent(reservation.notificationId, response.messageId);
+    await markSmsAccepted(reservation.notificationId, response.messageId);
   } catch (error) {
     if (reservation) {
       try {

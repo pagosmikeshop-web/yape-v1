@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   InfobipSmsError,
   buildPaymentSmsText,
+  getInfobipSmsDelivery,
+  parseInfobipSmsDeliveryReports,
   sendInfobipSms,
 } from "../app/lib/infobip-sms";
 import {
@@ -77,6 +79,83 @@ describe("SMS transaccional Infobip", () => {
     });
     await expect(sendInfobipSms({ to: "+51900000000", text: "Mensaje" }))
       .rejects.toMatchObject({ code: "not_configured" } satisfies Partial<InfobipSmsError>);
+  });
+
+  it("clasifica EXPIRED como fallo final sin exponer la respuesta completa del proveedor", async () => {
+    setEnvironment({
+      [infobipEnvironment("INFOBIP", "API", "KEY")]: "test-api-key",
+      [infobipEnvironment("INFOBIP", "BASE", "URL")]: "https://example.infobip.test",
+      [infobipEnvironment("INFOBIP", "SENDER")]: "BancoWeb",
+    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      results: [{ status: { groupName: "EXPIRED", name: "EXPIRED_EXPIRED" } }],
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getInfobipSmsDelivery("message-123")).resolves.toEqual({
+      state: "failed",
+      providerStatus: "EXPIRED",
+      failureCode: "delivery_expired",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.infobip.test/sms/1/logs?messageId=message-123",
+      expect.objectContaining({
+        headers: expect.objectContaining({ authorization: "App test-api-key" }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
+  it("incluye un nonce por SMS para que el webhook no acepte eventos inventados", async () => {
+    setEnvironment({
+      [infobipEnvironment("INFOBIP", "API", "KEY")]: "test-api-key",
+      [infobipEnvironment("INFOBIP", "BASE", "URL")]: "https://example.infobip.test",
+      [infobipEnvironment("INFOBIP", "SENDER")]: "BancoWeb",
+      PUBLIC_APP_URL: "https://yape-v1.vercel.app",
+    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      messages: [{ messageId: "message-123" }],
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendInfobipSms({
+      to: "+51900000000",
+      text: "Mensaje",
+      deliveryCallbackData: "1d11d977-e8f1-42aa-bd08-bf5530bf0e08",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.infobip.test/sms/3/messages",
+      expect.objectContaining({
+        body: JSON.stringify({
+          messages: [{
+            sender: "BancoWeb",
+            destinations: [{ to: "+51900000000" }],
+            content: { text: "Mensaje" },
+            webhooks: {
+              delivery: { url: "https://yape-v1.vercel.app/api/internal/infobip-delivery" },
+              contentType: "application/json",
+              callbackData: "1d11d977-e8f1-42aa-bd08-bf5530bf0e08",
+            },
+          }],
+        }),
+      }),
+    );
+  });
+
+  it("solo procesa webhooks con messageId, callbackData y estado válidos", () => {
+    expect(parseInfobipSmsDeliveryReports({
+      results: [{
+        messageId: "message-123",
+        callbackData: "1d11d977-e8f1-42aa-bd08-bf5530bf0e08",
+        status: { groupName: "DELIVERED", name: "DELIVERED_TO_HANDSET" },
+      }],
+    })).toEqual([{
+      messageId: "message-123",
+      callbackData: "1d11d977-e8f1-42aa-bd08-bf5530bf0e08",
+      delivery: { state: "delivered", providerStatus: "DELIVERED", failureCode: null },
+    }]);
+    expect(parseInfobipSmsDeliveryReports({ results: [{ messageId: "message-123" }] })).toEqual([]);
   });
 });
 

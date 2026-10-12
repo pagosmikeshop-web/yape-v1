@@ -305,12 +305,22 @@ export const transferSmsNotifications = pgTable("transfer_sms_notifications", {
   recipientReference: text("recipient_reference").notNull().default(""),
   providerMessageId: text("provider_message_id"),
   failureCode: text("failure_code"),
+  deliveryCallbackHash: text("delivery_callback_hash"),
+  providerDeliveryStatus: text("provider_delivery_status"),
+  deliveryCheckedAt: text("delivery_checked_at"),
+  deliveryFinalizedAt: text("delivery_finalized_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 }, (table) => [
   uniqueIndex("transfer_sms_notifications_movement_unique").on(table.movementId),
   index("transfer_sms_notifications_user_created_idx").on(table.userId, table.createdAt),
-  check("transfer_sms_notifications_status_check", sql`${table.status} in ('pending', 'reserved', 'sent', 'failed', 'skipped')`),
+  index("transfer_sms_notifications_delivery_reconciliation_idx")
+    .on(table.status, table.createdAt)
+    .where(sql`${table.providerMessageId} is not null and ${table.status} = 'accepted'`),
+  uniqueIndex("transfer_sms_notifications_delivery_callback_hash_idx")
+    .on(table.deliveryCallbackHash)
+    .where(sql`${table.deliveryCallbackHash} is not null`),
+  check("transfer_sms_notifications_status_check", sql`${table.status} in ('pending', 'reserved', 'accepted', 'sent', 'delivered', 'failed', 'skipped')`),
 ]);
 
 /** Claves emitidas desde el panel que financian el autocompletado de una cuenta. */

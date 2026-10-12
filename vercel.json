@@ -7,6 +7,10 @@
     {
       "path": "/api/internal/retention",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/internal/sms-delivery-reconciliation",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
