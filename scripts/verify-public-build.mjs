@@ -42,9 +42,13 @@ function inspectDirectory(input) {
         ["source-map-reference", /sourceMappingURL\s*=/u],
         ["webpack-source-path", /webpack:\/\//u],
         ["local-windows-path", /[A-Za-z]:[\\/]+Users[\\/]+/u],
-        // Turbopack 16.3 emits `file:///ROOT/` as a virtual runtime identifier.
-        // It is not a filesystem path and contains no developer-machine data.
-        ["local-file-url", /file:\/\/\/(?!ROOT(?:\/|["'`]))/u],
+          // Turbopack uses virtual identifiers such as `file:///ROOT/`. Next 16.4
+          // also emits a runtime template beginning `file:///${encodeURIComponent(...)}`.
+          // Neither contains a build-machine path; actual literal file URLs remain blocked.
+          [
+            "local-file-url",
+            /file:\/\/\/(?!ROOT(?:\/|["'`])|\$\{encodeURIComponent\()/u,
+          ],
       ];
       for (const [rule, pattern] of checks) {
         if (pattern.test(content)) findings.push({ file, rule });
