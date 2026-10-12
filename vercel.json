@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/internal/sms-delivery-reconciliation",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 4 * * *"
     }
   ]
 }
