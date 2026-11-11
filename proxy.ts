@@ -194,6 +194,11 @@ export function proxy(request: NextRequest) {
   const isLoopback = request.nextUrl.hostname === "localhost"
     || request.nextUrl.hostname === "127.0.0.1"
     || request.nextUrl.hostname === "[::1]";
+  // Railway's container health probe reaches the service through its private
+  // host, which is intentionally not a public origin. Keep this exception
+  // scoped to the read-only readiness endpoint.
+  const isHealthCheck = request.method === "GET"
+    && request.nextUrl.pathname === "/api/health";
   const hosted = isHostedEnvironment();
   if (!isLoopback && !hosted) {
     return jsonError("El servicio no está disponible temporalmente.", 503, requestId);
@@ -202,7 +207,7 @@ export function proxy(request: NextRequest) {
     return jsonError("El servicio no está disponible temporalmente.", 503, requestId);
   }
 
-  if (hosted) {
+  if (hosted && !isHealthCheck) {
     if (!configuredPublicOrigins().has(request.nextUrl.origin)) {
       return jsonError("Host no permitido.", 421, requestId);
     }
