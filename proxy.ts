@@ -66,6 +66,20 @@ function configuredPublicOrigins() {
   return origins;
 }
 
+function forwardedHttpsOrigin(request: NextRequest) {
+  const protocol = request.headers.get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim()
+    .toLowerCase();
+  const host = request.headers.get("x-forwarded-host")
+    ?.split(",")[0]
+    ?.trim();
+  if (protocol !== "https" || !host) return undefined;
+
+  const candidate = `https://${host}`;
+  return validHttpsOrigin(candidate) ? new URL(candidate).origin : undefined;
+}
+
 function isHostedEnvironment() {
   return (
     HOSTED_ENVIRONMENTS.has(process.env.APP_ENV ?? "")
@@ -208,10 +222,14 @@ export function proxy(request: NextRequest) {
   }
 
   if (hosted && !isHealthCheck) {
-    if (!configuredPublicOrigins().has(request.nextUrl.origin)) {
+    // Railway terminates TLS before forwarding to the container. `nextUrl`
+    // can therefore contain its private host; use the validated public host
+    // forwarded by Railway when it is present.
+    const publicOrigin = forwardedHttpsOrigin(request) ?? request.nextUrl.origin;
+    if (!configuredPublicOrigins().has(publicOrigin)) {
       return jsonError("Host no permitido.", 421, requestId);
     }
-    if (request.nextUrl.protocol !== "https:") {
+    if (!forwardedHttpsOrigin(request) && request.nextUrl.protocol !== "https:") {
       const secureUrl = request.nextUrl.clone();
       secureUrl.protocol = "https:";
       return NextResponse.redirect(
