@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build && node scripts/verify-public-build.mjs .next/static",
-    "start": "next start --port 3000",
+    "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "biome check app db scripts tests e2e proxy.ts next.config.ts playwright.config.ts capacitor.config.ts --diagnostic-level=error",
     "test": "vitest run",
@@ -64,3 +64,4 @@
   },
   "type": "module"
 }
+
