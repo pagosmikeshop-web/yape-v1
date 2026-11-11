@@ -4,6 +4,8 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 type ApiEnvironment = {
   ADMIN_WEB_URL?: string;
+  PUBLIC_APP_URL?: string;
+  PUBLIC_APP_ALLOWED_ORIGINS?: string;
 };
 
 type ReadJsonOptions = {
@@ -35,6 +37,14 @@ function isLoopbackHost(hostname: string) {
 function trustedOrigins(request: Request) {
   const requestUrl = new URL(request.url);
   const origins = new Set([requestUrl.origin]);
+  const publicOrigins = [
+    apiEnvironment().PUBLIC_APP_URL,
+    ...(apiEnvironment().PUBLIC_APP_ALLOWED_ORIGINS?.split(",") ?? []),
+  ];
+  for (const publicOrigin of publicOrigins) {
+    const origin = normalizedOrigin(publicOrigin?.trim());
+    if (origin) origins.add(origin);
+  }
   const adminOrigin = normalizedOrigin(apiEnvironment().ADMIN_WEB_URL);
   if (adminOrigin) origins.add(adminOrigin);
 
